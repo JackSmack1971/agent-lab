@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import time
 from datetime import datetime
 from os import getenv
+from threading import Event
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, AsyncGenerator
 
 ROOT_DIR = Path(__file__).resolve().parent
 if str(ROOT_DIR) not in sys.path:
@@ -18,8 +18,10 @@ import gradio as gr
 from dotenv import load_dotenv
 
 from agents.models import AgentConfig, RunRecord
-from agents.runtime import build_agent, run_agent
+from agents.runtime import build_agent, run_agent_stream
 from services.persist import append_run, init_csv
+
+ComponentUpdate = dict[str, Any]
 
 load_dotenv()
 
@@ -78,36 +80,197 @@ def build_agent_handler(
     return updated_config, "✅ Agent built successfully", badge_html, agent
 
 
-async def send_message_handler(
+async def send_message_streaming(
     message: str,
     history: list[list[str]] | None,
     config_state: AgentConfig,
     agent_state: Any,
-) -> tuple[list[list[str]], list[list[str]], str]:
-    """Send a chat message to the agent and persist telemetry."""
+    cancel_event_state: Event | None,
+    is_generating_state: bool,
+) -> AsyncGenerator[
+    tuple[
+        list[list[str]],
+        list[list[str]],
+        str,
+        Event | None,
+        bool,
+        ComponentUpdate | None,
+        ComponentUpdate | None,
+    ],
+    None,
+]:
+    """Stream a chat message to the agent and persist telemetry securely."""
 
     chat_history = history[:] if history else []
     trimmed_message = message.strip()
 
+    send_idle: ComponentUpdate = gr.update(interactive=True)
+    stop_hidden: ComponentUpdate = gr.update(visible=False, interactive=False)
+
     if not trimmed_message:
-        return chat_history, chat_history, "⚠️ Enter a message to send."
+        # Security: do not trigger agent execution on empty input.
+        yield (
+            chat_history,
+            chat_history,
+            "⚠️ Enter a message to send.",
+            cancel_event_state,
+            is_generating_state,
+            send_idle,
+            stop_hidden,
+        )
+        return
 
     if agent_state is None:
         error_response = "⚠️ Build the agent before starting a chat."
         chat_history.append([trimmed_message, error_response])
-        return chat_history, chat_history, error_response
+        yield (
+            chat_history,
+            chat_history,
+            error_response,
+            cancel_event_state,
+            is_generating_state,
+            send_idle,
+            stop_hidden,
+        )
+        return
 
-    start_time = time.time()
+    cancel_token = Event()
+    chat_history.append([trimmed_message, ""])
+
+    delta_event = asyncio.Event()
+
+    def handle_delta(delta: str) -> None:
+        """Capture each streamed fragment and flag UI updates."""
+
+        if not delta:
+            return
+        chat_history[-1][1] += delta
+        delta_event.set()
+
+    stream_task = asyncio.create_task(
+        run_agent_stream(agent_state, trimmed_message, handle_delta, cancel_token)
+    )
+
+    streaming_info = "🔄 Streaming response..."
+    send_disabled: ComponentUpdate = gr.update(interactive=False)
+    stop_visible: ComponentUpdate = gr.update(visible=True, interactive=True)
+
+    # Surface initial state to toggle buttons and store cancellation token.
+    yield (
+        chat_history,
+        chat_history,
+        streaming_info,
+        cancel_token,
+        True,
+        send_disabled,
+        stop_visible,
+    )
 
     try:
-        agent_response, _usage = await run_agent(agent_state, trimmed_message)
+        while not stream_task.done():
+            try:
+                await asyncio.wait_for(delta_event.wait(), timeout=0.1)
+            except asyncio.TimeoutError:
+                continue
+            delta_event.clear()
+            yield (
+                chat_history,
+                chat_history,
+                streaming_info,
+                cancel_token,
+                True,
+                send_disabled,
+                stop_visible,
+            )
+
+        stream_result = await stream_task
     except Exception as exc:  # pragma: no cover - runtime guard
         error_text = f"❌ Agent error: {exc}"
-        chat_history.append([trimmed_message, error_text])
-        return chat_history, chat_history, error_text
+        chat_history[-1][1] = error_text
+        yield (
+            chat_history,
+            chat_history,
+            error_text,
+            None,
+            False,
+            send_idle,
+            stop_hidden,
+        )
+        return
 
-    latency_ms = int((time.time() - start_time) * 1000)
-    chat_history.append([trimmed_message, agent_response])
+    if delta_event.is_set():
+        delta_event.clear()
+        yield (
+            chat_history,
+            chat_history,
+            streaming_info,
+            cancel_token,
+            True,
+            send_disabled,
+            stop_visible,
+        )
+
+    # Normalise streamed text to the final consolidated response.
+    chat_history[-1][1] = stream_result.text
+
+    usage = stream_result.usage or {}
+
+    def _extract_int(keys: list[str]) -> int:
+        for key in keys:
+            value = usage.get(key)
+            if isinstance(value, dict):
+                # Handle nested usage structures such as {"prompt": 12}.
+                nested_value = value.get("total") or value.get("value")
+                if nested_value is not None:
+                    value = nested_value
+            try:
+                return int(value)  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                continue
+        return 0
+
+    def _extract_float(keys: list[str]) -> float:
+        for key in keys:
+            value = usage.get(key)
+            if isinstance(value, dict):
+                candidate = value.get("usd") or value.get("amount")
+                if candidate is not None:
+                    value = candidate
+            try:
+                return float(value)  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                continue
+        return 0.0
+
+    prompt_tokens = _extract_int([
+        "prompt_tokens",
+        "promptTokens",
+        "input_tokens",
+        "inputTokens",
+        "prompt",
+    ])
+    completion_tokens = _extract_int([
+        "completion_tokens",
+        "completionTokens",
+        "output_tokens",
+        "outputTokens",
+        "completion",
+    ])
+    total_tokens = _extract_int([
+        "total_tokens",
+        "totalTokens",
+        "tokens",
+    ])
+
+    if total_tokens == 0 and (prompt_tokens or completion_tokens):
+        total_tokens = prompt_tokens + completion_tokens
+
+    cost_usd = _extract_float([
+        "cost_usd",
+        "total_cost",
+        "cost",
+        "usd_cost",
+    ])
 
     timestamp = datetime.utcnow().replace(microsecond=0)
     web_tool_enabled = "web_fetch" in config_state.tools
@@ -116,20 +279,59 @@ async def send_message_handler(
         ts=timestamp,
         agent_name=config_state.name,
         model=config_state.model,
-        latency_ms=latency_ms,
-        streaming=False,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        total_tokens=total_tokens,
+        latency_ms=stream_result.latency_ms,
+        cost_usd=cost_usd,
+        streaming=True,
         tool_web_enabled=web_tool_enabled,
         web_status="ok" if web_tool_enabled else "off",
+        aborted=stream_result.aborted,
     )
 
-    await asyncio.to_thread(append_run, record)
+    try:
+        await asyncio.to_thread(append_run, record)
+    except Exception as exc:  # pragma: no cover - filesystem/runtime guard
+        run_info = f"⚠️ Response logged with warning: {exc}"
+    else:
+        status_prefix = "⏹️ Generation stopped" if stream_result.aborted else "✅ Response ready"
+        token_fragment = f" | 🔢 {total_tokens} tok" if total_tokens else ""
+        cost_fragment = f" | 💰 ${cost_usd:.4f}" if cost_usd else ""
+        run_info = (
+            f"{status_prefix} | 🕒 {stream_result.latency_ms}ms | "
+            f"🧠 {config_state.model} | 📅 {timestamp.isoformat()}"
+            f"{token_fragment}{cost_fragment}"
+        )
 
-    run_info = (
-        f"🕒 {latency_ms}ms | 🧠 {config_state.model} | "
-        f"📅 {timestamp.isoformat()}"
+    yield (
+        chat_history,
+        chat_history,
+        run_info,
+        None,
+        False,
+        send_idle,
+        stop_hidden,
     )
 
-    return chat_history, chat_history, run_info
+
+def stop_generation(
+    cancel_event: Event | None,
+    is_generating: bool,
+) -> tuple[str, Event | None, bool, ComponentUpdate | None, ComponentUpdate | None]:
+    """Signal the active stream to stop safely when requested by the user."""
+
+    if isinstance(cancel_event, Event):
+        cancel_event.set()
+
+    status_text = "⏹️ Stopping..." if is_generating else "⚠️ No generation in progress."
+    # Security: disable buttons to avoid duplicate stop requests while the stream halts.
+    send_update: ComponentUpdate | None = (
+        gr.update(interactive=False) if is_generating else None
+    )
+    stop_update: ComponentUpdate = gr.update(interactive=False)
+
+    return status_text, cancel_event, is_generating, send_update, stop_update
 
 
 def create_ui() -> gr.Blocks:
@@ -139,6 +341,8 @@ def create_ui() -> gr.Blocks:
         config_state = gr.State(DEFAULT_AGENT_CONFIG)
         agent_state = gr.State(None)
         history_state = gr.State([])
+        cancel_event_state = gr.State(None)
+        is_generating_state = gr.State(False)
 
         with gr.Row(equal_height=True):
             with gr.Column(scale=1):
@@ -183,7 +387,7 @@ def create_ui() -> gr.Blocks:
                 with gr.Row():
                     user_input = gr.Textbox(label="Message", scale=4, lines=2)
                     send_btn = gr.Button("Send", scale=1)
-                stop_btn = gr.Button("Stop", variant="stop", visible=False)
+                stop_btn = gr.Button("Stop", variant="stop", visible=False, interactive=False)
 
             with gr.Column(scale=1):
                 gr.Markdown("## Run Info")
@@ -213,9 +417,30 @@ def create_ui() -> gr.Blocks:
         )
 
         send_btn.click(
-            fn=send_message_handler,
-            inputs=[user_input, history_state, config_state, agent_state],
-            outputs=[chatbot, history_state, run_info_display],
+            fn=send_message_streaming,
+            inputs=[
+                user_input,
+                history_state,
+                config_state,
+                agent_state,
+                cancel_event_state,
+                is_generating_state,
+            ],
+            outputs=[
+                chatbot,
+                history_state,
+                run_info_display,
+                cancel_event_state,
+                is_generating_state,
+                send_btn,
+                stop_btn,
+            ],
+        )
+
+        stop_btn.click(
+            fn=stop_generation,
+            inputs=[cancel_event_state, is_generating_state],
+            outputs=[run_info_display, cancel_event_state, is_generating_state, send_btn, stop_btn],
         )
 
     return demo
