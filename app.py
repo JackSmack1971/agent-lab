@@ -213,7 +213,16 @@ async def send_message_streaming(
     # Normalise streamed text to the final consolidated response.
     chat_history[-1][1] = stream_result.text
 
-    usage = stream_result.usage or {}
+    raw_usage = stream_result.usage
+    usage: dict[str, Any]
+    if isinstance(raw_usage, dict):
+        usage = raw_usage
+    else:
+        # Defensive: cope with providers that omit usage or return non-mapping data.
+        try:
+            usage = dict(raw_usage or {})
+        except TypeError:
+            usage = {}
 
     def _extract_int(keys: list[str]) -> int:
         for key in keys:
@@ -272,6 +281,8 @@ async def send_message_streaming(
         "usd_cost",
     ])
 
+    usage_available = bool(usage)
+
     timestamp = datetime.utcnow().replace(microsecond=0)
     web_tool_enabled = "web_fetch" in config_state.tools
 
@@ -296,12 +307,19 @@ async def send_message_streaming(
         run_info = f"⚠️ Response logged with warning: {exc}"
     else:
         status_prefix = "⏹️ Generation stopped" if stream_result.aborted else "✅ Response ready"
-        token_fragment = f" | 🔢 {total_tokens} tok" if total_tokens else ""
-        cost_fragment = f" | 💰 ${cost_usd:.4f}" if cost_usd else ""
+        if usage_available:
+            token_fragment = (
+                " | 🔢 "
+                f"{prompt_tokens}?{completion_tokens} ({total_tokens} total)"
+            )
+        else:
+            token_fragment = " | 🔢 tokens unavailable"
+        cost_fragment = f" | 💰 ${cost_usd:.4f}" if cost_usd > 0 else ""
+        aborted_fragment = " | 🛑 Aborted" if stream_result.aborted else ""
         run_info = (
             f"{status_prefix} | 🕒 {stream_result.latency_ms}ms | "
             f"🧠 {config_state.model} | 📅 {timestamp.isoformat()}"
-            f"{token_fragment}{cost_fragment}"
+            f"{token_fragment}{cost_fragment}{aborted_fragment}"
         )
 
     yield (
