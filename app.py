@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
-from os import getenv
-from threading import Event
 import sys
+from datetime import datetime, timezone
+from os import getenv
 from pathlib import Path
-from typing import Any, AsyncGenerator
+from threading import Event
+from typing import Any, AsyncGenerator, Literal
 
 ROOT_DIR = Path(__file__).resolve().parent
 if str(ROOT_DIR) not in sys.path:
@@ -20,8 +20,53 @@ from dotenv import load_dotenv
 from agents.models import AgentConfig, RunRecord
 from agents.runtime import build_agent, run_agent_stream
 from services.persist import append_run, init_csv
+from services.catalog import get_model_choices, get_models
 
 ComponentUpdate = dict[str, Any]
+
+
+def load_initial_models() -> tuple[
+    list[tuple[str, str]],
+    str,
+    list[Any],
+    Literal["dynamic", "fallback"],
+]:
+    """Load the starting model catalog for the UI with secure fallbacks."""
+
+    try:
+        models, source_enum, timestamp = get_models()
+    except Exception:  # pragma: no cover - defensive guard
+        # Security: avoid leaking internal errors to the UI or console logs.
+        print("Warning: failed to load models, using fallback catalog.")
+        models, source_enum, timestamp = get_models()
+
+    choices = get_model_choices()
+
+    if source_enum == "dynamic":
+        fetch_time = timestamp.astimezone(timezone.utc).strftime("%H:%M")
+        source_label = f"Dynamic (fetched {fetch_time})"
+    else:
+        source_label = "Fallback"
+
+    print(
+        "Model catalog loaded: "
+        f"{len(choices)} options from {source_enum} ({source_label})."
+    )
+
+    return choices, source_label, models, source_enum
+
+
+INITIAL_MODEL_CHOICES, INITIAL_MODEL_SOURCE_LABEL, _INITIAL_MODELS, INITIAL_MODEL_SOURCE_ENUM = (
+    load_initial_models()
+)
+
+DEFAULT_MODEL_ID = (
+    INITIAL_MODEL_CHOICES[0][1]
+    if INITIAL_MODEL_CHOICES
+    else "openai/gpt-4-turbo"
+)
+
+INITIAL_DROPDOWN_VALUES = [choice[1] for choice in INITIAL_MODEL_CHOICES]
 
 load_dotenv()
 
@@ -33,9 +78,15 @@ if not getenv("OPENROUTER_API_KEY"):
 
 DEFAULT_AGENT_CONFIG = AgentConfig(
     name="Test Agent",
-    model="openai/gpt-4-turbo",
+    model=DEFAULT_MODEL_ID,
     system_prompt="You are a helpful assistant.",
 )
+
+
+def _format_source_display(label: str) -> str:
+    """Render the model source label for display."""
+
+    return f"**Model catalog:** {label}"
 
 
 def _web_badge_html(enabled: bool) -> str:
@@ -80,10 +131,67 @@ def build_agent_handler(
     return updated_config, "✅ Agent built successfully", badge_html, agent
 
 
+def refresh_models_handler(
+    current_model: str,
+    config_state: AgentConfig,
+    existing_choices: list[tuple[str, str]] | None,
+) -> tuple[
+    list[tuple[str, str]],
+    str,
+    Literal["dynamic", "fallback"],
+    ComponentUpdate,
+    str,
+    AgentConfig,
+    str,
+]:
+    """Refresh the model catalog and propagate secure UI updates."""
+
+    try:
+        models, source_enum, timestamp = get_models(force_refresh=True)
+        choices = [(model.display_name, model.id) for model in models]
+        if source_enum == "dynamic":
+            fetch_time = timestamp.astimezone(timezone.utc).strftime("%H:%M")
+            source_label = f"Dynamic (fetched {fetch_time})"
+        else:
+            source_label = "Fallback"
+        message = f"✅ Model catalog refreshed: {len(choices)} options from {source_enum}."
+    except Exception:  # pragma: no cover - defensive guard
+        # Security: revert to fallback data without exposing sensitive error details.
+        print("Warning: model refresh failed; falling back to cached list.")
+        choices = list(existing_choices or INITIAL_MODEL_CHOICES)
+        if not choices:
+            choices = [(DEFAULT_MODEL_ID, DEFAULT_MODEL_ID)]
+        source_label = "Fallback"
+        source_enum = "fallback"
+        message = "⚠️ Model refresh failed. Using fallback model list."
+    values = [choice[1] for choice in choices]
+    if current_model in values:
+        selected_value = current_model
+    elif values:
+        selected_value = values[0]
+    else:
+        selected_value = config_state.model
+
+    dropdown_update = gr.update(choices=values or [selected_value], value=selected_value)
+
+    updated_config = config_state.model_copy(update={"model": selected_value})
+
+    return (
+        choices,
+        source_label,
+        source_enum,
+        dropdown_update,
+        _format_source_display(source_label),
+        updated_config,
+        message,
+    )
+
+
 async def send_message_streaming(
     message: str,
     history: list[list[str]] | None,
     config_state: AgentConfig,
+    model_source_enum: Literal["dynamic", "fallback"],
     agent_state: Any,
     cancel_event_state: Event | None,
     is_generating_state: bool,
@@ -286,6 +394,8 @@ async def send_message_streaming(
     timestamp = datetime.utcnow().replace(microsecond=0)
     web_tool_enabled = "web_fetch" in config_state.tools
 
+    model_source = model_source_enum if model_source_enum == "dynamic" else "fallback"
+
     record = RunRecord(
         ts=timestamp,
         agent_name=config_state.name,
@@ -296,6 +406,7 @@ async def send_message_streaming(
         latency_ms=stream_result.latency_ms,
         cost_usd=cost_usd,
         streaming=True,
+        model_list_source=model_source,
         tool_web_enabled=web_tool_enabled,
         web_status="ok" if web_tool_enabled else "off",
         aborted=stream_result.aborted,
@@ -361,6 +472,9 @@ def create_ui() -> gr.Blocks:
         history_state = gr.State([])
         cancel_event_state = gr.State(None)
         is_generating_state = gr.State(False)
+        model_choices_state = gr.State(INITIAL_MODEL_CHOICES)
+        model_source_label_state = gr.State(INITIAL_MODEL_SOURCE_LABEL)
+        model_source_enum_state = gr.State(INITIAL_MODEL_SOURCE_ENUM)
 
         with gr.Row(equal_height=True):
             with gr.Column(scale=1):
@@ -368,12 +482,13 @@ def create_ui() -> gr.Blocks:
                 agent_name = gr.Textbox(label="Agent Name", value="Test Agent")
                 model_selector = gr.Dropdown(
                     label="Model",
-                    choices=[
-                        "openai/gpt-4-turbo",
-                        "anthropic/claude-3-opus",
-                    ],
-                    value="openai/gpt-4-turbo",
+                    choices=INITIAL_DROPDOWN_VALUES or [DEFAULT_MODEL_ID],
+                    value=DEFAULT_AGENT_CONFIG.model,
                 )
+                model_source_indicator = gr.Markdown(
+                    value=_format_source_display(INITIAL_MODEL_SOURCE_LABEL)
+                )
+                refresh_models_button = gr.Button("Refresh Models", variant="secondary")
                 system_prompt = gr.Textbox(
                     label="System Prompt",
                     lines=8,
@@ -434,12 +549,27 @@ def create_ui() -> gr.Blocks:
             ],
         )
 
+        refresh_models_button.click(
+            fn=refresh_models_handler,
+            inputs=[model_selector, config_state, model_choices_state],
+            outputs=[
+                model_choices_state,
+                model_source_label_state,
+                model_source_enum_state,
+                model_selector,
+                model_source_indicator,
+                config_state,
+                run_info_display,
+            ],
+        )
+
         send_btn.click(
             fn=send_message_streaming,
             inputs=[
                 user_input,
                 history_state,
                 config_state,
+                model_source_enum_state,
                 agent_state,
                 cancel_event_state,
                 is_generating_state,
