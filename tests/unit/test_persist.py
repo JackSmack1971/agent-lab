@@ -1,6 +1,7 @@
 """Unit tests for persist module."""
 
 import csv
+import math
 import pytest
 from datetime import datetime
 from pathlib import Path
@@ -276,7 +277,10 @@ class TestPersist:
         else:
             try:
                 expected = float(value)
-                assert _coerce_float(value) == expected
+                if math.isnan(expected):
+                    assert math.isnan(_coerce_float(value))
+                else:
+                    assert _coerce_float(value) == expected
             except (TypeError, ValueError):
                 assert _coerce_float(value) == 0.0
 

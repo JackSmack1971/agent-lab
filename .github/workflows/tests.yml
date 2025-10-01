@@ -1,0 +1,105 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov pytest-asyncio
+
+    - name: Run tests with coverage
+      run: |
+        pytest --cov=agents --cov=services --cov-report=xml --cov-report=term-missing tests/
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+    - name: Validate coverage threshold
+      run: |
+        COVERAGE=$(python -c "
+        import xml.etree.ElementTree as ET
+        root = ET.parse('coverage.xml').getroot()
+        for package in root.findall('.//package'):
+            if package.get('name') in ['agents', 'services']:
+                print(float(package.get('line-rate', 0)) * 100)
+                break
+        else:
+            print(0)
+        ")
+        if (( $(echo "$COVERAGE < 90" | bc -l) )); then
+          echo "Coverage $COVERAGE% is below 90% threshold"
+          exit 1
+        fi
+        echo "Coverage: $COVERAGE%"
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.12"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black isort mypy
+
+    - name: Run linters
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 agents services tests --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings
+        flake8 agents services tests --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Check formatting
+      run: |
+        black --check --diff agents services tests
+        isort --check-only --diff agents services tests
+
+  type-check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.12"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install mypy
+
+    - name: Run mypy
+      run: |
+        mypy agents services tests --ignore-missing-imports

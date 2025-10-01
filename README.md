@@ -1,7 +1,8 @@
 # Agent Lab
 
-Agent Lab is a Gradio-based platform for configuring, testing, and comparing AI agents powered by OpenRouter-hosted language mo
- dels.
+[![Test Coverage](https://img.shields.io/badge/coverage->90%25-brightgreen.svg)](tests/README.md)
+
+Agent Lab is a Gradio-based platform for configuring, testing, and comparing AI agents powered by OpenRouter-hosted language models.
 
 ## Getting Started
 
@@ -30,6 +31,24 @@ Launch the development server with:
 ```bash
 python app.py
 ```
+
+## Testing
+
+### Run Tests
+```bash
+# Run all tests with coverage
+pytest --cov=agents --cov=services tests/ -v
+
+# Run unit tests only
+pytest tests/unit/ -v
+
+# Run integration tests only
+pytest tests/integration/ -v
+```
+
+### Coverage Requirements
+- Maintain >90% test coverage for `agents/` and `services/` directories
+- See `tests/README.md` for detailed testing documentation
 
 ## Notes
 - An active OpenRouter API key is required to interact with hosted models.

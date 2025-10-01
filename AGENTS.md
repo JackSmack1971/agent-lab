@@ -258,18 +258,34 @@ Example: feat(streaming): add cooperative cancellation
 
 ## Testing Strategy
 
-### Unit Tests (Priority)
-- Tool input validation (Pydantic schemas)
-- Pricing math (edge cases: 0 tokens, unknown model)
-- CSV header initialization and append
-- Web tool refusal text exact match
-- Catalog: success, failure → fallback
+### TDD Workflow Implementation
+Following Test-Driven Development principles across all implementation phases:
 
-### Integration Tests
-- Streaming E2E with cancellation
-- Web badge state transitions
-- Session save → load → identical config
-- CSV contains all required fields
+#### Red-Green-Refactor Cycle
+1. **Red**: Write failing test defining desired behavior
+2. **Green**: Implement minimal code to pass test
+3. **Refactor**: Improve code while maintaining coverage
+
+#### Test Categories in TDD Context
+- **Unit Tests (Priority)**: Test individual functions/classes in isolation
+  - Tool input validation (Pydantic schemas)
+  - Pricing math (edge cases: 0 tokens, unknown model)
+  - CSV header initialization and append
+  - Web tool refusal text exact match
+  - Catalog: success, failure → fallback
+
+- **Integration Tests**: Test component interactions and workflows
+  - Streaming E2E with cancellation
+  - Web badge state transitions
+  - Session save → load → identical config
+  - CSV contains all required fields
+
+- **Acceptance Tests**: Validate end-to-end user scenarios
+
+#### Coverage Requirements
+- Maintain >90% coverage for `agents/` and `services/` directories
+- Run coverage verification before each commit
+- Address coverage gaps during refactoring phase
 
 ### Manual QA
 - Stop button halts within ~500ms

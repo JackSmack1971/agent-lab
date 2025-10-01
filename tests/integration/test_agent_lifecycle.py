@@ -26,13 +26,15 @@ class TestAgentLifecycle:
     @pytest.fixture
     def mock_stream_response(self):
         """Mock streaming response with realistic data."""
-        mock_chunk1 = Mock()
-        mock_chunk1.delta = "The answer"
-        mock_chunk2 = Mock()
-        mock_chunk2.delta = " is 42"
+        class MockChunk:
+            def __init__(self, delta):
+                self.delta = delta
+                self.response = None  # type: ignore
+
+        mock_chunk1 = MockChunk("The answer")
+        mock_chunk2 = MockChunk(" is 42")
         # Last chunk includes usage data
-        mock_chunk3 = Mock()
-        mock_chunk3.delta = "."
+        mock_chunk3 = MockChunk(".")
 
         # Create a simple object for usage that behaves like a dict
         class UsageDict(dict):
@@ -42,8 +44,7 @@ class TestAgentLifecycle:
 
         # Create a mock response with usage
         mock_response = Mock()
-        # Configure the mock to return the usage_data when .usage is accessed
-        mock_response.configure_mock(usage=usage_data)
+        mock_response.usage = usage_data
         mock_chunk3.response = mock_response
 
         return [mock_chunk1, mock_chunk2, mock_chunk3]
