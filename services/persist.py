@@ -17,9 +17,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
-from agents.models import RunRecord
+from agents.models import RunRecord, Session
 
 CSV_PATH = Path("data/runs.csv")
+SESSIONS_DIR = Path("data/sessions")
 CSV_HEADERS = [
     "ts",
     "agent_name",
@@ -150,6 +151,72 @@ def _parse_row(row: dict[str, Any]) -> dict[str, Any]:
         parsed[field] = (parsed.get(field) or "").strip()
 
     return parsed
+
+
+def save_session(session: Session) -> Path:
+    """Save a session to disk with unique ID-based filename."""
+    SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+    session_path = SESSIONS_DIR / f"{session.id}.json"
+
+    try:
+        with session_path.open("w", encoding="utf-8") as file:
+            import json
+            json.dump(session.model_dump(), file, indent=2, default=str)
+    except OSError as exc:
+        raise RuntimeError(f"Failed to save session to {session_path}: {exc}") from exc
+
+    return session_path
+
+
+def load_session(session_path: Path) -> Session:
+    """Load a session from disk by path."""
+    try:
+        with session_path.open("r", encoding="utf-8") as file:
+            import json
+            data = json.load(file)
+    except OSError as exc:
+        raise RuntimeError(f"Failed to load session from {session_path}: {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"Invalid JSON in session file {session_path}: {exc}") from exc
+
+    return dict_to_session(data)
+
+
+def list_sessions() -> list[tuple[str, Path]]:
+    """List all saved sessions with their paths, sorted by creation time."""
+    if not SESSIONS_DIR.exists():
+        return []
+
+    sessions = []
+    try:
+        for session_file in SESSIONS_DIR.glob("*.json"):
+            try:
+                session = load_session(session_file)
+                sessions.append((session.notes or f"Session {session.id[:8]}", session_file))
+            except Exception:
+                # Skip corrupted session files
+                continue
+    except OSError:
+        return []
+
+    # Sort by creation time (newest first)
+    sessions.sort(key=lambda x: load_session(x[1]).created_at, reverse=True)
+    return sessions
+
+
+def session_to_dict(session: Session) -> dict:
+    """Convert Session object to dictionary for JSON serialization."""
+    return session.model_dump()
+
+
+def dict_to_session(data: dict) -> Session:
+    """Convert dictionary to Session object, handling datetime parsing."""
+    # Handle datetime parsing for created_at
+    if isinstance(data.get("created_at"), str):
+        from datetime import datetime
+        data["created_at"] = datetime.fromisoformat(data["created_at"])
+
+    return Session(**data)
 
 
 if __name__ == "__main__":  # pragma: no cover - manual execution helper
