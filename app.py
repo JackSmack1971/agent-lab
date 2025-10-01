@@ -42,7 +42,11 @@ def load_initial_models() -> tuple[
         print("Warning: failed to load models, using fallback catalog.")
         models, source_enum, timestamp = get_models()
 
-    choices = get_model_choices()
+    # Create display labels: "Display Name (provider)" -> model_id
+    display_choices = []
+    for model in models:
+        display_label = f"{model.display_name} ({model.provider})"
+        display_choices.append((display_label, model.id))
 
     if source_enum == "dynamic":
         fetch_time = timestamp.astimezone(timezone.utc).strftime("%H:%M")
@@ -52,10 +56,10 @@ def load_initial_models() -> tuple[
 
     print(
         "Model catalog loaded: "
-        f"{len(choices)} options from {source_enum} ({source_label})."
+        f"{len(display_choices)} options from {source_enum} ({source_label})."
     )
 
-    return choices, source_label, models, source_enum
+    return display_choices, source_label, models, source_enum
 
 
 INITIAL_MODEL_CHOICES, INITIAL_MODEL_SOURCE_LABEL, _INITIAL_MODELS, INITIAL_MODEL_SOURCE_ENUM = (
@@ -68,7 +72,7 @@ DEFAULT_MODEL_ID = (
     else "openai/gpt-4-turbo"
 )
 
-INITIAL_DROPDOWN_VALUES = [choice[1] for choice in INITIAL_MODEL_CHOICES]
+INITIAL_DROPDOWN_VALUES = [choice[0] for choice in INITIAL_MODEL_CHOICES]
 
 load_dotenv()
 
@@ -104,18 +108,22 @@ def _web_badge_html(enabled: bool) -> str:
 
 def build_agent_handler(
     name: str,
-    model: str,
+    model_display_label: str,
     sys_prompt: str,
     temp: float,
     top_p: float,
     web_enabled: bool,
     config_state: AgentConfig,
+    id_mapping: dict[str, str],
 ) -> tuple[AgentConfig, str, str, Any]:
     """Build an agent using the runtime and update UI state."""
 
+    # Resolve display label to actual model ID
+    model_id = id_mapping.get(model_display_label, model_display_label)
+
     updated_config = AgentConfig(
         name=name,
-        model=model,
+        model=model_id,
         system_prompt=sys_prompt,
         temperature=temp,
         top_p=top_p,
@@ -134,7 +142,7 @@ def build_agent_handler(
 
 
 def refresh_models_handler(
-    current_model: str,
+    current_display_label: str,
     config_state: AgentConfig,
     existing_choices: list[tuple[str, str]] | None,
 ) -> tuple[
@@ -145,12 +153,16 @@ def refresh_models_handler(
     str,
     AgentConfig,
     str,
+    dict[str, str],
 ]:
     """Refresh the model catalog and propagate secure UI updates."""
 
     try:
         models, source_enum, timestamp = get_models(force_refresh=True)
-        choices = [(model.display_name, model.id) for model in models]
+        choices = [
+            (f"{model.display_name} ({model.provider})", model.id)
+            for model in models
+        ]
         if source_enum == "dynamic":
             fetch_time = timestamp.astimezone(timezone.utc).strftime("%H:%M")
             source_label = f"Dynamic (fetched {fetch_time})"
@@ -166,17 +178,20 @@ def refresh_models_handler(
         source_label = "Fallback"
         source_enum = "fallback"
         message = "⚠️ Model refresh failed. Using fallback model list."
-    values = [choice[1] for choice in choices]
-    if current_model in values:
-        selected_value = current_model
-    elif values:
-        selected_value = values[0]
-    else:
-        selected_value = config_state.model
 
-    dropdown_update = gr.update(choices=values or [selected_value], value=selected_value)
+    # Create mapping: display_label -> model_id
+    id_mapping = {choice[0]: choice[1] for choice in choices}
 
-    updated_config = config_state.model_copy(update={"model": selected_value})
+    # Find current selection
+    current_model_id = id_mapping.get(current_display_label, config_state.model)
+    # Find display label for current model ID
+    display_labels = [choice[0] for choice in choices]
+    selected_label = current_display_label if current_display_label in display_labels else (
+        display_labels[0] if display_labels else DEFAULT_MODEL_ID
+    )
+
+    dropdown_update = gr.update(choices=display_labels, value=selected_label)
+    updated_config = config_state.model_copy(update={"model": current_model_id})
 
     return (
         choices,
@@ -186,6 +201,7 @@ def refresh_models_handler(
         _format_source_display(source_label),
         updated_config,
         message,
+        id_mapping,
     )
 
 
@@ -200,6 +216,7 @@ async def send_message_streaming(
     experiment_id: str,
     task_label: str,
     run_notes: str,
+    id_mapping: dict[str, str],  # NEW: for resolving display labels
 ) -> AsyncGenerator[
     tuple[
         list[list[str]],
@@ -444,9 +461,13 @@ async def send_message_streaming(
         if run_notes.strip():
             tag_info += f" | ?? Notes: {run_notes.strip()[:30]}..." if len(run_notes.strip()) > 30 else f" | ?? {run_notes.strip()}"
 
+        # Resolve model ID to display label for UI
+        reverse_mapping = {v: k for k, v in id_mapping.items()}
+        model_display = reverse_mapping.get(config_state.model, config_state.model)
+
         run_info = (
             f"{status_prefix} | 🕒 {stream_result.latency_ms}ms | "
-            f"🧠 {config_state.model} | 📅 {timestamp.isoformat()}"
+            f"🧠 {model_display} | 📅 {timestamp.isoformat()}"
             f"{token_fragment}{cost_fragment}{aborted_fragment}{tag_info}"
         )
 
@@ -511,7 +532,8 @@ def save_session_handler(
 
 def load_session_handler(
     session_name: str | None,
-) -> tuple[Session, str, list, AgentConfig, str, str, str, float, float, bool]:
+    id_mapping: dict[str, str],
+) -> tuple[Session | None, str, list, AgentConfig, str, str, str, float, float, bool]:
     """Load session from disk and restore all state."""
     if not session_name:
         return None, "?? Select a session to load", [], DEFAULT_AGENT_CONFIG, "", "", "", 0.7, 1.0, False
@@ -533,13 +555,18 @@ def load_session_handler(
                 history.append([user_msg, asst_msg])
 
         cfg = session.agent_config
+
+        # Find display label for loaded model ID
+        reverse_mapping = {v: k for k, v in id_mapping.items()}
+        model_display_label = reverse_mapping.get(cfg.model, cfg.model)
+
         return (
             session,
             f"? Loaded: {session_name}",
             history,
             cfg,
             cfg.name,
-            cfg.model,
+            model_display_label,  # Return display label for dropdown
             cfg.system_prompt,
             cfg.temperature,
             cfg.top_p,
@@ -566,6 +593,9 @@ def create_ui() -> gr.Blocks:
         model_choices_state = gr.State(INITIAL_MODEL_CHOICES)
         model_source_label_state = gr.State(INITIAL_MODEL_SOURCE_LABEL)
         model_source_enum_state = gr.State(INITIAL_MODEL_SOURCE_ENUM)
+        model_id_mapping_state = gr.State({
+            choice[0]: choice[1] for choice in INITIAL_MODEL_CHOICES
+        })
         current_session_state = gr.State(None)
 
         with gr.Row(equal_height=True):
@@ -575,7 +605,9 @@ def create_ui() -> gr.Blocks:
                 model_selector = gr.Dropdown(
                     label="Model",
                     choices=INITIAL_DROPDOWN_VALUES or [DEFAULT_MODEL_ID],
-                    value=DEFAULT_AGENT_CONFIG.model,
+                    value=INITIAL_DROPDOWN_VALUES[0] if INITIAL_DROPDOWN_VALUES else DEFAULT_MODEL_ID,
+                    filterable=True,
+                    info="Start typing to search models by name or provider"
                 )
                 model_source_indicator = gr.Markdown(
                     value=_format_source_display(INITIAL_MODEL_SOURCE_LABEL)
@@ -675,6 +707,7 @@ def create_ui() -> gr.Blocks:
                 top_p,
                 web_tool_enabled,
                 config_state,
+                model_id_mapping_state,
             ],
             outputs=[
                 config_state,
@@ -695,6 +728,7 @@ def create_ui() -> gr.Blocks:
                 model_source_indicator,
                 config_state,
                 run_info_display,
+                model_id_mapping_state,
             ],
         )
 
@@ -711,6 +745,7 @@ def create_ui() -> gr.Blocks:
                 experiment_id_input,
                 task_label_input,
                 run_notes_input,
+                model_id_mapping_state,  # NEW: for resolving display labels
             ],
             outputs=[
                 chatbot,
@@ -738,7 +773,7 @@ def create_ui() -> gr.Blocks:
 
         load_session_btn.click(
             fn=load_session_handler,
-            inputs=[session_list],
+            inputs=[session_list, model_id_mapping_state],
             outputs=[
                 current_session_state, session_status, history_state,
                 config_state, agent_name, model_selector, system_prompt,
