@@ -17,10 +17,12 @@ if str(ROOT_DIR) not in sys.path:
 import gradio as gr
 from dotenv import load_dotenv
 
-from agents.models import AgentConfig, RunRecord
+from agents.models import AgentConfig, RunRecord, Session
 from agents.runtime import build_agent, run_agent_stream
-from services.persist import append_run, init_csv
+from services.persist import append_run, init_csv, list_sessions, save_session, load_session
 from services.catalog import get_model_choices, get_models
+from uuid import uuid4
+from datetime import datetime, timezone
 
 ComponentUpdate = dict[str, Any]
 
@@ -463,6 +465,80 @@ def stop_generation(
     return status_text, cancel_event, is_generating, send_update, stop_update
 
 
+def save_session_handler(
+    session_name: str,
+    config_state: AgentConfig,
+    history_state: list,
+    current_session: Session | None,
+) -> tuple[Session | None, str, list[tuple[str, str]], ComponentUpdate]:
+    """Save current session to disk with user-provided name."""
+    if not session_name.strip():
+        return current_session, "?? Please enter a session name", [], gr.update()
+
+    # Create new session or update existing
+    session = Session(
+        id=current_session.id if current_session else str(uuid4()),
+        created_at=current_session.created_at if current_session else datetime.now(timezone.utc),
+        agent_config=config_state,
+        transcript=[{"role": msg[0], "content": msg[1], "ts": datetime.now(timezone.utc).isoformat()}
+                   for pair in history_state for msg in [("user", pair[0]), ("assistant", pair[1])]],
+        model_id=config_state.model,
+        notes=session_name
+    )
+
+    try:
+        path = save_session(session)
+        sessions_list = [(s[0], s[0]) for s in list_sessions()]
+        return session, f"? Saved: {path.name}", sessions_list, gr.update(choices=sessions_list)
+    except Exception as exc:
+        return current_session, f"? Save failed: {exc}", [], gr.update()
+
+
+def load_session_handler(
+    session_name: str | None,
+) -> tuple[Session, str, list, AgentConfig, str, str, str, float, float, bool]:
+    """Load session from disk and restore all state."""
+    if not session_name:
+        return None, "?? Select a session to load", [], DEFAULT_AGENT_CONFIG, "", "", "", 0.7, 1.0, False
+
+    try:
+        sessions = {s[0]: s[1] for s in list_sessions()}
+        if session_name not in sessions:
+            return None, f"? Session not found: {session_name}", [], DEFAULT_AGENT_CONFIG, "", "", "", 0.7, 1.0, False
+
+        session = load_session(sessions[session_name])
+
+        # Reconstruct chat history
+        history = []
+        transcript = session.transcript
+        for i in range(0, len(transcript), 2):
+            if i + 1 < len(transcript):
+                user_msg = transcript[i]["content"]
+                asst_msg = transcript[i + 1]["content"]
+                history.append([user_msg, asst_msg])
+
+        cfg = session.agent_config
+        return (
+            session,
+            f"? Loaded: {session_name}",
+            history,
+            cfg,
+            cfg.name,
+            cfg.model,
+            cfg.system_prompt,
+            cfg.temperature,
+            cfg.top_p,
+            "web_fetch" in cfg.tools
+        )
+    except Exception as exc:
+        return None, f"? Load failed: {exc}", [], DEFAULT_AGENT_CONFIG, "", "", "", 0.7, 1.0, False
+
+
+def new_session_handler() -> tuple[None, str, list, str]:
+    """Clear current session and start fresh."""
+    return None, "?? New session started", [], ""
+
+
 def create_ui() -> gr.Blocks:
     """Construct the initial Gradio Blocks layout for Agent Lab."""
 
@@ -475,6 +551,7 @@ def create_ui() -> gr.Blocks:
         model_choices_state = gr.State(INITIAL_MODEL_CHOICES)
         model_source_label_state = gr.State(INITIAL_MODEL_SOURCE_LABEL)
         model_source_enum_state = gr.State(INITIAL_MODEL_SOURCE_ENUM)
+        current_session_state = gr.State(None)
 
         with gr.Row(equal_height=True):
             with gr.Column(scale=1):
@@ -512,6 +589,28 @@ def create_ui() -> gr.Blocks:
                     label="Enable Web Fetch Tool",
                     value=False,
                 )
+
+                with gr.Accordion("?? Session Management", open=False):
+                    gr.Markdown("Save your configuration and chat history for later.")
+                    session_name_input = gr.Textbox(
+                        label="Session Name",
+                        placeholder="experiment-gpt4-vs-claude",
+                        info="Give this session a memorable name"
+                    )
+                    with gr.Row():
+                        save_session_btn = gr.Button("?? Save", variant="secondary", scale=1)
+                        load_session_btn = gr.Button("?? Load", variant="secondary", scale=1)
+                        new_session_btn = gr.Button("?? New", variant="secondary", scale=1)
+
+                    session_list = gr.Dropdown(
+                        label="Saved Sessions",
+                        choices=[],
+                        value=None,
+                        interactive=True,
+                        info="Select a session to load"
+                    )
+                    session_status = gr.Markdown(value="_No active session_")
+
                 build_agent = gr.Button("Build Agent", variant="primary")
                 reset_agent = gr.Button("Reset", variant="secondary")
 
@@ -589,6 +688,34 @@ def create_ui() -> gr.Blocks:
             fn=stop_generation,
             inputs=[cancel_event_state, is_generating_state],
             outputs=[run_info_display, cancel_event_state, is_generating_state, send_btn, stop_btn],
+        )
+
+        # Session management event handlers
+        save_session_btn.click(
+            fn=save_session_handler,
+            inputs=[session_name_input, config_state, history_state, current_session_state],
+            outputs=[current_session_state, session_status, session_list, session_list]
+        )
+
+        load_session_btn.click(
+            fn=load_session_handler,
+            inputs=[session_list],
+            outputs=[
+                current_session_state, session_status, history_state,
+                config_state, agent_name, model_selector, system_prompt,
+                temperature, top_p, web_tool_enabled
+            ]
+        )
+
+        new_session_btn.click(
+            fn=new_session_handler,
+            outputs=[current_session_state, session_status, history_state, session_name_input]
+        )
+
+        # Populate session list on app load
+        demo.load(
+            fn=lambda: [(s[0], s[0]) for s in list_sessions()],
+            outputs=[session_list]
         )
 
     return demo
