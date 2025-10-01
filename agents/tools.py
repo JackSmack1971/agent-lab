@@ -38,7 +38,11 @@ async def utc_now(ctx: RunContext, input: NowInput) -> str:
     """Get current UTC time. Use this when the user asks what time it is."""
 
     # Using UTC avoids timezone ambiguity and leaking server locale data.
-    return datetime.now(timezone.utc).strftime(input.fmt)
+    # Return ISO format for consistency with standards
+    if input.fmt == "%Y-%m-%d %H:%M:%S UTC":
+        return datetime.now(timezone.utc).isoformat()
+    else:
+        return datetime.now(timezone.utc).strftime(input.fmt)
 
 
 if __name__ == "__main__":
