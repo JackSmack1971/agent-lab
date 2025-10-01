@@ -197,6 +197,9 @@ async def send_message_streaming(
     agent_state: Any,
     cancel_event_state: Event | None,
     is_generating_state: bool,
+    experiment_id: str,
+    task_label: str,
+    run_notes: str,
 ) -> AsyncGenerator[
     tuple[
         list[list[str]],
@@ -407,6 +410,9 @@ async def send_message_streaming(
         total_tokens=total_tokens,
         latency_ms=stream_result.latency_ms,
         cost_usd=cost_usd,
+        experiment_id=experiment_id.strip(),
+        task_label=task_label.strip(),
+        run_notes=run_notes.strip(),
         streaming=True,
         model_list_source=model_source,
         tool_web_enabled=web_tool_enabled,
@@ -429,10 +435,19 @@ async def send_message_streaming(
             token_fragment = " | 🔢 tokens unavailable"
         cost_fragment = f" | 💰 ${cost_usd:.4f}" if cost_usd > 0 else ""
         aborted_fragment = " | 🛑 Aborted" if stream_result.aborted else ""
+
+        tag_info = ""
+        if experiment_id.strip():
+            tag_info += f" | ?? Exp: {experiment_id.strip()}"
+        if task_label.strip() and task_label != "other":
+            tag_info += f" | ??? Task: {task_label}"
+        if run_notes.strip():
+            tag_info += f" | ?? Notes: {run_notes.strip()[:30]}..." if len(run_notes.strip()) > 30 else f" | ?? {run_notes.strip()}"
+
         run_info = (
             f"{status_prefix} | 🕒 {stream_result.latency_ms}ms | "
             f"🧠 {config_state.model} | 📅 {timestamp.isoformat()}"
-            f"{token_fragment}{cost_fragment}{aborted_fragment}"
+            f"{token_fragment}{cost_fragment}{aborted_fragment}{tag_info}"
         )
 
     yield (
@@ -611,6 +626,27 @@ def create_ui() -> gr.Blocks:
                     )
                     session_status = gr.Markdown(value="_No active session_")
 
+                with gr.Accordion("??? Run Tagging (optional)", open=False):
+                    gr.Markdown("Tag your runs for easier analysis and comparison.")
+                    experiment_id_input = gr.Textbox(
+                        label="Experiment ID",
+                        placeholder="prompt-optimization-v3",
+                        info="?? Group related runs together (e.g., 'temperature-test', 'model-comparison')"
+                    )
+                    task_label_input = gr.Dropdown(
+                        label="Task Type",
+                        choices=["reasoning", "creative", "coding", "summarization", "analysis", "debugging", "other"],
+                        value="other",
+                        allow_custom_value=True,
+                        info="Categorize what kind of task this run performs"
+                    )
+                    run_notes_input = gr.Textbox(
+                        label="Run Notes",
+                        placeholder="Testing impact of higher temperature on creative tasks...",
+                        lines=2,
+                        info="Free-form notes about this specific run"
+                    )
+
                 build_agent = gr.Button("Build Agent", variant="primary")
                 reset_agent = gr.Button("Reset", variant="secondary")
 
@@ -672,6 +708,9 @@ def create_ui() -> gr.Blocks:
                 agent_state,
                 cancel_event_state,
                 is_generating_state,
+                experiment_id_input,
+                task_label_input,
+                run_notes_input,
             ],
             outputs=[
                 chatbot,
