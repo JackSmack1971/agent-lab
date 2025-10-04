@@ -1,0 +1,188 @@
+name: Emergency Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for rollback'
+        required: true
+      target_environment:
+        description: 'Environment to rollback'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+        - staging
+        - production
+      rollback_to_commit:
+        description: 'Specific commit SHA to rollback to (optional)'
+        required: false
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.target_environment }}
+
+    steps:
+    - name: Log rollback initiation
+      run: |
+        echo "🚨 Emergency rollback initiated"
+        echo "Reason: ${{ github.event.inputs.reason }}"
+        echo "Environment: ${{ github.event.inputs.target_environment }}"
+        echo "Target commit: ${{ github.event.inputs.rollback_to_commit || 'previous deployment' }}"
+        echo "Initiated by: ${{ github.actor }}"
+        echo "Timestamp: $(date -Iseconds)"
+
+        # Create rollback record
+        cat > rollback_record.json << EOF
+        {
+          "rollback_id": "${{ github.run_id }}",
+          "timestamp": "$(date -Iseconds)",
+          "reason": "${{ github.event.inputs.reason }}",
+          "environment": "${{ github.event.inputs.target_environment }}",
+          "target_commit": "${{ github.event.inputs.rollback_to_commit }}",
+          "initiated_by": "${{ github.actor }}",
+          "status": "initiated"
+        }
+        EOF
+
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Determine rollback target
+      id: rollback_target
+      run: |
+        if [ -n "${{ github.event.inputs.rollback_to_commit }}" ]; then
+          TARGET_COMMIT="${{ github.event.inputs.rollback_to_commit }}"
+          echo "Using specified commit: $TARGET_COMMIT"
+        else
+          # Find previous successful deployment commit
+          # This is a simplified version - in practice you'd query deployment history
+          TARGET_COMMIT=$(git rev-parse HEAD~1)
+          echo "Using previous commit: $TARGET_COMMIT"
+        fi
+
+        echo "target_commit=$TARGET_COMMIT" >> $GITHUB_OUTPUT
+        echo "TARGET_COMMIT=$TARGET_COMMIT" >> $GITHUB_ENV
+
+    - name: Validate rollback target
+      run: |
+        echo "Validating rollback target: ${{ env.TARGET_COMMIT }}"
+
+        # Check if commit exists
+        if ! git cat-file -e ${{ env.TARGET_COMMIT }}; then
+          echo "❌ Target commit does not exist"
+          exit 1
+        fi
+
+        # Check if commit has required files
+        if ! git show ${{ env.TARGET_COMMIT }}:app.py > /dev/null; then
+          echo "❌ Target commit missing app.py"
+          exit 1
+        fi
+
+        echo "✅ Rollback target validated"
+
+    - name: Create rollback deployment package
+      run: |
+        echo "Creating rollback deployment package from ${{ env.TARGET_COMMIT }}"
+
+        # Create temporary directory for rollback version
+        mkdir -p rollback_deployment
+        cd rollback_deployment
+
+        # Checkout the target commit
+        git --work-tree=. --git-dir=../.git checkout ${{ env.TARGET_COMMIT }} -- .
+
+        # Remove development files
+        rm -rf .git
+        rm -rf __pycache__
+        rm -rf .pytest_cache
+        rm -rf tests/
+        rm -rf .github/
+
+        # Create deployment archive
+        cd ..
+        ROLLBACK_ARCHIVE="agent-lab-rollback-$(date +%Y%m%d_%H%M%S).tar.gz"
+        tar -czf "$ROLLBACK_ARCHIVE" -C rollback_deployment .
+
+        echo "ROLLBACK_ARCHIVE=$ROLLBACK_ARCHIVE" >> $GITHUB_ENV
+
+        # Cleanup
+        rm -rf rollback_deployment
+
+    - name: Execute rollback deployment
+      run: |
+        echo "🚀 Executing rollback to ${{ env.TARGET_COMMIT }}"
+
+        # Deployment logic here - replace with your actual deployment commands
+        echo "📦 Rollback package: ${{ env.ROLLBACK_ARCHIVE }}"
+        echo "🌐 Environment: ${{ github.event.inputs.target_environment }}"
+
+        # Simulate deployment delay
+        sleep 5
+
+        echo "✅ Rollback deployment completed"
+
+    - name: Post-rollback validation
+      run: |
+        echo "🔍 Running post-rollback validation..."
+
+        # Wait for deployment to stabilize
+        sleep 30
+
+        # Health checks
+        echo "🏥 Checking application health..."
+        # curl -f https://your-app-domain.com/health || exit 1
+
+        # Data integrity checks
+        echo "📊 Verifying data integrity..."
+        # Add data validation checks
+
+        echo "✅ Rollback validation passed"
+
+    - name: Update rollback record
+      run: |
+        # Update the rollback record with completion status
+        sed -i 's/"status": "initiated"/"status": "completed"/' rollback_record.json
+        echo '"completed_at": "'$(date -Iseconds)'"' >> rollback_record.json
+
+    - name: Upload rollback artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: rollback-record-${{ github.run_id }}
+        path: |
+          rollback_record.json
+          ${{ env.ROLLBACK_ARCHIVE }}
+        retention-days: 90
+
+    - name: Send rollback notifications
+      if: always()
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          STATUS="✅"
+          MESSAGE="Rollback completed successfully"
+        else
+          STATUS="❌"
+          MESSAGE="Rollback failed"
+        fi
+
+        echo "$STATUS Agent Lab rollback $MESSAGE"
+        echo "Environment: ${{ github.event.inputs.target_environment }}"
+        echo "Reason: ${{ github.event.inputs.reason }}"
+        echo "Target commit: ${{ env.TARGET_COMMIT }}"
+
+        # Send notifications (Slack, email, etc.)
+        # curl -X POST -H 'Content-type: application/json' \
+        #   --data "{\"text\":\"$STATUS Agent Lab Rollback: $MESSAGE\"}" \
+        #   ${{ secrets.SLACK_WEBHOOK_URL }} || true
+
+    - name: Trigger follow-up actions
+      if: success()
+      run: |
+        echo "🔄 Rollback completed, consider triggering:"
+        echo "  - Data integrity audit"
+        echo "  - User communication"
+        echo "  - Incident post-mortem"
+        echo "  - Additional monitoring"

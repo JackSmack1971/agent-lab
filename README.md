@@ -2,7 +2,23 @@
 
 [![Test Coverage](https://img.shields.io/badge/coverage->90%25-brightgreen.svg)](tests/README.md)
 
-Agent Lab is a Gradio-based platform for configuring, testing, and comparing AI agents powered by OpenRouter-hosted language models.
+Agent Lab is a Gradio-based platform for configuring, testing, and comparing AI agents powered by OpenRouter-hosted language models. Features real-time cost monitoring and optimization suggestions to help manage AI conversation expenses.
+
+## Features
+
+### 🤖 Agent Testing
+- Configure and test AI agents with multiple OpenRouter-hosted models
+- Real-time streaming responses with cancellation support
+- Session persistence and management
+- Model catalog with dynamic updates and fallbacks
+- Comprehensive keyboard shortcuts for enhanced productivity
+
+### 💰 Cost Optimizer
+- Real-time cost tracking during conversations
+- Budget management and spending alerts
+- Historical cost trends and analytics
+- AI-powered optimization suggestions (context reduction, model switching, caching)
+- Interactive cost visualization with 7-day trends
 
 ## Getting Started
 
@@ -31,6 +47,10 @@ Launch the development server with:
 ```bash
 python app.py
 ```
+
+## Keyboard Shortcuts
+
+Agent Lab includes comprehensive keyboard shortcut support for enhanced productivity. Press `Ctrl + /` (or `Cmd + /` on Mac) to view all available shortcuts, or see the [complete keyboard shortcuts documentation](docs/keyboard_shortcuts.md) for detailed reference.
 
 ## Testing
 

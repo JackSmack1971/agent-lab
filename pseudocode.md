@@ -1,64 +1,29 @@
-"""Main entry point for Agent Lab with Model Matchmaker integration."""
+# Keyboard Shortcuts Integration Pseudocode
 
-from __future__ import annotations
+## Overview
 
-import sys
-from pathlib import Path
-from typing import Dict, Callable, Tuple, Optional, List
-import logging
+This pseudocode details the integration of keyboard shortcuts into the main UI (`src/main.py`). The integration follows Agent Lab's architecture with global keyboard event handling, context-aware shortcuts, and UI components for help overlays and indicators.
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-if str(ROOT_DIR) not in sys.path:
-    sys.path.append(str(ROOT_DIR))
+## Key Integration Points
 
-import gradio as gr
+1. **Global Keyboard Handler**: Attached to main Gradio Blocks
+2. **Context Management**: Tracks active tab and UI state
+3. **Shortcut Actions**: Connected to tab navigation and component actions
+4. **Settings Toggle**: Enable/disable keyboard shortcuts
+5. **Help Overlay**: Accessible from all tabs with shortcut indicators
 
-# Import existing app functionality
-from app import create_ui as create_agent_lab_ui
+## Modified create_main_ui() Function
 
-# Import model matchmaker component
-from src.components.model_matchmaker import create_model_matchmaker_tab
-from src.models.recommendation import ModelRecommendation
-
-# Import cost optimizer component
-from src.components.cost_optimizer import create_cost_optimizer_tab
-
-# Import keyboard shortcuts components
-from src.utils.keyboard_handler import KeyboardHandler, ContextManager, KeyboardShortcut, ShortcutContext
-from src.components.keyboard_shortcuts import create_keyboard_shortcuts_ui
-from src.components.settings import create_settings_tab
-
-logger = logging.getLogger(__name__)
-
-# Global keyboard services (initialized in create_main_ui)
-keyboard_handler: Optional[KeyboardHandler] = None
-context_manager: Optional[ContextManager] = None
-
-
-def apply_config_to_agent(recommendation: ModelRecommendation) -> None:
-    """Apply a model recommendation to the agent configuration.
-
-    Args:
-        recommendation: ModelRecommendation object to apply
-    """
-    # This would be called when "Apply Config" button is clicked
-    # In a real implementation, this would update the agent config form
-    # For now, just print the recommendation
-    print(f"Applying config for model: {recommendation.model_id}")
-    print(f"Suggested temperature: {recommendation.suggested_config.temperature}")
-    print(f"Estimated cost: ${recommendation.estimated_cost_per_1k:.4f}/1K tokens")
-
-
+```python
 def create_main_ui() -> gr.Blocks:
     """Create the main tabbed interface with keyboard shortcuts integration."""
 
     # Import keyboard components
     from src.utils.keyboard_handler import KeyboardHandler, ContextManager
     from src.components.keyboard_shortcuts import create_keyboard_shortcuts_ui
-    from src.components.settings import create_settings_tab
+    from src.components.settings import create_settings_tab  # Assume exists or create
 
     # Initialize keyboard services
-    global keyboard_handler, context_manager
     keyboard_handler = KeyboardHandler()
     context_manager = ContextManager()
 
@@ -128,18 +93,11 @@ def create_main_ui() -> gr.Blocks:
         )
 
     return main_interface
+```
 
+## Keyboard Integration Setup Function
 
-def create_shortcut_indicator_bar() -> gr.HTML:
-    """Create the persistent shortcut indicator bar for global accessibility.
-
-    Returns:
-        HTML component displaying current context shortcuts
-    """
-    from src.components.keyboard_shortcuts import create_shortcut_indicator_bar
-    return create_shortcut_indicator_bar()
-
-
+```python
 def setup_keyboard_integration(
     main_interface: gr.Blocks,
     keyboard_handler: KeyboardHandler,
@@ -188,8 +146,11 @@ def setup_keyboard_integration(
         context_manager=context_manager,
         shortcuts_enabled=shortcuts_enabled
     )
+```
 
+## Tab Shortcuts Registration
 
+```python
 def register_tab_shortcuts(keyboard_handler: KeyboardHandler) -> None:
     """Register shortcuts for tab navigation and actions."""
 
@@ -200,32 +161,36 @@ def register_tab_shortcuts(keyboard_handler: KeyboardHandler) -> None:
             name="Switch to Agent Testing",
             description="Navigate to Agent Testing tab",
             key_combination=["ctrl", "1"],
-            action="switch_tab_agent_testing",
-            context=["global"]
+            action="switch_tab",
+            context=["global"],
+            action_params={"tab": "agent_testing"}
         ),
         KeyboardShortcut(
             id="switch_to_matchmaker",
             name="Switch to Model Matchmaker",
             description="Navigate to Model Matchmaker tab",
             key_combination=["ctrl", "m"],
-            action="switch_tab_model_matchmaker",
-            context=["global"]
+            action="switch_tab",
+            context=["global"],
+            action_params={"tab": "model_matchmaker"}
         ),
         KeyboardShortcut(
             id="switch_to_cost_optimizer",
             name="Switch to Cost Optimizer",
             description="Navigate to Cost Optimizer tab",
             key_combination=["ctrl", "o"],
-            action="switch_tab_cost_optimizer",
-            context=["global"]
+            action="switch_tab",
+            context=["global"],
+            action_params={"tab": "cost_optimizer"}
         ),
         KeyboardShortcut(
             id="switch_to_settings",
             name="Switch to Settings",
             description="Navigate to Settings tab",
             key_combination=["ctrl", ","],
-            action="switch_tab_settings",
-            context=["global"]
+            action="switch_tab",
+            context=["global"],
+            action_params={"tab": "settings"}
         )
     ]
 
@@ -235,8 +200,11 @@ def register_tab_shortcuts(keyboard_handler: KeyboardHandler) -> None:
             keyboard_handler.register_shortcut(shortcut)
         except ValueError as e:
             logger.warning(f"Failed to register shortcut {shortcut.id}: {e}")
+```
 
+## Shortcut Action Connection
 
+```python
 def connect_shortcut_actions(
     keyboard_handler: KeyboardHandler,
     main_tabs: gr.Tabs,
@@ -246,29 +214,29 @@ def connect_shortcut_actions(
     """Connect keyboard shortcut actions to UI handlers."""
 
     action_handlers = {
-        "switch_tab_agent_testing": lambda params=None: switch_to_tab(main_tabs, "agent_testing"),
-        "switch_tab_model_matchmaker": lambda params=None: switch_to_tab(main_tabs, "model_matchmaker"),
-        "switch_tab_cost_optimizer": lambda params=None: switch_to_tab(main_tabs, "cost_optimizer"),
-        "switch_tab_settings": lambda params=None: switch_to_tab(main_tabs, "settings"),
-        "focus_search": lambda params=None: focus_search_input(),
-        "new_conversation": lambda params=None: start_new_conversation(),
-        "save_session": lambda params=None: save_current_session(),
-        "open_settings": lambda params=None: switch_to_tab(main_tabs, "settings"),
-        "show_help": lambda params=None: toggle_help_overlay(),
-        "toggle_battle_mode": lambda params=None: toggle_battle_mode(),
-        "export_conversation": lambda params=None: export_conversation(),
-        "cancel_streaming": lambda params=None: cancel_streaming_response(),
-        "send_message": lambda params=None: send_message(),
-        "navigate_history_up": lambda params=None: navigate_message_history("up"),
-        "navigate_history_down": lambda params=None: navigate_message_history("down")
+        "switch_tab": lambda params: switch_to_tab(main_tabs, params.get("tab")),
+        "focus_search": lambda params: focus_search_input(),
+        "new_conversation": lambda params: start_new_conversation(),
+        "save_session": lambda params: save_current_session(),
+        "open_settings": lambda params: switch_to_tab(main_tabs, "settings"),
+        "show_help": lambda params: toggle_help_overlay(),
+        "toggle_battle_mode": lambda params: toggle_battle_mode(),
+        "export_conversation": lambda params: export_conversation(),
+        "cancel_streaming": lambda params: cancel_streaming_response(),
+        "send_message": lambda params: send_message(),
+        "navigate_history_up": lambda params: navigate_message_history("up"),
+        "navigate_history_down": lambda params: navigate_message_history("down")
     }
 
     # In real implementation, these would be connected via Gradio events
     # For pseudocode, we define the mapping
 
     return action_handlers
+```
 
+## Tab Switching Handler
 
+```python
 def switch_to_tab(main_tabs: gr.Tabs, tab_id: str) -> None:
     """Switch to specified tab and update context.
 
@@ -282,16 +250,19 @@ def switch_to_tab(main_tabs: gr.Tabs, tab_id: str) -> None:
         # This function would trigger the tab change
 
         # Update context manager
-        if context_manager:
-            context_manager.update_context(active_tab=tab_id)
+        context_manager.update_context(active_tab=tab_id)
 
         # Log successful tab switch
         logger.info(f"Switched to tab: {tab_id}")
 
     except Exception as e:
         logger.error(f"Failed to switch to tab {tab_id}: {e}")
+        # Show error toast or notification
+```
 
+## Context Update Handler
 
+```python
 def update_active_tab_context(current_tab: str) -> Tuple[str, str]:
     """Update context when active tab changes.
 
@@ -303,25 +274,25 @@ def update_active_tab_context(current_tab: str) -> Tuple[str, str]:
     """
     try:
         # Update context manager
-        if context_manager:
-            context_manager.update_context(active_tab=current_tab)
+        context_manager.update_context(active_tab=current_tab)
 
         # Get available shortcuts for new context
-        indicators_html = ""
-        if context_manager and keyboard_handler:
-            context = context_manager.get_current_context()
-            available_shortcuts = keyboard_handler.get_available_shortcuts(context)
+        context = context_manager.get_current_context()
+        available_shortcuts = keyboard_handler.get_available_shortcuts(context)
 
-            # Generate updated indicators HTML
-            indicators_html = render_shortcut_indicators_html(available_shortcuts)
+        # Generate updated indicators HTML
+        indicators_html = render_shortcut_indicators_html(available_shortcuts)
 
         return current_tab, indicators_html
 
     except Exception as e:
         logger.error(f"Failed to update tab context: {e}")
         return current_tab, ""
+```
 
+## Settings Toggle Handler
 
+```python
 def toggle_shortcuts_enabled(enabled: bool) -> bool:
     """Toggle keyboard shortcuts enabled state.
 
@@ -332,9 +303,11 @@ def toggle_shortcuts_enabled(enabled: bool) -> bool:
         Confirmed enabled state
     """
     try:
+        # Update keyboard handler enabled state
+        keyboard_handler.set_enabled(enabled)
+
         # Update context manager
-        if context_manager:
-            context_manager.update_context(shortcuts_enabled=enabled)
+        context_manager.update_context(shortcuts_enabled=enabled)
 
         # Save to persistent settings
         save_shortcuts_preference(enabled)
@@ -346,32 +319,27 @@ def toggle_shortcuts_enabled(enabled: bool) -> bool:
     except Exception as e:
         logger.error(f"Failed to toggle shortcuts: {e}")
         return not enabled  # Revert on error
+```
 
+## Global Keyboard Listener JavaScript
 
-def setup_global_keyboard_listener_js(keyboard_handler: KeyboardHandler) -> str:
-    """Generate JavaScript for global keyboard event handling.
-
-    Args:
-        keyboard_handler: Keyboard handler instance
-
-    Returns:
-        JavaScript code as string
-    """
-    return f"""
-        document.addEventListener('keydown', function(event) {{
+```javascript
+function setup_global_keyboard_listener_js(keyboard_handler) {
+    return `
+        document.addEventListener('keydown', function(event) {
             // Prevent default for handled shortcuts
-            if (handleKeyboardShortcut(event, {keyboard_handler})) {{
+            if (handleKeyboardShortcut(event, keyboard_handler)) {
                 event.preventDefault();
                 event.stopPropagation();
-            }}
-        }});
+            }
+        });
 
-        function handleKeyboardShortcut(event, handler) {{
+        function handleKeyboardShortcut(event, handler) {
             // Check if shortcuts are enabled
             if (!window.shortcuts_enabled) return false;
 
             // Create event data
-            const shortcutEvent = {{
+            const shortcutEvent = {
                 key: event.key,
                 ctrl_key: event.ctrlKey,
                 meta_key: event.metaKey,
@@ -380,76 +348,79 @@ def setup_global_keyboard_listener_js(keyboard_handler: KeyboardHandler) -> str:
                 platform: detectPlatform(),
                 context: getCurrentContext(),
                 timestamp: Date.now() / 1000
-            }};
+            };
 
             // Process through keyboard handler
             const action = handler.process_event(shortcutEvent);
 
-            if (action) {{
+            if (action) {
                 // Execute action via Gradio
                 executeShortcutAction(action, shortcutEvent);
                 return true;
-            }}
+            }
 
             return false;
-        }}
+        }
 
-        function executeShortcutAction(action, event) {{
+        function executeShortcutAction(action, event) {
             // Trigger corresponding Gradio event
             // This would be connected to the action handlers
-            window.gradio.dispatchEvent(new CustomEvent('shortcut-action', {{
-                detail: {{ action: action, event: event }}
-            }}));
-        }}
+            window.gradio.dispatchEvent(new CustomEvent('shortcut-action', {
+                detail: { action: action, event: event }
+            }));
+        }
 
-        function detectPlatform() {{
+        function detectPlatform() {
             const ua = navigator.userAgent;
             if (ua.includes('Mac')) return 'mac';
             if (ua.includes('Windows')) return 'windows';
             return 'linux';
-        }}
+        }
 
-        function getCurrentContext() {{
+        function getCurrentContext() {
             // Get current UI context from Gradio state
-            return window.current_context || {{}};
-        }}
-    """
+            return window.current_context || {};
+        }
+    `;
+}
+```
 
+## Help Overlay Toggle
 
-def render_shortcut_indicators_html(available_shortcuts: List[KeyboardShortcut]) -> str:
-    """Render HTML for shortcut indicator badges.
+```python
+def toggle_help_overlay() -> None:
+    """Toggle the keyboard shortcuts help overlay."""
+    try:
+        # Toggle visibility of help overlay
+        # In real implementation, this would update Gradio component visibility
 
-    Args:
-        available_shortcuts: List of currently available shortcuts
+        logger.info("Toggled help overlay")
 
-    Returns:
-        HTML string with shortcut badges
-    """
-    from src.components.keyboard_shortcuts import render_shortcut_indicators_html
-    return render_shortcut_indicators_html(available_shortcuts)
+    except Exception as e:
+        logger.error(f"Failed to toggle help overlay: {e}")
+```
 
+## Component Action Handlers
 
-# Component action handlers
+```python
 def focus_search_input() -> None:
     """Focus on the search input field in active tab."""
     try:
         # Determine active tab and focus appropriate search input
-        if context_manager:
-            context = context_manager.get_current_context()
+        context = context_manager.get_current_context()
 
-            if context.active_tab == "model_matchmaker":
-                # Focus model matchmaker search
-                pass
-            elif context.active_tab == "cost_optimizer":
-                # Focus cost optimizer search
-                pass
-            # etc.
+        if context.active_tab == "model_matchmaker":
+            # Focus model matchmaker search
+            pass
+        elif context.active_tab == "cost_optimizer":
+            # Focus cost optimizer search
+            pass
+        # etc.
 
         logger.info("Focused search input")
 
     except Exception as e:
         logger.error(f"Failed to focus search input: {e}")
-
 
 def start_new_conversation() -> None:
     """Start a new conversation in Agent Testing tab."""
@@ -462,7 +433,6 @@ def start_new_conversation() -> None:
     except Exception as e:
         logger.error(f"Failed to start new conversation: {e}")
 
-
 def save_current_session() -> None:
     """Save the current session state."""
     try:
@@ -472,7 +442,6 @@ def save_current_session() -> None:
 
     except Exception as e:
         logger.error(f"Failed to save session: {e}")
-
 
 def cancel_streaming_response() -> None:
     """Cancel any active streaming response."""
@@ -484,7 +453,6 @@ def cancel_streaming_response() -> None:
     except Exception as e:
         logger.error(f"Failed to cancel streaming: {e}")
 
-
 def send_message() -> None:
     """Send the current message in chat interface."""
     try:
@@ -494,7 +462,6 @@ def send_message() -> None:
 
     except Exception as e:
         logger.error(f"Failed to send message: {e}")
-
 
 def navigate_message_history(direction: str) -> None:
     """Navigate message history up or down."""
@@ -506,19 +473,6 @@ def navigate_message_history(direction: str) -> None:
     except Exception as e:
         logger.error(f"Failed to navigate message history: {e}")
 
-
-def toggle_help_overlay() -> None:
-    """Toggle the keyboard shortcuts help overlay."""
-    try:
-        # Toggle visibility of help overlay
-        # In real implementation, this would update Gradio component visibility
-
-        logger.info("Toggled help overlay")
-
-    except Exception as e:
-        logger.error(f"Failed to toggle help overlay: {e}")
-
-
 def toggle_battle_mode() -> None:
     """Toggle battle mode if available."""
     try:
@@ -529,7 +483,6 @@ def toggle_battle_mode() -> None:
     except Exception as e:
         logger.error(f"Failed to toggle battle mode: {e}")
 
-
 def export_conversation() -> None:
     """Export current conversation."""
     try:
@@ -539,29 +492,62 @@ def export_conversation() -> None:
 
     except Exception as e:
         logger.error(f"Failed to export conversation: {e}")
+```
 
+## Error Handling and Logging
 
+All functions include comprehensive error handling with logging:
+
+```python
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Error handling pattern used throughout:
+try:
+    # Function logic
+    pass
+except Exception as e:
+    logger.error(f"Operation failed: {e}")
+    # Handle error appropriately
+```
+
+## Platform-Specific Handling
+
+Keyboard combinations are normalized for different platforms:
+
+- **Windows/Linux**: Ctrl key
+- **macOS**: Cmd (Meta) key
+- Automatic detection and normalization in `KeyboardHandler`
+
+## Context-Aware Availability
+
+Shortcuts are only available when appropriate:
+
+- Tab-specific shortcuts only in relevant tabs
+- Input-safe shortcuts avoid interfering with text input
+- Streaming-safe shortcuts work during response generation
+- Modal state prevents conflicting shortcuts
+
+## Settings Persistence
+
+```python
 def save_shortcuts_preference(enabled: bool) -> None:
-    """Save keyboard shortcuts preference to persistent storage.
-
-    Args:
-        enabled: Whether shortcuts should be enabled
-    """
+    """Save shortcuts enabled preference to persistent storage."""
     try:
-        # Placeholder for persistent storage implementation
-        # In a real implementation, this would save to a config file or database
-        logger.info(f"Shortcuts preference saved: {enabled}")
-
+        # Save to user settings file or database
+        pass
     except Exception as e:
         logger.error(f"Failed to save shortcuts preference: {e}")
 
+def load_shortcuts_preference() -> bool:
+    """Load shortcuts enabled preference."""
+    try:
+        # Load from settings
+        return True  # Default
+    except Exception as e:
+        logger.error(f"Failed to load shortcuts preference: {e}")
+        return True
+```
 
-if __name__ == "__main__":
-    # Launch the main interface
-    demo = create_main_ui()
-    demo.launch(
-        server_name="0.0.0.0",
-        server_port=7860,
-        show_api=False,
-        debug=True,
-    )
+This pseudocode provides a complete integration plan following Agent Lab's architecture and coding standards.

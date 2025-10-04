@@ -1,0 +1,191 @@
+name: Data Backup
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+  workflow_dispatch:
+    inputs:
+      force_backup:
+        description: 'Force immediate backup'
+        required: false
+        default: 'false'
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install boto3
+
+    - name: Create backup service
+      run: |
+        cat > services/backup.py << 'EOF'
+        import boto3
+        from pathlib import Path
+        from datetime import datetime, timezone
+        import gzip
+        import json
+        import logging
+
+        logging.basicConfig(level=logging.INFO)
+        logger = logging.getLogger(__name__)
+
+        class DataBackupManager:
+            def __init__(self):
+                self.s3_client = boto3.client('s3')
+                self.bucket_name = 'agent-lab-backups'
+                self.data_dir = Path('data')
+
+            def backup_sessions(self):
+                """Backup all user session files."""
+                sessions_dir = self.data_dir / 'sessions'
+                if not sessions_dir.exists():
+                    logger.warning("Sessions directory does not exist")
+                    return
+
+                timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
+                backup_count = 0
+
+                for session_file in sessions_dir.glob('*.json'):
+                    if session_file.name == '.gitkeep':
+                        continue
+
+                    try:
+                        # Validate JSON before backup
+                        with open(session_file, 'r', encoding='utf-8') as f:
+                            json.load(f)
+
+                        key = f'sessions/{timestamp}/{session_file.name}'
+                        self.s3_client.upload_file(
+                            str(session_file),
+                            self.bucket_name,
+                            key,
+                            ExtraArgs={
+                                'StorageClass': 'STANDARD_IA',
+                                'Metadata': {
+                                    'backup_timestamp': timestamp,
+                                    'original_filename': session_file.name
+                                }
+                            }
+                        )
+                        backup_count += 1
+                        logger.info(f"Backed up {session_file.name}")
+
+                    except Exception as e:
+                        logger.error(f"Failed to backup {session_file.name}: {e}")
+
+                logger.info(f"Session backup completed: {backup_count} files")
+
+            def backup_telemetry(self):
+                """Backup telemetry CSV with compression."""
+                csv_file = self.data_dir / 'runs.csv'
+                if not csv_file.exists():
+                    logger.warning("Telemetry CSV does not exist")
+                    return
+
+                timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
+
+                try:
+                    # Get file size for logging
+                    original_size = csv_file.stat().st_size
+
+                    # Compress file
+                    compressed_path = Path('/tmp/runs.csv.gz')
+                    with gzip.open(compressed_path, 'wb') as gz_file:
+                        gz_file.write(csv_file.read_bytes())
+
+                    compressed_size = compressed_path.stat().st_size
+                    compression_ratio = ((original_size - compressed_size) / original_size) * 100
+
+                    # Upload compressed file
+                    key = f'telemetry/{timestamp}/runs.csv.gz'
+                    self.s3_client.upload_file(
+                        str(compressed_path),
+                        self.bucket_name,
+                        key,
+                        ExtraArgs={
+                            'StorageClass': 'STANDARD_IA',
+                            'Metadata': {
+                                'backup_timestamp': timestamp,
+                                'compression_ratio': f'{compression_ratio:.1f}%',
+                                'original_size': str(original_size),
+                                'compressed_size': str(compressed_size)
+                            }
+                        }
+                    )
+
+                    logger.info(f"Telemetry backup completed: {original_size} -> {compressed_size} bytes ({compression_ratio:.1f}% compression)")
+
+                    # Cleanup
+                    compressed_path.unlink()
+
+                except Exception as e:
+                    logger.error(f"Failed to backup telemetry CSV: {e}")
+
+            def verify_backup_access(self):
+                """Verify backup storage is accessible."""
+                try:
+                    self.s3_client.head_bucket(Bucket=self.bucket_name)
+                    logger.info("Backup storage access verified")
+                    return True
+                except Exception as e:
+                    logger.error(f"Backup storage access failed: {e}")
+                    return False
+        EOF
+
+    - name: Run data backup
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      run: |
+        python -c "
+        from services.backup import DataBackupManager
+        backup_mgr = DataBackupManager()
+
+        if backup_mgr.verify_backup_access():
+            backup_mgr.backup_sessions()
+            backup_mgr.backup_telemetry()
+            print('✅ Data backup completed successfully')
+        else:
+            print('❌ Backup storage access failed')
+            exit(1)
+        "
+
+    - name: Verify backup integrity
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      run: |
+        # List recent backups to verify they exist
+        echo "Recent session backups:"
+        aws s3 ls s3://agent-lab-backups/sessions/ --recursive | tail -3 || echo "No session backups found"
+
+        echo "Recent telemetry backups:"
+        aws s3 ls s3://agent-lab-backups/telemetry/ --recursive | tail -3 || echo "No telemetry backups found"
+
+    - name: Send backup notification
+      if: always()
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          MESSAGE="✅ Agent Lab data backup completed successfully"
+        else
+          MESSAGE="❌ Agent Lab data backup failed"
+        fi
+
+        # Send to Slack or other notification service
+        # curl -X POST -H 'Content-type: application/json' \
+        #   --data "{\"text\":\"$MESSAGE\"}" \
+        #   ${{ secrets.SLACK_WEBHOOK_URL }} || true

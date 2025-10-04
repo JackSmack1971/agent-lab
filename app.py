@@ -106,6 +106,158 @@ def _web_badge_html(enabled: bool) -> str:
     ).format(color=badge_color, state=badge_state)
 
 
+# UX Improvements - Inline Validation, Keyboard Shortcuts, Loading States
+
+def validate_agent_name(name: str) -> dict:
+    """Validate agent name field."""
+    if not name or not name.strip():
+        return {"status": "error", "message": "❌ Agent Name: This field is required", "is_valid": False}
+    if len(name) > 100:
+        return {"status": "error", "message": "❌ Agent Name: Maximum 100 characters allowed", "is_valid": False}
+    return {"status": "success", "message": "✅ Agent Name is valid", "is_valid": True}
+
+def validate_system_prompt(prompt: str) -> dict:
+    """Validate system prompt field."""
+    if not prompt or not prompt.strip():
+        return {"status": "error", "message": "❌ System Prompt: This field is required", "is_valid": False}
+    if len(prompt) > 10000:
+        return {"status": "error", "message": "❌ System Prompt: Maximum 10,000 characters allowed", "is_valid": False}
+    return {"status": "success", "message": "✅ System Prompt is valid", "is_valid": True}
+
+def validate_temperature(temp: str | float) -> dict:
+    """Validate temperature field."""
+    try:
+        temp_val = float(temp)
+        if temp_val < 0.0:
+            return {"status": "error", "message": "❌ Temperature: Minimum value is 0.0", "is_valid": False}
+        if temp_val > 2.0:
+            return {"status": "error", "message": "❌ Temperature: Maximum value is 2.0", "is_valid": False}
+        return {"status": "success", "message": "✅ Temperature is valid", "is_valid": True}
+    except (ValueError, TypeError):
+        return {"status": "error", "message": "❌ Temperature: Must be a number between 0.0 and 2.0", "is_valid": False}
+
+def validate_top_p(top_p: str | float) -> dict:
+    """Validate top_p field."""
+    try:
+        top_p_val = float(top_p)
+        if top_p_val < 0.0:
+            return {"status": "error", "message": "❌ Top P: Minimum value is 0.0", "is_valid": False}
+        if top_p_val > 1.0:
+            return {"status": "error", "message": "❌ Top P: Maximum value is 1.0", "is_valid": False}
+        return {"status": "success", "message": "✅ Top P is valid", "is_valid": True}
+    except (ValueError, TypeError):
+        return {"status": "error", "message": "❌ Top P: Must be a number between 0.0 and 1.0", "is_valid": False}
+
+def validate_model_selection(model_id: str, available_models: list | None) -> dict:
+    """Validate model selection."""
+    if not available_models:
+        return {"status": "error", "message": "❌ Model: No models available", "is_valid": False}
+    model_ids = [m.id for m in available_models]
+    if model_id not in model_ids:
+        return {"status": "error", "message": "❌ Model: Please select a valid model", "is_valid": False}
+    return {"status": "success", "message": "✅ Model is valid", "is_valid": True}
+
+def validate_form_field(field_name: str, value: Any, available_models: list | None = None) -> dict:
+    """Central validation dispatcher."""
+    if field_name == "agent_name":
+        return validate_agent_name(value)
+    elif field_name == "system_prompt":
+        return validate_system_prompt(value)
+    elif field_name == "temperature":
+        return validate_temperature(value)
+    elif field_name == "top_p":
+        return validate_top_p(value)
+    elif field_name == "model":
+        return validate_model_selection(value, available_models)
+    return {"status": "unknown", "message": "", "is_valid": True}
+
+# Keyboard Shortcuts Implementation
+def handle_keyboard_shortcut(keyboard_event: gr.EventData) -> str:
+    """Handle keyboard shortcuts from JavaScript."""
+    try:
+        event_data = keyboard_event._data if hasattr(keyboard_event, '_data') else {}
+        key = event_data.get('key', '').lower()
+        ctrl_key = event_data.get('ctrlKey', False)
+        meta_key = event_data.get('metaKey', False)
+        shift_key = event_data.get('shiftKey', False)
+
+        # Normalize Ctrl/Cmd
+        modifier = ctrl_key or meta_key
+
+        # Define shortcuts
+        if modifier and key == 'enter':
+            return 'send_message'
+        elif modifier and key == 'k':
+            return 'focus_input'
+        elif modifier and key == 'r':
+            return 'refresh_models'
+        elif key == 'escape':
+            return 'stop_generation'
+
+        return 'none'
+    except Exception:
+        return 'none'
+
+# Loading States Implementation
+class LoadingStateManager:
+    """Manages loading states for UI elements."""
+
+    def __init__(self):
+        self.active_operations = {}
+
+    def start_loading(self, operation_id: str, operation_type: str) -> dict:
+        """Start loading state for an operation."""
+        self.active_operations[operation_id] = {
+            'type': operation_type,
+            'start_time': datetime.now(timezone.utc)
+        }
+
+        if operation_type == 'button':
+            return {'interactive': False, 'value': self._get_loading_text(operation_type)}
+        elif operation_type == 'panel':
+            return {'visible': True, '__type__': 'update'}
+        return {}
+
+    def complete_loading(self, operation_id: str, success: bool = True) -> dict:
+        """Complete loading state for an operation."""
+        if operation_id in self.active_operations:
+            operation_type = self.active_operations[operation_id]['type']
+            del self.active_operations[operation_id]
+
+            if operation_type == 'button':
+                return {'interactive': True, 'value': self._get_default_text(operation_type)}
+            elif operation_type == 'panel':
+                return {'visible': False, '__type__': 'update'}
+        return {}
+
+    def _get_loading_text(self, operation_type: str) -> str:
+        """Get loading text for operation type."""
+        texts = {
+            'button': {
+                'agent_build': 'Building...',
+                'model_refresh': 'Refreshing...',
+                'session_save': 'Saving...',
+                'session_load': 'Loading...'
+            }
+        }
+        return texts.get('button', {}).get(operation_type, 'Loading...')
+
+    def _get_default_text(self, operation_type: str) -> str:
+        """Get default text for operation type."""
+        texts = {
+            'button': {
+                'agent_build': 'Build Agent',
+                'model_refresh': 'Refresh Models',
+                'session_save': 'Save Session',
+                'session_load': 'Load Session'
+            }
+        }
+        return texts.get('button', {}).get(operation_type, '')
+
+# Global loading state manager
+loading_manager = LoadingStateManager()
+
+
 def build_agent_handler(
     name: str,
     model_display_label: str,
@@ -799,4 +951,6 @@ if __name__ == "__main__":
     init_csv()
     print("Telemetry CSV initialized.")
     app = create_ui()
-    app.launch(server_name="0.0.0.0", server_port=7860)
+    # Security: Configurable server host binding with secure default
+    server_host = getenv("GRADIO_SERVER_HOST", "127.0.0.1")
+    app.launch(server_name=server_host, server_port=7860)

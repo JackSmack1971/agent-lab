@@ -1,0 +1,133 @@
+name: Repository Backup
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+  workflow_dispatch:
+    inputs:
+      include_artifacts:
+        description: 'Include workflow artifacts in backup'
+        required: false
+        default: 'false'
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for complete backup
+
+    - name: Set up Git LFS (if used)
+      run: |
+        git lfs install || true
+        git lfs pull || true
+
+    - name: Create repository backup archive
+      run: |
+        TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+        ARCHIVE_NAME="agent-lab-repo-backup-${TIMESTAMP}.tar.gz"
+
+        echo "Creating repository backup: ${ARCHIVE_NAME}"
+
+        # Create backup with exclusions
+        tar -czf "${ARCHIVE_NAME}" \
+          --exclude='.git' \
+          --exclude='__pycache__' \
+          --exclude='.pytest_cache' \
+          --exclude='.coverage' \
+          --exclude='node_modules' \
+          --exclude='.DS_Store' \
+          --exclude='*.log' \
+          --exclude='.env' \
+          --exclude='data/sessions/*.json' \
+          --exclude='data/runs.csv' \
+          .
+
+        echo "ARCHIVE_NAME=${ARCHIVE_NAME}" >> $GITHUB_ENV
+        echo "TIMESTAMP=${TIMESTAMP}" >> $GITHUB_ENV
+
+        # Show archive size
+        ls -lh "${ARCHIVE_NAME}"
+
+    - name: Upload backup to GitHub artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: repository-backup-${{ env.TIMESTAMP }}
+        path: ${{ env.ARCHIVE_NAME }}
+        retention-days: 30
+
+    - name: Sync to external backup storage
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      run: |
+        if [ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ]; then
+          echo "Uploading to AWS S3 backup storage..."
+          aws s3 cp "${{ env.ARCHIVE_NAME }}" s3://agent-lab-backups/repository/ || echo "AWS upload failed, continuing..."
+        else
+          echo "AWS credentials not configured, skipping cloud backup"
+        fi
+
+    - name: Create Git bundle backup
+      run: |
+        BUNDLE_NAME="agent-lab-git-bundle-${{ env.TIMESTAMP }}.bundle"
+
+        echo "Creating Git bundle backup..."
+        git bundle create "${BUNDLE_NAME}" --all
+
+        # Upload bundle as artifact
+        echo "BUNDLE_NAME=${BUNDLE_NAME}" >> $GITHUB_ENV
+
+    - name: Upload Git bundle
+      uses: actions/upload-artifact@v4
+      with:
+        name: git-bundle-backup-${{ env.TIMESTAMP }}
+        path: ${{ env.BUNDLE_NAME }}
+        retention-days: 30
+
+    - name: Validate backup integrity
+      run: |
+        echo "Validating backup integrity..."
+
+        # Test archive extraction
+        mkdir -p /tmp/backup_test
+        cd /tmp/backup_test
+        tar -xzf "/home/runner/work/agent-lab/agent-lab/${{ env.ARCHIVE_NAME }}"
+
+        # Check for critical files
+        if [ -f "requirements.txt" ] && [ -f "app.py" ] && [ -d "agents" ]; then
+          echo "✅ Repository backup integrity verified"
+        else
+          echo "❌ Repository backup integrity check failed"
+          exit 1
+        fi
+
+        # Cleanup
+        cd /
+        rm -rf /tmp/backup_test
+
+    - name: Log backup completion
+      run: |
+        echo "Repository backup completed successfully"
+        echo "Archive: ${{ env.ARCHIVE_NAME }}"
+        echo "Bundle: ${{ env.BUNDLE_NAME }}"
+        echo "Timestamp: ${{ env.TIMESTAMP }}"
+
+        # Log to backup registry (could be a simple JSON file or database)
+        echo "{\"timestamp\": \"${{ env.TIMESTAMP }}\", \"archive\": \"${{ env.ARCHIVE_NAME }}\", \"bundle\": \"${{ env.BUNDLE_NAME }}\", \"status\": \"completed\"}" > backup_log.json
+
+    - name: Upload backup log
+      uses: actions/upload-artifact@v4
+      with:
+        name: backup-log-${{ env.TIMESTAMP }}
+        path: backup_log.json
+        retention-days: 90
+
+    - name: Clean up local files
+      run: |
+        rm -f "${{ env.ARCHIVE_NAME }}"
+        rm -f "${{ env.BUNDLE_NAME }}"
+        rm -f backup_log.json

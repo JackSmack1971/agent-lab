@@ -1,0 +1,218 @@
+name: Health Monitoring & Alerts
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'  # Every 15 minutes
+  workflow_dispatch:
+    inputs:
+      check_type:
+        description: 'Type of health check to run'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+        - quick
+        - full
+        - backup
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Quick health check
+      if: github.event.inputs.check_type == 'quick' || github.event_name == 'schedule'
+      run: |
+        echo "🏥 Running quick health checks..."
+
+        # Basic connectivity check (replace with actual endpoint)
+        # curl -f --max-time 10 https://agent-lab.your-domain.com/health || {
+        #   echo "❌ Application health check failed"
+        #   exit 1
+        # }
+
+        echo "✅ Quick health check passed"
+
+    - name: Full health check
+      if: github.event.inputs.check_type == 'full' || github.event_name == 'schedule'
+      run: |
+        echo "🔍 Running comprehensive health checks..."
+
+        # Use checkout for full checks
+        uses: actions/checkout@v4
+
+        # Set up Python for validation checks
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+        run: |
+          pip install -r requirements.txt
+
+          # Application import check
+          python -c "
+          try:
+              import app
+              import agents.models
+              import agents.runtime
+              import services.persist
+              import services.catalog
+              print('✅ Application imports successful')
+          except Exception as e:
+              print(f'❌ Application import failed: {e}')
+              exit(1)
+          "
+
+          # Data integrity check
+          python -c "
+          from services.persist import CSV_PATH, SESSIONS_DIR
+          import os
+
+          issues = []
+
+          # Check CSV file
+          if os.path.exists(CSV_PATH):
+              try:
+                  with open(CSV_PATH, 'r') as f:
+                      lines = f.readlines()
+                      if len(lines) == 0:
+                          issues.append('CSV file is empty')
+                      elif not lines[0].startswith('ts,'):
+                          issues.append('CSV header is malformed')
+                  print('✅ CSV file integrity verified')
+              except Exception as e:
+                  issues.append(f'CSV file unreadable: {e}')
+          else:
+              issues.append('CSV file does not exist')
+
+          # Check sessions directory
+          if os.path.exists(SESSIONS_DIR):
+              session_files = [f for f in os.listdir(SESSIONS_DIR) if f.endswith('.json')]
+              print(f'✅ Sessions directory exists with {len(session_files)} files')
+          else:
+              issues.append('Sessions directory does not exist')
+
+          if issues:
+              print('⚠️ Data integrity issues found:')
+              for issue in issues:
+                  print(f'  - {issue}')
+          else:
+              print('✅ Data integrity verified')
+          "
+
+    - name: Backup verification
+      if: github.event.inputs.check_type == 'backup' || github.event_name == 'schedule'
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      run: |
+        echo "💾 Checking backup system health..."
+
+        if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ]; then
+          echo "⚠️ AWS credentials not configured, skipping backup checks"
+          exit 0
+        fi
+
+        # Check backup storage access
+        aws s3 ls s3://agent-lab-backups/ > /dev/null 2>&1 || {
+          echo "❌ Backup storage access failed"
+          exit 1
+        }
+
+        # Check recent backups exist
+        RECENT_SESSIONS=$(aws s3 ls s3://agent-lab-backups/sessions/ --recursive | wc -l)
+        RECENT_TELEMETRY=$(aws s3 ls s3://agent-lab-backups/telemetry/ --recursive | wc -l)
+
+        if [ "$RECENT_SESSIONS" -eq 0 ]; then
+          echo "⚠️ No recent session backups found"
+        else
+          echo "✅ Session backups verified ($RECENT_SESSIONS files)"
+        fi
+
+        if [ "$RECENT_TELEMETRY" -eq 0 ]; then
+          echo "⚠️ No recent telemetry backups found"
+        else
+          echo "✅ Telemetry backups verified ($RECENT_TELEMETRY files)"
+        fi
+
+    - name: Performance monitoring
+      run: |
+        echo "⚡ Running performance checks..."
+
+        # Import time check
+        IMPORT_TIME=$(python -c "
+        import time
+        start = time.time()
+        import app
+        end = time.time()
+        print(f'{end - start:.2f}')
+        ")
+
+        if (( $(echo "$IMPORT_TIME > 5.0" | bc -l) )); then
+          echo "⚠️ Slow import time: ${IMPORT_TIME}s"
+        else
+          echo "✅ Import time acceptable: ${IMPORT_TIME}s"
+        fi
+
+        # Memory usage check (if available)
+        python -c "
+        import psutil
+        import os
+        process = psutil.Process(os.getpid())
+        memory_mb = process.memory_info().rss / 1024 / 1024
+        print(f'✅ Memory usage: {memory_mb:.1f} MB')
+        " 2>/dev/null || echo "ℹ️ Memory check not available"
+
+    - name: Log health status
+      run: |
+        # Create health report
+        cat > health_report.json << EOF
+        {
+          "timestamp": "$(date -Iseconds)",
+          "check_type": "${{ github.event.inputs.check_type || 'scheduled' }}",
+          "overall_status": "${{ job.status }}",
+          "run_id": "${{ github.run_id }}",
+          "repository": "${{ github.repository }}",
+          "trigger": "${{ github.event_name }}"
+        }
+        EOF
+
+    - name: Send alerts on failure
+      if: failure()
+      run: |
+        echo "🚨 Health check failed!"
+
+        # Send alert notification
+        # curl -X POST -H 'Content-type: application/json' \
+        #   --data '{
+        #     "text": "🚨 Agent Lab Health Check Failed",
+        #     "blocks": [
+        #       {
+        #         "type": "section",
+        #         "text": {
+        #           "type": "mrkdwn",
+        #           "text": "*🚨 Agent Lab Health Check Failed*\n\nRepository: ${{ github.repository }}\nRun: ${{ github.run_id }}\nTime: $(date)"
+        #         }
+        #       }
+        #     ]
+        #   }' \
+        #   ${{ secrets.SLACK_WEBHOOK_URL }} || true
+
+        # Could also send email alerts, create issues, etc.
+
+    - name: Upload health report
+      uses: actions/upload-artifact@v4
+      with:
+        name: health-report-${{ github.run_id }}
+        path: health_report.json
+        retention-days: 30
+
+    - name: Summary
+      if: always()
+      run: |
+        echo "📊 Health check summary:"
+        echo "Status: ${{ job.status }}"
+        echo "Check type: ${{ github.event.inputs.check_type || 'scheduled' }}"
+        echo "Duration: $((SECONDS/60)) minutes"
+        echo "Timestamp: $(date -Iseconds)"

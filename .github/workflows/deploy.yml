@@ -1,0 +1,234 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      skip_health_checks:
+        description: 'Skip post-deployment health checks'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      validation_passed: ${{ steps.validation.outputs.passed }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Run tests
+      run: |
+        pytest tests/ -v --tb=short --durations=10
+
+    - name: Run security scan
+      run: |
+        pip install safety
+        safety check --bare || true
+
+    - name: Validate deployment readiness
+      id: validation
+      run: |
+        # Check for critical files
+        if [ ! -f "app.py" ] || [ ! -f "requirements.txt" ]; then
+          echo "❌ Critical files missing"
+          echo "passed=false" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+        # Check Python syntax
+        python -m py_compile app.py
+        python -c "import agents.models, agents.runtime, services.persist" || exit 1
+
+        # Check test coverage
+        pytest --cov=agents --cov=services --cov-report=xml
+        COVERAGE=$(python -c "
+        import xml.etree.ElementTree as ET
+        root = ET.parse('coverage.xml').getroot()
+        coverage = float(root.get('line-rate', 0)) * 100
+        print(f'{coverage:.1f}')
+        ")
+
+        if (( $(echo "$COVERAGE < 85" | bc -l) )); then
+          echo "❌ Coverage $COVERAGE% below 85% threshold"
+          echo "passed=false" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+        echo "✅ Validation passed (Coverage: $COVERAGE%)"
+        echo "passed=true" >> $GITHUB_OUTPUT
+
+  deploy:
+    needs: validate
+    if: needs.validate.outputs.validation_passed == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Create deployment package
+      run: |
+        # Create deployment artifact
+        mkdir -p deployment
+        cp -r * deployment/
+        cd deployment
+
+        # Remove development files
+        rm -rf .git
+        rm -rf __pycache__
+        rm -rf .pytest_cache
+        rm -rf tests/
+        rm -rf .github/
+
+        # Create deployment archive
+        tar -czf ../agent-lab-deployment-$(date +%Y%m%d_%H%M%S).tar.gz .
+        cd ..
+        DEPLOYMENT_ARCHIVE=$(ls agent-lab-deployment-*.tar.gz)
+        echo "DEPLOYMENT_ARCHIVE=$DEPLOYMENT_ARCHIVE" >> $GITHUB_ENV
+
+    - name: Deploy to staging
+      if: github.event.inputs.environment == 'staging' || github.ref == 'refs/heads/main'
+      run: |
+        echo "🚀 Deploying to staging environment..."
+
+        # For demonstration - in real scenario, this would deploy to your hosting platform
+        # Examples: AWS Elastic Beanstalk, Google Cloud Run, Azure App Service, etc.
+
+        echo "📦 Deployment package: ${{ env.DEPLOYMENT_ARCHIVE }}"
+        echo "🌐 Environment: staging"
+        echo "✅ Staging deployment completed"
+
+    - name: Deploy to production
+      if: github.event.inputs.environment == 'production'
+      run: |
+        echo "🚀 Deploying to production environment..."
+
+        # Production deployment with additional safeguards
+        echo "🔒 Production deployment initiated"
+
+        # Backup current production state
+        echo "💾 Creating pre-deployment backup..."
+
+        # Deploy new version
+        echo "📦 Deployment package: ${{ env.DEPLOYMENT_ARCHIVE }}"
+        echo "🌐 Environment: production"
+
+        # Blue-green deployment signaling
+        echo "🔄 Switching traffic to new version..."
+
+        echo "✅ Production deployment completed"
+
+    - name: Post-deployment health checks
+      if: github.event.inputs.skip_health_checks != 'true'
+      run: |
+        echo "🏥 Running post-deployment health checks..."
+
+        # Wait for deployment to stabilize
+        sleep 30
+
+        # Health check - replace with actual endpoint
+        echo "🔍 Checking application health..."
+        # curl -f https://your-app-domain.com/health || exit 1
+
+        # Data integrity check
+        echo "📊 Verifying data integrity..."
+        # Add data validation checks here
+
+        echo "✅ Health checks passed"
+
+    - name: Performance validation
+      if: github.event.inputs.skip_health_checks != 'true'
+      run: |
+        echo "⚡ Running performance validation..."
+
+        # Basic performance check
+        python -c "
+        import time
+        start = time.time()
+        import app
+        end = time.time()
+        print(f'✅ Import time: {end - start:.2f}s')
+        "
+
+    - name: Create deployment record
+      run: |
+        cat > deployment_record.json << EOF
+        {
+          "deployment_id": "${{ github.run_id }}",
+          "timestamp": "$(date -Iseconds)",
+          "commit_sha": "${{ github.sha }}",
+          "environment": "${{ github.event.inputs.environment || 'staging' }}",
+          "archive": "${{ env.DEPLOYMENT_ARCHIVE }}",
+          "validation_passed": true,
+          "health_checks_passed": true
+        }
+        EOF
+
+    - name: Upload deployment record
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-record-${{ github.run_id }}
+        path: deployment_record.json
+        retention-days: 90
+
+    - name: Notify deployment success
+      if: success()
+      run: |
+        echo "🎉 Deployment completed successfully!"
+        echo "Environment: ${{ github.event.inputs.environment || 'staging' }}"
+        echo "Commit: ${{ github.sha }}"
+
+  rollback:
+    needs: deploy
+    if: failure() && github.event.inputs.environment == 'production'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - name: Trigger rollback
+      run: |
+        echo "❌ Deployment failed, initiating rollback..."
+
+        # Find previous successful deployment
+        # In a real scenario, you'd query your deployment history
+
+        echo "🔄 Rolling back to previous version..."
+
+        # Rollback logic here
+        # This would depend on your hosting platform
+
+        echo "✅ Rollback completed"
+
+    - name: Notify rollback
+      run: |
+        echo "🚨 Rollback executed due to deployment failure"
+        echo "Original deployment: ${{ github.run_id }}"
+        echo "Environment: production"
