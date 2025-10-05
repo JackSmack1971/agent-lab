@@ -22,17 +22,22 @@ from services.catalog import (
 class TestParsePrice:
     """Test price parsing functionality."""
 
-    @pytest.mark.parametrize("input_value,expected", [
-        (None, None),
-        (1.5, 1.5),
-        ("1.5", 1.5),
-        ("$1.5", 1.5),
-        ("  $2.0  ", 2.0),
-        ("invalid", None),
-        ("", None),
-        (0, 0.0),
-    ])
-    def test_parse_price_various_inputs(self, input_value: Any, expected: float | None) -> None:
+    @pytest.mark.parametrize(
+        "input_value,expected",
+        [
+            (None, None),
+            (1.5, 1.5),
+            ("1.5", 1.5),
+            ("$1.5", 1.5),
+            ("  $2.0  ", 2.0),
+            ("invalid", None),
+            ("", None),
+            (0, 0.0),
+        ],
+    )
+    def test_parse_price_various_inputs(
+        self, input_value: Any, expected: float | None
+    ) -> None:
         """Test _parse_price handles various input formats."""
         result = _parse_price(input_value)
         assert result == expected
@@ -58,11 +63,12 @@ class TestFetchModels:
         """Clear global cache before each test."""
         # Clear module-level cache variables
         import services.catalog
+
         services.catalog._cached_models = None
         services.catalog._cache_timestamp = None
         services.catalog._cache_source = "fallback"
 
-    @patch('services.catalog.httpx.Client')
+    @patch("services.catalog.httpx.Client")
     def test_fetch_models_success(self, mock_client_class) -> None:
         """Test successful fetch from OpenRouter API."""
         mock_response_data = {
@@ -72,14 +78,14 @@ class TestFetchModels:
                     "name": "GPT-4",
                     "provider": "openai",
                     "description": "Advanced model",
-                    "pricing": {"prompt": "0.03", "completion": "0.06"}
+                    "pricing": {"prompt": "0.03", "completion": "0.06"},
                 },
                 {
                     "id": "anthropic/claude",
                     "name": "Claude",
                     "provider": "anthropic",
-                    "pricing": {"prompt": 0.015, "completion": 0.075}
-                }
+                    "pricing": {"prompt": 0.015, "completion": 0.075},
+                },
             ]
         }
 
@@ -113,14 +119,16 @@ class TestFetchModels:
         assert model2.input_price == 0.015
         assert model2.output_price == 0.075
 
-    @patch('services.catalog.httpx.Client')
+    @patch("services.catalog.httpx.Client")
     def test_fetch_models_with_api_key(self, mock_client_class, monkeypatch) -> None:
         """Test fetch includes Authorization header when API key is set."""
         monkeypatch.setenv("OPENROUTER_API_KEY", "test_key")
 
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"data": [{"id": "test/model", "name": "Test"}]}
+        mock_response.json.return_value = {
+            "data": [{"id": "test/model", "name": "Test"}]
+        }
 
         mock_client = Mock()
         mock_client.get.return_value = mock_response
@@ -132,11 +140,11 @@ class TestFetchModels:
 
         # Check that Authorization header was set
         call_args = mock_client.get.call_args
-        headers = call_args[1]['headers']
+        headers = call_args[1]["headers"]
         assert "Authorization" in headers
         assert headers["Authorization"] == "Bearer test_key"
 
-    @patch('services.catalog.httpx.Client')
+    @patch("services.catalog.httpx.Client")
     def test_fetch_models_network_failure_fallback(self, mock_client_class) -> None:
         """Test fallback when network request fails."""
         mock_client = Mock()
@@ -151,7 +159,7 @@ class TestFetchModels:
         assert source == "fallback"
         assert isinstance(timestamp, datetime)
 
-    @patch('services.catalog.httpx.Client')
+    @patch("services.catalog.httpx.Client")
     def test_fetch_models_malformed_response_fallback(self, mock_client_class) -> None:
         """Test fallback when API returns malformed data."""
         mock_response = Mock()
@@ -169,7 +177,7 @@ class TestFetchModels:
         assert models == FALLBACK_MODELS
         assert source == "fallback"
 
-    @patch('services.catalog.httpx.Client')
+    @patch("services.catalog.httpx.Client")
     def test_fetch_models_empty_data_fallback(self, mock_client_class) -> None:
         """Test fallback when API returns empty data."""
         mock_response = Mock()
@@ -187,7 +195,7 @@ class TestFetchModels:
         assert models == FALLBACK_MODELS
         assert source == "fallback"
 
-    @patch('services.catalog.httpx.Client')
+    @patch("services.catalog.httpx.Client")
     def test_fetch_models_malformed_entries(self, mock_client_class) -> None:
         """Test fetch handles malformed entries in response data."""
         mock_response_data = {
@@ -195,7 +203,7 @@ class TestFetchModels:
                 {"id": "good/model", "name": "Good Model"},
                 {"not": "a dict"},  # Malformed entry
                 {"id": "", "name": "Empty ID"},  # Missing id
-                {"name": "No ID field"}  # Missing id field
+                {"name": "No ID field"},  # Missing id field
             ]
         }
 
@@ -216,7 +224,7 @@ class TestFetchModels:
         assert models[0].id == "good/model"
         assert source == "dynamic"
 
-    @patch('services.catalog.httpx.Client')
+    @patch("services.catalog.httpx.Client")
     def test_fetch_models_validation_error(self, mock_client_class) -> None:
         """Test fetch handles ValidationError in ModelInfo construction."""
         from pydantic import ValidationError as PydanticValidationError
@@ -224,7 +232,10 @@ class TestFetchModels:
         mock_response_data = {
             "data": [
                 {"id": "good/model", "name": "Good Model"},
-                {"id": 123, "name": "Bad Model"}  # Invalid id type, will be skipped earlier
+                {
+                    "id": 123,
+                    "name": "Bad Model",
+                },  # Invalid id type, will be skipped earlier
             ]
         }
 
@@ -253,11 +264,12 @@ class TestGetModels:
         """Clear global cache before each test."""
         # Clear module-level cache variables
         import services.catalog
+
         services.catalog._cached_models = None
         services.catalog._cache_timestamp = None
         services.catalog._cache_source = "fallback"
 
-    @patch('services.catalog.httpx.Client')
+    @patch("services.catalog.httpx.Client")
     def test_get_models_initial_fetch(self, mock_client_class) -> None:
         """Test initial call fetches models."""
         mock_response_data = {"data": [{"id": "test/model", "name": "Test Model"}]}
@@ -277,9 +289,11 @@ class TestGetModels:
         assert len(models) == 1
         assert source == "dynamic"
 
-    @patch('services.catalog.datetime')
-    @patch('services.catalog.httpx.Client')
-    def test_get_models_cached_within_ttl(self, mock_client_class, mock_datetime) -> None:
+    @patch("services.catalog.datetime")
+    @patch("services.catalog.httpx.Client")
+    def test_get_models_cached_within_ttl(
+        self, mock_client_class, mock_datetime
+    ) -> None:
         """Test cached models returned when within TTL."""
         # Set up fixed timestamp
         fixed_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -310,8 +324,8 @@ class TestGetModels:
         # httpx.Client should only be called once
         mock_client.get.assert_called_once()
 
-    @patch('services.catalog.datetime')
-    @patch('services.catalog.httpx.Client')
+    @patch("services.catalog.datetime")
+    @patch("services.catalog.httpx.Client")
     def test_get_models_force_refresh(self, mock_client_class, mock_datetime) -> None:
         """Test force_refresh bypasses cache."""
         # Set up timestamps - need enough for all datetime.now calls
@@ -354,17 +368,18 @@ class TestModelChoices:
         """Clear global cache before each test."""
         # Clear module-level cache variables
         import services.catalog
+
         services.catalog._cached_models = None
         services.catalog._cache_timestamp = None
         services.catalog._cache_source = "fallback"
 
-    @patch('services.catalog.httpx.Client')
+    @patch("services.catalog.httpx.Client")
     def test_get_model_choices(self, mock_client_class) -> None:
         """Test get_model_choices returns proper format."""
         mock_response_data = {
             "data": [
                 {"id": "model1", "name": "Model One"},
-                {"id": "model2", "name": "Model Two"}
+                {"id": "model2", "name": "Model Two"},
             ]
         }
 
@@ -391,11 +406,12 @@ class TestGetPricing:
         """Clear global cache before each test."""
         # Clear module-level cache variables
         import services.catalog
+
         services.catalog._cached_models = None
         services.catalog._cache_timestamp = None
         services.catalog._cache_source = "fallback"
 
-    @patch('services.catalog.httpx.Client')
+    @patch("services.catalog.httpx.Client")
     def test_get_pricing_existing_model(self, mock_client_class) -> None:
         """Test pricing lookup for existing model."""
         mock_response_data = {
@@ -403,7 +419,7 @@ class TestGetPricing:
                 {
                     "id": "priced/model",
                     "name": "Priced Model",
-                    "pricing": {"prompt": "0.01", "completion": "0.02"}
+                    "pricing": {"prompt": "0.01", "completion": "0.02"},
                 }
             ]
         }
@@ -422,7 +438,7 @@ class TestGetPricing:
 
         assert pricing == (0.01, 0.02)
 
-    @patch('services.catalog.httpx.Client')
+    @patch("services.catalog.httpx.Client")
     def test_get_pricing_nonexistent_model(self, mock_client_class) -> None:
         """Test pricing lookup for nonexistent model."""
         mock_response_data = {"data": [{"id": "other/model", "name": "Other"}]}
@@ -441,7 +457,7 @@ class TestGetPricing:
 
         assert pricing is None
 
-    @patch('services.catalog.httpx.Client')
+    @patch("services.catalog.httpx.Client")
     def test_get_pricing_model_without_pricing(self, mock_client_class) -> None:
         """Test pricing lookup for model without pricing info."""
         mock_response_data = {"data": [{"id": "no_price/model", "name": "No Price"}]}

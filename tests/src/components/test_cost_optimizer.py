@@ -51,7 +51,9 @@ class TestCostOptimizerUI:
         assert "switch model" in result
 
         # Test with multiple underscores
-        result = apply_optimization_suggestion("enable_caching_mechanism", "session_123")
+        result = apply_optimization_suggestion(
+            "enable_caching_mechanism", "session_123"
+        )
         assert "enable caching mechanism" in result
 
 
@@ -63,8 +65,8 @@ class TestUIIntegration:
         tab = create_cost_optimizer_tab()
 
         # The component should be a valid Gradio Blocks object
-        assert hasattr(tab, 'blocks')
-        assert hasattr(tab, 'fns')
+        assert hasattr(tab, "blocks")
+        assert hasattr(tab, "fns")
 
     def test_css_styling_available(self):
         """Test that CSS styling is available."""
@@ -104,7 +106,7 @@ class TestUIValidation:
 class TestComponentIntegration:
     """Integration tests for component functionality."""
 
-    @patch('src.components.cost_optimizer.analyze_costs')
+    @patch("src.components.cost_optimizer.analyze_costs")
     def test_component_with_mock_data(self, mock_analyze_costs):
         """Test component creation with mocked cost analysis."""
         from src.models.cost_analysis import CostAnalysis, CostTrend
@@ -115,7 +117,7 @@ class TestComponentIntegration:
             average_cost=1.00,
             cost_trend=CostTrend.INCREASING,
             alerts=[],
-            suggestions=[]
+            suggestions=[],
         )
         mock_analyze_costs.return_value = mock_analysis
 
@@ -126,8 +128,8 @@ class TestComponentIntegration:
         # Verify mock was not called yet (lazy loading)
         mock_analyze_costs.assert_not_called()
 
-    @patch('src.components.cost_optimizer.analyze_costs')
-    @patch('src.components.cost_optimizer.get_cost_trends')
+    @patch("src.components.cost_optimizer.analyze_costs")
+    @patch("src.components.cost_optimizer.get_cost_trends")
     def test_component_event_handlers_setup(self, mock_get_trends, mock_analyze_costs):
         """Test that event handlers are properly set up."""
         from src.models.cost_analysis import CostAnalysis, CostTrend
@@ -138,7 +140,7 @@ class TestComponentIntegration:
             average_cost=0.80,
             cost_trend=CostTrend.STABLE,
             alerts=[],
-            suggestions=[]
+            suggestions=[],
         )
         mock_analyze_costs.return_value = mock_analysis
         mock_get_trends.return_value = {
@@ -146,7 +148,7 @@ class TestComponentIntegration:
             "aggregated_costs": {"2024-01-01": 1.0},
             "forecast": {"2024-01-02": 0.9},
             "total_periods": 1,
-            "average_cost": 1.0
+            "average_cost": 1.0,
         }
 
         # Create component
@@ -154,7 +156,7 @@ class TestComponentIntegration:
 
         # Check that the component has the expected structure
         # Gradio Blocks should have blocks attribute
-        assert hasattr(tab, 'blocks')
+        assert hasattr(tab, "blocks")
 
         # Component should be launchable (basic validation)
         # Note: In real testing, you might use Gradio's testing utilities
@@ -171,13 +173,13 @@ class TestComponentIntegration:
             ".alert-medium",
             ".alert-low",
             ".suggestion-card",
-            ".apply-btn"
+            ".apply-btn",
         ]
 
         for style in required_styles:
             assert style in COST_OPTIMIZER_CSS, f"Missing CSS style: {style}"
 
-    @patch('src.components.cost_optimizer.analyze_costs')
+    @patch("src.components.cost_optimizer.analyze_costs")
     def test_component_error_handling(self, mock_analyze_costs):
         """Test component error handling."""
         # Make analyze_costs raise an exception

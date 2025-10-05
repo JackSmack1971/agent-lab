@@ -48,7 +48,9 @@ class CostAlert(BaseModel):
     alert_type: AlertType = Field(..., description="Type of cost alert")
     message: str = Field(..., description="Human-readable alert message")
     severity: AlertSeverity = Field(..., description="Alert severity level")
-    estimated_savings: float = Field(..., ge=0.0, description="Potential cost savings in dollars")
+    estimated_savings: float = Field(
+        ..., ge=0.0, description="Potential cost savings in dollars"
+    )
 
     def __init__(self, **data):
         """Initialize cost alert with validation.
@@ -88,7 +90,9 @@ class OptimizationSuggestion(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    suggestion_type: SuggestionType = Field(..., description="Type of optimization suggestion")
+    suggestion_type: SuggestionType = Field(
+        ..., description="Type of optimization suggestion"
+    )
     description: str = Field(..., description="Detailed suggestion description")
     estimated_savings_percentage: float = Field(
         ..., ge=0.0, le=1.0, description="Percentage cost reduction"
@@ -124,7 +128,11 @@ class OptimizationSuggestion(BaseModel):
             SuggestionType.ENABLE_CACHING: 0.4,
         }.get(self.suggestion_type, 0.5)
 
-        return base_priority * self.confidence_score * min(self.estimated_savings_percentage, 0.5)
+        return (
+            base_priority
+            * self.confidence_score
+            * min(self.estimated_savings_percentage, 0.5)
+        )
 
     def _validate_suggestion_data(self) -> None:
         """Validate suggestion data consistency.
@@ -144,7 +152,9 @@ class CostAnalysis(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     current_cost: float = Field(..., ge=0.0, description="Session running total cost")
-    average_cost: float = Field(..., ge=0.0, description="User's historical average cost per conversation")
+    average_cost: float = Field(
+        ..., ge=0.0, description="User's historical average cost per conversation"
+    )
     cost_trend: CostTrend = Field(..., description="Cost trend direction")
     alerts: List[CostAlert] = Field(
         default_factory=list, description="Active cost alerts"
@@ -174,7 +184,7 @@ class CostAnalysis(BaseModel):
         return sorted(
             [alert for alert in self.alerts if alert.severity == AlertSeverity.HIGH],
             key=lambda x: x.estimated_savings,
-            reverse=True
+            reverse=True,
         )
 
     def get_top_suggestions(self, limit: int = 3) -> List[OptimizationSuggestion]:
@@ -187,9 +197,7 @@ class CostAnalysis(BaseModel):
             List of top OptimizationSuggestion objects
         """
         return sorted(
-            self.suggestions,
-            key=lambda x: x.get_priority_score(),
-            reverse=True
+            self.suggestions, key=lambda x: x.get_priority_score(), reverse=True
         )[:limit]
 
     def _validate_cost_analysis_data(self) -> None:
@@ -212,7 +220,7 @@ if __name__ == "__main__":
         alert_type=AlertType.HIGH_COST,
         message="🚨 Current session cost is 5x higher than average",
         severity=AlertSeverity.HIGH,
-        estimated_savings=2.50
+        estimated_savings=2.50,
     )
 
     sample_suggestion = OptimizationSuggestion(
@@ -220,7 +228,7 @@ if __name__ == "__main__":
         description="Switch to GPT-3.5-Turbo for better cost-efficiency",
         estimated_savings_percentage=0.80,
         estimated_savings_dollars=1.20,
-        confidence_score=0.75
+        confidence_score=0.75,
     )
 
     sample_analysis = CostAnalysis(
@@ -228,7 +236,7 @@ if __name__ == "__main__":
         average_cost=0.67,
         cost_trend=CostTrend.INCREASING,
         alerts=[sample_alert],
-        suggestions=[sample_suggestion]
+        suggestions=[sample_suggestion],
     )
 
     print("CostAlert:")

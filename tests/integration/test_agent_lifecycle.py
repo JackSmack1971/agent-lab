@@ -26,6 +26,7 @@ class TestAgentLifecycle:
     @pytest.fixture
     def mock_stream_response(self):
         """Mock streaming response with realistic data."""
+
         class MockChunk:
             def __init__(self, delta):
                 self.delta = delta
@@ -40,7 +41,9 @@ class TestAgentLifecycle:
         class UsageDict(dict):
             pass
 
-        usage_data = UsageDict({"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15})
+        usage_data = UsageDict(
+            {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+        )
 
         # Create a mock response with usage
         mock_response = Mock()
@@ -50,11 +53,16 @@ class TestAgentLifecycle:
         return [mock_chunk1, mock_chunk2, mock_chunk3]
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
+    @patch("agents.runtime.Agent")
+    @patch("agents.runtime.OpenAI")
     async def test_agent_lifecycle_build_run_persist_integration(
-        self, mock_openai_class, mock_agent_class, mock_env_vars,
-        sample_agent_config, temp_data_dir, mock_stream_response
+        self,
+        mock_openai_class,
+        mock_agent_class,
+        mock_env_vars,
+        sample_agent_config,
+        temp_data_dir,
+        mock_stream_response,
     ):
         """Test complete agent lifecycle: build → run → persist with mocked external calls."""
         # Setup mocks
@@ -74,7 +82,7 @@ class TestAgentLifecycle:
         mock_agent_instance.run.return_value = mock_stream_iter()
 
         # Override CSV path for testing
-        with patch('services.persist.CSV_PATH', temp_data_dir / "runs.csv"):
+        with patch("services.persist.CSV_PATH", temp_data_dir / "runs.csv"):
             # Phase 1: Build agent
             agent = build_agent(sample_agent_config)
 
@@ -85,20 +93,28 @@ class TestAgentLifecycle:
 
             # Phase 2: Run agent with streaming
             collected_deltas = []
+
             def on_delta(delta: str):
                 collected_deltas.append(delta)
 
             from threading import Event
+
             cancel_token = Event()
 
-            result = await run_agent_stream(agent, "What is the answer?", on_delta, cancel_token)
+            result = await run_agent_stream(
+                agent, "What is the answer?", on_delta, cancel_token
+            )
 
             # Verify streaming worked
             assert isinstance(result, StreamResult)
             assert result.text == "The answer is 42."
             assert collected_deltas == ["The answer", " is 42", "."]
             assert result.aborted is False
-            assert result.usage == {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+            assert result.usage == {
+                "prompt_tokens": 10,
+                "completion_tokens": 5,
+                "total_tokens": 15,
+            }
             assert result.latency_ms >= 0
 
             # Phase 3: Persist run record
@@ -117,7 +133,7 @@ class TestAgentLifecycle:
                 web_status="off",
                 aborted=False,
                 experiment_id="lifecycle_test",
-                task_label="integration_test"
+                task_label="integration_test",
             )
 
             append_run(run_record)
@@ -137,11 +153,15 @@ class TestAgentLifecycle:
             assert persisted.aborted is False
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
+    @patch("agents.runtime.Agent")
+    @patch("agents.runtime.OpenAI")
     async def test_agent_lifecycle_with_web_tools_integration(
-        self, mock_openai_class, mock_agent_class, mock_env_vars,
-        sample_agent_config, temp_data_dir
+        self,
+        mock_openai_class,
+        mock_agent_class,
+        mock_env_vars,
+        sample_agent_config,
+        temp_data_dir,
     ):
         """Test agent lifecycle with web tools enabled (mocked)."""
         # Setup mocks
@@ -165,17 +185,23 @@ class TestAgentLifecycle:
             agent = build_agent(sample_agent_config, include_web=True)
 
             # Verify web tool was registered
-            assert mock_agent_instance.tool.call_count == 3  # add_numbers, utc_now, fetch_url
+            assert (
+                mock_agent_instance.tool.call_count == 3
+            )  # add_numbers, utc_now, fetch_url
 
         # Run agent (empty response for this test)
         collected_deltas = []
+
         def on_delta(delta: str):
             collected_deltas.append(delta)
 
         from threading import Event
+
         cancel_token = Event()
 
-        result = await run_agent_stream(agent, "Test with web tools", on_delta, cancel_token)
+        result = await run_agent_stream(
+            agent, "Test with web tools", on_delta, cancel_token
+        )
 
         # Verify basic functionality
         assert isinstance(result, StreamResult)
@@ -183,11 +209,15 @@ class TestAgentLifecycle:
         assert result.aborted is False
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
+    @patch("agents.runtime.Agent")
+    @patch("agents.runtime.OpenAI")
     async def test_agent_lifecycle_error_handling_integration(
-        self, mock_openai_class, mock_agent_class, mock_env_vars,
-        sample_agent_config, temp_data_dir
+        self,
+        mock_openai_class,
+        mock_agent_class,
+        mock_env_vars,
+        sample_agent_config,
+        temp_data_dir,
     ):
         """Test agent lifecycle error handling and recovery."""
         # Setup mocks that will cause errors
@@ -200,16 +230,18 @@ class TestAgentLifecycle:
         # Mock agent run to raise exception
         mock_agent_instance.run.side_effect = Exception("API Error")
 
-        with patch('services.persist.CSV_PATH', temp_data_dir / "runs.csv"):
+        with patch("services.persist.CSV_PATH", temp_data_dir / "runs.csv"):
             # Build agent successfully
             agent = build_agent(sample_agent_config)
 
             # Attempt to run - should handle error gracefully
             collected_deltas = []
+
             def on_delta(delta: str):
                 collected_deltas.append(delta)
 
             from threading import Event
+
             cancel_token = Event()
 
             with pytest.raises(RuntimeError, match="Agent streaming failed"):

@@ -24,7 +24,12 @@ from src.models.recommendation import ModelRecommendation
 from src.components.cost_optimizer import create_cost_optimizer_tab
 
 # Import keyboard shortcuts components
-from src.utils.keyboard_handler import KeyboardHandler, ContextManager, KeyboardShortcut, ShortcutContext
+from src.utils.keyboard_handler import (
+    KeyboardHandler,
+    ContextManager,
+    KeyboardShortcut,
+    ShortcutContext,
+)
 from src.components.keyboard_shortcuts import create_keyboard_shortcuts_ui
 from src.components.settings import create_settings_tab
 
@@ -77,10 +82,12 @@ def create_main_ui() -> gr.Blocks:
             shortcuts_toggle = gr.Checkbox(
                 label="Enable Keyboard Shortcuts",
                 value=True,
-                elem_id="shortcuts-toggle"
+                elem_id="shortcuts-toggle",
             )
 
-        gr.Markdown("Test AI agents across multiple models and get personalized recommendations.")
+        gr.Markdown(
+            "Test AI agents across multiple models and get personalized recommendations."
+        )
 
         # Initialize tab selection state for context management
         active_tab_state = gr.State(value="agent_testing")
@@ -93,7 +100,9 @@ def create_main_ui() -> gr.Blocks:
 
                 gr.Markdown("### Agent Configuration & Testing")
                 gr.Markdown("*Agent testing interface would be embedded here*")
-                gr.Markdown("*(Note: Full integration requires refactoring app.py to use components)*")
+                gr.Markdown(
+                    "*(Note: Full integration requires refactoring app.py to use components)*"
+                )
 
             with gr.TabItem("🎯 Model Matchmaker", id="model_matchmaker"):
                 # Create the model matchmaker tab
@@ -111,8 +120,7 @@ def create_main_ui() -> gr.Blocks:
 
         # Embed keyboard shortcuts UI components
         shortcuts_ui = create_keyboard_shortcuts_ui(
-            keyboard_handler=keyboard_handler,
-            context_manager=context_manager
+            keyboard_handler=keyboard_handler, context_manager=context_manager
         )
 
         # Setup keyboard event handling and action connections
@@ -124,7 +132,7 @@ def create_main_ui() -> gr.Blocks:
             shortcuts_toggle=shortcuts_toggle,
             shortcuts_enabled=shortcuts_enabled,
             active_tab_state=active_tab_state,
-            shortcut_indicators=shortcut_indicators
+            shortcut_indicators=shortcut_indicators,
         )
 
     return main_interface
@@ -137,6 +145,7 @@ def create_shortcut_indicator_bar() -> gr.HTML:
         HTML component displaying current context shortcuts
     """
     from src.components.keyboard_shortcuts import create_shortcut_indicator_bar
+
     return create_shortcut_indicator_bar()
 
 
@@ -148,7 +157,7 @@ def setup_keyboard_integration(
     shortcuts_toggle: gr.Checkbox,
     shortcuts_enabled: gr.State,
     active_tab_state: gr.State,
-    shortcut_indicators: gr.HTML
+    shortcut_indicators: gr.HTML,
 ) -> None:
     """Setup keyboard event handling and action connections."""
 
@@ -160,25 +169,21 @@ def setup_keyboard_integration(
         fn=None,
         inputs=None,
         outputs=None,
-        js=setup_global_keyboard_listener_js(keyboard_handler)
+        js=setup_global_keyboard_listener_js(keyboard_handler),
     )
 
     # Handle tab changes for context updates
     main_tabs.select(
         fn=update_active_tab_context,
         inputs=[active_tab_state],
-        outputs=[active_tab_state, shortcut_indicators]
-    ).then(
-        fn=context_manager.update_context,
-        inputs=[active_tab_state],
-        outputs=[]
-    )
+        outputs=[active_tab_state, shortcut_indicators],
+    ).then(fn=context_manager.update_context, inputs=[active_tab_state], outputs=[])
 
     # Handle shortcuts toggle
     shortcuts_toggle.change(
         fn=toggle_shortcuts_enabled,
         inputs=[shortcuts_enabled],
-        outputs=[shortcuts_enabled]
+        outputs=[shortcuts_enabled],
     )
 
     # Connect shortcut actions to UI components
@@ -186,7 +191,7 @@ def setup_keyboard_integration(
         keyboard_handler=keyboard_handler,
         main_tabs=main_tabs,
         context_manager=context_manager,
-        shortcuts_enabled=shortcuts_enabled
+        shortcuts_enabled=shortcuts_enabled,
     )
 
 
@@ -201,7 +206,7 @@ def register_tab_shortcuts(keyboard_handler: KeyboardHandler) -> None:
             description="Navigate to Agent Testing tab",
             key_combination=["ctrl", "1"],
             action="switch_tab_agent_testing",
-            context=["global"]
+            context=["global"],
         ),
         KeyboardShortcut(
             id="switch_to_matchmaker",
@@ -209,7 +214,7 @@ def register_tab_shortcuts(keyboard_handler: KeyboardHandler) -> None:
             description="Navigate to Model Matchmaker tab",
             key_combination=["ctrl", "m"],
             action="switch_tab_model_matchmaker",
-            context=["global"]
+            context=["global"],
         ),
         KeyboardShortcut(
             id="switch_to_cost_optimizer",
@@ -217,7 +222,7 @@ def register_tab_shortcuts(keyboard_handler: KeyboardHandler) -> None:
             description="Navigate to Cost Optimizer tab",
             key_combination=["ctrl", "o"],
             action="switch_tab_cost_optimizer",
-            context=["global"]
+            context=["global"],
         ),
         KeyboardShortcut(
             id="switch_to_settings",
@@ -225,8 +230,8 @@ def register_tab_shortcuts(keyboard_handler: KeyboardHandler) -> None:
             description="Navigate to Settings tab",
             key_combination=["ctrl", ","],
             action="switch_tab_settings",
-            context=["global"]
-        )
+            context=["global"],
+        ),
     ]
 
     # Register each shortcut
@@ -241,14 +246,20 @@ def connect_shortcut_actions(
     keyboard_handler: KeyboardHandler,
     main_tabs: gr.Tabs,
     context_manager: ContextManager,
-    shortcuts_enabled: gr.State
+    shortcuts_enabled: gr.State,
 ) -> Dict[str, Callable]:
     """Connect keyboard shortcut actions to UI handlers."""
 
     action_handlers = {
-        "switch_tab_agent_testing": lambda params=None: switch_to_tab(main_tabs, "agent_testing"),
-        "switch_tab_model_matchmaker": lambda params=None: switch_to_tab(main_tabs, "model_matchmaker"),
-        "switch_tab_cost_optimizer": lambda params=None: switch_to_tab(main_tabs, "cost_optimizer"),
+        "switch_tab_agent_testing": lambda params=None: switch_to_tab(
+            main_tabs, "agent_testing"
+        ),
+        "switch_tab_model_matchmaker": lambda params=None: switch_to_tab(
+            main_tabs, "model_matchmaker"
+        ),
+        "switch_tab_cost_optimizer": lambda params=None: switch_to_tab(
+            main_tabs, "cost_optimizer"
+        ),
         "switch_tab_settings": lambda params=None: switch_to_tab(main_tabs, "settings"),
         "focus_search": lambda params=None: focus_search_input(),
         "new_conversation": lambda params=None: start_new_conversation(),
@@ -260,7 +271,7 @@ def connect_shortcut_actions(
         "cancel_streaming": lambda params=None: cancel_streaming_response(),
         "send_message": lambda params=None: send_message(),
         "navigate_history_up": lambda params=None: navigate_message_history("up"),
-        "navigate_history_down": lambda params=None: navigate_message_history("down")
+        "navigate_history_down": lambda params=None: navigate_message_history("down"),
     }
 
     # In real implementation, these would be connected via Gradio events
@@ -426,6 +437,7 @@ def render_shortcut_indicators_html(available_shortcuts: List[KeyboardShortcut])
         HTML string with shortcut badges
     """
     from src.components.keyboard_shortcuts import render_shortcut_indicators_html
+
     return render_shortcut_indicators_html(available_shortcuts)
 
 

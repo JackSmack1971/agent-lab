@@ -13,127 +13,127 @@ import logging
 
 # Constants for platform mappings
 PLATFORM_MAPPINGS = {
-    'mac': {'ctrl': 'meta', 'alt': 'option'},
-    'windows': {'meta': 'ctrl'},
-    'linux': {'meta': 'ctrl'}
+    "mac": {"ctrl": "meta", "alt": "option"},
+    "windows": {"meta": "ctrl"},
+    "linux": {"meta": "ctrl"},
 }
 
 # Browser reserved shortcuts to avoid
 BROWSER_RESERVED = {
-    'windows': {'ctrl+t', 'ctrl+w', 'ctrl+r', 'ctrl+n', 'f5'},
-    'mac': {'meta+t', 'meta+w', 'meta+r', 'meta+n', 'meta+q'},
-    'linux': {'ctrl+t', 'ctrl+w', 'ctrl+r', 'ctrl+n', 'f5'}
+    "windows": {"ctrl+t", "ctrl+w", "ctrl+r", "ctrl+n", "f5"},
+    "mac": {"meta+t", "meta+w", "meta+r", "meta+n", "meta+q"},
+    "linux": {"ctrl+t", "ctrl+w", "ctrl+r", "ctrl+n", "f5"},
 }
 
 # Default shortcut mappings
 DEFAULT_SHORTCUTS = [
     {
-        'id': 'open_matchmaker',
-        'name': 'Open Model Matchmaker',
-        'description': 'Navigate to Model Matchmaker tab',
-        'key_combination': ['ctrl', 'm'],
-        'action': 'open_matchmaker',
-        'context': ['global'],
-        'platform_overrides': {'mac': ['meta', 'm']}
+        "id": "open_matchmaker",
+        "name": "Open Model Matchmaker",
+        "description": "Navigate to Model Matchmaker tab",
+        "key_combination": ["ctrl", "m"],
+        "action": "open_matchmaker",
+        "context": ["global"],
+        "platform_overrides": {"mac": ["meta", "m"]},
     },
     {
-        'id': 'focus_search',
-        'name': 'Focus Search',
-        'description': 'Focus on search/command palette',
-        'key_combination': ['ctrl', 'k'],
-        'action': 'focus_search',
-        'context': ['global'],
-        'platform_overrides': {'mac': ['meta', 'k']}
+        "id": "focus_search",
+        "name": "Focus Search",
+        "description": "Focus on search/command palette",
+        "key_combination": ["ctrl", "k"],
+        "action": "focus_search",
+        "context": ["global"],
+        "platform_overrides": {"mac": ["meta", "k"]},
     },
     {
-        'id': 'new_conversation',
-        'name': 'New Conversation',
-        'description': 'Start a new conversation',
-        'key_combination': ['ctrl', 'n'],
-        'action': 'new_conversation',
-        'context': ['global'],
-        'platform_overrides': {'mac': ['meta', 'n']}
+        "id": "new_conversation",
+        "name": "New Conversation",
+        "description": "Start a new conversation",
+        "key_combination": ["ctrl", "n"],
+        "action": "new_conversation",
+        "context": ["global"],
+        "platform_overrides": {"mac": ["meta", "n"]},
     },
     {
-        'id': 'save_session',
-        'name': 'Save Session',
-        'description': 'Save current session',
-        'key_combination': ['ctrl', 's'],
-        'action': 'save_session',
-        'context': ['global'],
-        'platform_overrides': {'mac': ['meta', 's']}
+        "id": "save_session",
+        "name": "Save Session",
+        "description": "Save current session",
+        "key_combination": ["ctrl", "s"],
+        "action": "save_session",
+        "context": ["global"],
+        "platform_overrides": {"mac": ["meta", "s"]},
     },
     {
-        'id': 'open_settings',
-        'name': 'Open Settings',
-        'description': 'Open application settings',
-        'key_combination': ['ctrl', ','],
-        'action': 'open_settings',
-        'context': ['global'],
-        'platform_overrides': {'mac': ['meta', ',']}
+        "id": "open_settings",
+        "name": "Open Settings",
+        "description": "Open application settings",
+        "key_combination": ["ctrl", ","],
+        "action": "open_settings",
+        "context": ["global"],
+        "platform_overrides": {"mac": ["meta", ","]},
     },
     {
-        'id': 'show_help',
-        'name': 'Show Keyboard Shortcuts Help',
-        'description': 'Display keyboard shortcuts help',
-        'key_combination': ['ctrl', '/'],
-        'action': 'show_help',
-        'context': ['global'],
-        'platform_overrides': {'mac': ['meta', '/']}
+        "id": "show_help",
+        "name": "Show Keyboard Shortcuts Help",
+        "description": "Display keyboard shortcuts help",
+        "key_combination": ["ctrl", "/"],
+        "action": "show_help",
+        "context": ["global"],
+        "platform_overrides": {"mac": ["meta", "/"]},
     },
     {
-        'id': 'toggle_battle_mode',
-        'name': 'Toggle Battle Mode',
-        'description': 'Enable or disable battle mode',
-        'key_combination': ['ctrl', 'b'],
-        'action': 'toggle_battle_mode',
-        'context': ['global'],
-        'platform_overrides': {'mac': ['meta', 'b']}
+        "id": "toggle_battle_mode",
+        "name": "Toggle Battle Mode",
+        "description": "Enable or disable battle mode",
+        "key_combination": ["ctrl", "b"],
+        "action": "toggle_battle_mode",
+        "context": ["global"],
+        "platform_overrides": {"mac": ["meta", "b"]},
     },
     {
-        'id': 'export_conversation',
-        'name': 'Export Conversation',
-        'description': 'Export current conversation',
-        'key_combination': ['ctrl', 'e'],
-        'action': 'export_conversation',
-        'context': ['global'],
-        'platform_overrides': {'mac': ['meta', 'e']}
+        "id": "export_conversation",
+        "name": "Export Conversation",
+        "description": "Export current conversation",
+        "key_combination": ["ctrl", "e"],
+        "action": "export_conversation",
+        "context": ["global"],
+        "platform_overrides": {"mac": ["meta", "e"]},
     },
     {
-        'id': 'cancel_streaming',
-        'name': 'Cancel Streaming Response',
-        'description': 'Cancel active streaming response',
-        'key_combination': ['escape'],
-        'action': 'cancel_streaming',
-        'context': ['global', 'streaming_safe']
+        "id": "cancel_streaming",
+        "name": "Cancel Streaming Response",
+        "description": "Cancel active streaming response",
+        "key_combination": ["escape"],
+        "action": "cancel_streaming",
+        "context": ["global", "streaming_safe"],
     },
     {
-        'id': 'send_message',
-        'name': 'Send Message',
-        'description': 'Send the current message',
-        'key_combination': ['ctrl', 'enter'],
-        'action': 'send_message',
-        'context': ['input_safe'],
-        'platform_overrides': {'mac': ['meta', 'enter']}
+        "id": "send_message",
+        "name": "Send Message",
+        "description": "Send the current message",
+        "key_combination": ["ctrl", "enter"],
+        "action": "send_message",
+        "context": ["input_safe"],
+        "platform_overrides": {"mac": ["meta", "enter"]},
     },
     {
-        'id': 'navigate_history_up',
-        'name': 'Navigate Message History Up',
-        'description': 'Navigate to previous message in history',
-        'key_combination': ['ctrl', 'arrowup'],
-        'action': 'navigate_history_up',
-        'context': ['input_safe'],
-        'platform_overrides': {'mac': ['meta', 'arrowup']}
+        "id": "navigate_history_up",
+        "name": "Navigate Message History Up",
+        "description": "Navigate to previous message in history",
+        "key_combination": ["ctrl", "arrowup"],
+        "action": "navigate_history_up",
+        "context": ["input_safe"],
+        "platform_overrides": {"mac": ["meta", "arrowup"]},
     },
     {
-        'id': 'navigate_history_down',
-        'name': 'Navigate Message History Down',
-        'description': 'Navigate to next message in history',
-        'key_combination': ['ctrl', 'arrowdown'],
-        'action': 'navigate_history_down',
-        'context': ['input_safe'],
-        'platform_overrides': {'mac': ['meta', 'arrowdown']}
-    }
+        "id": "navigate_history_down",
+        "name": "Navigate Message History Down",
+        "description": "Navigate to next message in history",
+        "key_combination": ["ctrl", "arrowdown"],
+        "action": "navigate_history_down",
+        "context": ["input_safe"],
+        "platform_overrides": {"mac": ["meta", "arrowdown"]},
+    },
 ]
 
 # Rate limiting constants
@@ -156,6 +156,7 @@ class KeyboardShortcut(BaseModel):
         platform_overrides: Platform-specific key combinations.
         enabled: Whether the shortcut is currently enabled.
     """
+
     id: str = Field(..., min_length=1)
     name: str = Field(..., min_length=1)
     description: str = Field(..., min_length=1)
@@ -190,6 +191,7 @@ class ShortcutContext(BaseModel):
         streaming_active: Whether streaming response is active.
         available_actions: List of currently available actions.
     """
+
     active_tab: str = ""
     focused_element: str = ""
     modal_open: bool = False
@@ -211,6 +213,7 @@ class ShortcutEvent(BaseModel):
         context: Current UI context.
         timestamp: Event timestamp for rate limiting.
     """
+
     key: str = Field(..., min_length=1)
     ctrl_key: bool = False
     meta_key: bool = False
@@ -223,20 +226,20 @@ class ShortcutEvent(BaseModel):
     def to_combination(self) -> List[str]:
         """Convert event to key combination with SORTED modifiers."""
         combination = []
-        
+
         # Add modifiers in SORTED order: ctrl, meta, alt, shift
         if self.ctrl_key:
-            combination.append('ctrl')
+            combination.append("ctrl")
         if self.meta_key:
-            combination.append('meta')
+            combination.append("meta")
         if self.alt_key:
-            combination.append('alt')
+            combination.append("alt")
         if self.shift_key:
-            combination.append('shift')
-        
+            combination.append("shift")
+
         # Add main key (lowercase)
         combination.append(self.key.lower())
-        
+
         return combination
 
 
@@ -255,12 +258,12 @@ class PlatformDetector:
         """
         try:
             system = platform.system().lower()
-            if system == 'darwin':
-                return 'mac'
-            elif system == 'windows':
-                return 'windows'
-            elif system == 'linux':
-                return 'linux'
+            if system == "darwin":
+                return "mac"
+            elif system == "windows":
+                return "windows"
+            elif system == "linux":
+                return "linux"
             else:
                 raise ValueError(f"Unsupported platform: {system}")
         except ValidationError as e:
@@ -334,7 +337,9 @@ class ContextManager:
             else:
                 logger.warning(f"Unknown context attribute: {key}")
 
-    def is_shortcut_available(self, shortcut: KeyboardShortcut, context: ShortcutContext) -> bool:
+    def is_shortcut_available(
+        self, shortcut: KeyboardShortcut, context: ShortcutContext
+    ) -> bool:
         """Check if shortcut is available in context.
 
         Args:
@@ -349,19 +354,22 @@ class ContextManager:
             return False
 
         # Input restrictions check for 'input_safe' flag
-        if context.input_active and 'input_safe' not in shortcut.context:
+        if context.input_active and "input_safe" not in shortcut.context:
             return False
 
         # Streaming restrictions check for 'streaming_safe' flag
-        if context.streaming_active and 'streaming_safe' not in shortcut.context:
+        if context.streaming_active and "streaming_safe" not in shortcut.context:
             return False
 
         # Available actions check: if list is non-empty, action must be in it
-        if context.available_actions is not None and shortcut.action not in context.available_actions:
+        if (
+            context.available_actions is not None
+            and shortcut.action not in context.available_actions
+        ):
             return False
 
         # Global shortcuts
-        if 'global' in shortcut.context:
+        if "global" in shortcut.context:
             return True
 
         # Tab-specific shortcuts
@@ -369,7 +377,7 @@ class ContextManager:
             return True
 
         # Context flags (input_safe, streaming_safe, etc.)
-        context_flags = {'input_safe', 'streaming_safe'}
+        context_flags = {"input_safe", "streaming_safe"}
         if shortcut.context and any(flag in context_flags for flag in shortcut.context):
             return True
 
@@ -380,8 +388,11 @@ class ContextManager:
 class KeyboardHandler:
     """Central service for keyboard shortcut management."""
 
-    def __init__(self, platform_detector: Optional[PlatformDetector] = None,
-                 context_manager: Optional[ContextManager] = None):
+    def __init__(
+        self,
+        platform_detector: Optional[PlatformDetector] = None,
+        context_manager: Optional[ContextManager] = None,
+    ):
         """Initialize keyboard handler.
 
         Args:
@@ -419,7 +430,9 @@ class KeyboardHandler:
             # Check for conflicts
             conflicts = self.check_conflicts(shortcut)
             if conflicts:
-                logger.warning(f"Conflicts detected for shortcut {shortcut.id}: {conflicts}")
+                logger.warning(
+                    f"Conflicts detected for shortcut {shortcut.id}: {conflicts}"
+                )
                 # Allow registration but log conflicts
 
             # Normalize combination for current platform
@@ -499,7 +512,8 @@ class KeyboardHandler:
             # Find matching shortcut
             combination = event.to_combination()
             normalized_combination = self._platform_detector.normalize_combination(
-                combination, event.platform)
+                combination, event.platform
+            )
 
             for shortcut in self._shortcuts.values():
                 if not shortcut.enabled:
@@ -520,7 +534,9 @@ class KeyboardHandler:
             logger.error(f"Event processing failed: {e}")
             return None
 
-    def get_available_shortcuts(self, context: ShortcutContext) -> List[KeyboardShortcut]:
+    def get_available_shortcuts(
+        self, context: ShortcutContext
+    ) -> List[KeyboardShortcut]:
         """Get shortcuts available in current context.
 
         Args:
@@ -532,7 +548,9 @@ class KeyboardHandler:
         try:
             available = []
             for shortcut in self._shortcuts.values():
-                if shortcut.enabled and self._context_manager.is_shortcut_available(shortcut, context):
+                if shortcut.enabled and self._context_manager.is_shortcut_available(
+                    shortcut, context
+                ):
                     available.append(shortcut)
             return available
         except ValidationError as e:
@@ -556,7 +574,7 @@ class KeyboardHandler:
             combo = shortcut.get_normalized_combination(self._platform)
 
             # Check browser conflicts
-            combo_str = '+'.join(sorted(combo))
+            combo_str = "+".join(sorted(combo))
             if combo_str in BROWSER_RESERVED.get(self._platform, set()):
                 conflicts.append(f"Browser reserved: {combo_str}")
 
@@ -564,7 +582,9 @@ class KeyboardHandler:
             for existing in self._shortcuts.values():
                 existing_combo = existing.get_normalized_combination(self._platform)
                 if existing_combo == combo and existing.id != shortcut.id:
-                    conflicts.append(f"Application conflict with {existing.id}: {combo_str}")
+                    conflicts.append(
+                        f"Application conflict with {existing.id}: {combo_str}"
+                    )
 
             return conflicts
 
@@ -588,8 +608,7 @@ class KeyboardHandler:
 
         # Clean old events
         self._event_history = [
-            t for t in self._event_history
-            if current_time - t <= RATE_LIMIT_WINDOW
+            t for t in self._event_history if current_time - t <= RATE_LIMIT_WINDOW
         ]
 
         # Check rate

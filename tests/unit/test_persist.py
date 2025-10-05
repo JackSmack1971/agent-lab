@@ -26,7 +26,7 @@ class TestPersist:
     def test_init_csv_creates_file_with_headers(self, tmp_path: Path) -> None:
         """Test init_csv creates CSV file with correct headers."""
         csv_file = tmp_path / "test_runs.csv"
-        with patch('services.persist.CSV_PATH', csv_file):
+        with patch("services.persist.CSV_PATH", csv_file):
             init_csv()
 
         assert csv_file.exists()
@@ -40,12 +40,12 @@ class TestPersist:
         csv_file = tmp_path / "test_runs.csv"
 
         # First call
-        with patch('services.persist.CSV_PATH', csv_file):
+        with patch("services.persist.CSV_PATH", csv_file):
             init_csv()
         first_content = csv_file.read_text(encoding="utf-8")
 
         # Second call
-        with patch('services.persist.CSV_PATH', csv_file):
+        with patch("services.persist.CSV_PATH", csv_file):
             init_csv()
         second_content = csv_file.read_text(encoding="utf-8")
 
@@ -71,12 +71,12 @@ class TestPersist:
             aborted=False,
         )
 
-        with patch('services.persist.CSV_PATH', csv_file):
+        with patch("services.persist.CSV_PATH", csv_file):
             append_run(record)
 
         assert csv_file.exists()
         content = csv_file.read_text(encoding="utf-8")
-        lines = content.strip().split('\n')
+        lines = content.strip().split("\n")
         assert len(lines) == 2  # header + 1 data row
         # Check that all expected fields are present in the data row
         data_line = lines[1]
@@ -102,7 +102,7 @@ class TestPersist:
             aborted=False,
         )
 
-        with patch('services.persist.CSV_PATH', csv_file):
+        with patch("services.persist.CSV_PATH", csv_file):
             append_run(record)
 
         content = csv_file.read_text(encoding="utf-8")
@@ -129,11 +129,11 @@ class TestPersist:
         )
 
         # Write record
-        with patch('services.persist.CSV_PATH', csv_file):
+        with patch("services.persist.CSV_PATH", csv_file):
             append_run(original_record)
 
         # Read it back
-        with patch('services.persist.CSV_PATH', csv_file):
+        with patch("services.persist.CSV_PATH", csv_file):
             result = load_recent_runs(limit=1)
 
         assert len(result) == 1
@@ -164,14 +164,14 @@ class TestPersist:
             aborted=False,
         )
 
-        with patch('services.persist.CSV_PATH', csv_file):
+        with patch("services.persist.CSV_PATH", csv_file):
             append_run(valid_record)
 
         # Manually add a malformed row (this would cause issues)
         with csv_file.open("a", newline="", encoding="utf-8") as f:
             f.write("malformed,row,data\n")
 
-        with patch('services.persist.CSV_PATH', csv_file):
+        with patch("services.persist.CSV_PATH", csv_file):
             # This should handle the malformed row gracefully
             result = load_recent_runs(limit=10)
 
@@ -225,7 +225,9 @@ class TestPersist:
         assert _coerce_int(value) == int(value)
 
     @given(st.text())
-    def test_coerce_int_property_invalid_strings_default_to_zero(self, value: str) -> None:
+    def test_coerce_int_property_invalid_strings_default_to_zero(
+        self, value: str
+    ) -> None:
         """Property test: _coerce_int returns 0 for invalid strings."""
         if value in ("", None):
             assert _coerce_int(value) == 0
@@ -247,9 +249,12 @@ class TestPersist:
         assert _coerce_float(value) == float(value)
 
     @given(st.text())
-    def test_coerce_float_property_invalid_strings_default_to_zero(self, value: str) -> None:
+    def test_coerce_float_property_invalid_strings_default_to_zero(
+        self, value: str
+    ) -> None:
         """Property test: _coerce_float returns 0.0 for invalid strings."""
         import math
+
         if value in ("", None):
             assert _coerce_float(value) == 0.0
         else:

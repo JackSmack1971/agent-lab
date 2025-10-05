@@ -170,7 +170,7 @@ class TestGetRecommendationsAsync:
     """Test the async recommendation fetching function."""
 
     @pytest.mark.asyncio
-    @patch('src.components.model_matchmaker.analyze_use_case')
+    @patch("src.components.model_matchmaker.analyze_use_case")
     async def test_get_recommendations_success(self, mock_analyze):
         """Test successful recommendation fetching."""
         # Mock the recommendation service
@@ -180,7 +180,9 @@ class TestGetRecommendationsAsync:
                     model_id="openai/gpt-4o",
                     reasoning="Best model",
                     confidence_score=0.9,
-                    suggested_config=SuggestedConfig(temperature=0.7, top_p=0.9, max_tokens=1000),
+                    suggested_config=SuggestedConfig(
+                        temperature=0.7, top_p=0.9, max_tokens=1000
+                    ),
                     estimated_cost_per_1k=0.01,
                 )
             ],
@@ -227,7 +229,7 @@ class TestGetRecommendationsAsync:
         assert "number" in error_msg
 
     @pytest.mark.asyncio
-    @patch('src.components.model_matchmaker.analyze_use_case')
+    @patch("src.components.model_matchmaker.analyze_use_case")
     async def test_get_recommendations_service_error(self, mock_analyze):
         """Test service error handling."""
         mock_analyze.side_effect = ValueError("Service unavailable")
@@ -243,7 +245,7 @@ class TestGetRecommendationsAsync:
         assert "Failed to get recommendations" in error_msg
 
     @pytest.mark.asyncio
-    @patch('src.components.model_matchmaker.analyze_use_case')
+    @patch("src.components.model_matchmaker.analyze_use_case")
     async def test_get_recommendations_with_constraints(self, mock_analyze):
         """Test recommendations with all constraints provided."""
         mock_response = RecommendationResponse(
@@ -252,7 +254,9 @@ class TestGetRecommendationsAsync:
                     model_id="openai/gpt-3.5-turbo",
                     reasoning="Fast and affordable",
                     confidence_score=0.85,
-                    suggested_config=SuggestedConfig(temperature=0.7, top_p=0.9, max_tokens=1000),
+                    suggested_config=SuggestedConfig(
+                        temperature=0.7, top_p=0.9, max_tokens=1000
+                    ),
                     estimated_cost_per_1k=0.002,
                 )
             ],
@@ -280,7 +284,7 @@ class TestGetRecommendationsAsync:
 class TestComponentIntegration:
     """Test component integration aspects."""
 
-    @patch('src.components.model_matchmaker.create_model_matchmaker_tab')
+    @patch("src.components.model_matchmaker.create_model_matchmaker_tab")
     def test_create_model_matchmaker_tab_basic(self, mock_create):
         """Test basic tab creation."""
         mock_tab = MagicMock()
@@ -293,7 +297,7 @@ class TestComponentIntegration:
         assert result == mock_tab
         mock_create.assert_called_once_with()
 
-    @patch('src.components.model_matchmaker.create_model_matchmaker_tab')
+    @patch("src.components.model_matchmaker.create_model_matchmaker_tab")
     def test_create_model_matchmaker_tab_with_callback(self, mock_create):
         """Test tab creation with callback."""
         mock_tab = MagicMock()

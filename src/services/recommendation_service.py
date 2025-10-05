@@ -60,7 +60,9 @@ Response format:
 """.strip()
 
 # Global cache for recommendations
-_cached_recommendations: Optional[dict[str, tuple[RecommendationResponse, datetime]]] = None
+_cached_recommendations: Optional[
+    dict[str, tuple[RecommendationResponse, datetime]]
+] = None
 
 
 def _build_system_prompt(use_case: UseCaseInput) -> str:
@@ -85,11 +87,21 @@ def _build_system_prompt(use_case: UseCaseInput) -> str:
     if use_case.min_speed is not None:
         constraints.append(f"- Minimum speed: {use_case.min_speed} tokens/second")
     if use_case.context_length_required is not None:
-        constraints.append(f"- Minimum context length: {use_case.context_length_required} tokens")
+        constraints.append(
+            f"- Minimum context length: {use_case.context_length_required} tokens"
+        )
 
-    cost_constraint = constraints[0] if len(constraints) > 0 else "- No cost limit specified"
-    speed_constraint = constraints[1] if len(constraints) > 1 else "- No speed requirement specified"
-    context_constraint = constraints[2] if len(constraints) > 2 else "- No context length requirement specified"
+    cost_constraint = (
+        constraints[0] if len(constraints) > 0 else "- No cost limit specified"
+    )
+    speed_constraint = (
+        constraints[1] if len(constraints) > 1 else "- No speed requirement specified"
+    )
+    context_constraint = (
+        constraints[2]
+        if len(constraints) > 2
+        else "- No context length requirement specified"
+    )
 
     return RECOMMENDATION_SYSTEM_PROMPT.format(
         available_models=available_models,
@@ -148,7 +160,9 @@ def _call_gpt4_for_recommendations(use_case: UseCaseInput) -> RecommendationResp
         if not recommendations:
             raise ValueError("No valid recommendations received from GPT-4")
 
-        analysis_summary = parsed_response.get("analysis_summary", "Recommendations generated based on your use case.")
+        analysis_summary = parsed_response.get(
+            "analysis_summary", "Recommendations generated based on your use case."
+        )
 
         return RecommendationResponse(
             recommendations=recommendations,
@@ -170,31 +184,51 @@ def _get_fallback_recommendations(use_case: UseCaseInput) -> RecommendationRespo
 
     if "fast" in description_lower or "speed" in description_lower:
         # Recommend GPT-3.5 Turbo for speed
-        recommendations.append(ModelRecommendation(
-            model_id="openai/gpt-3.5-turbo",
-            reasoning="GPT-3.5 Turbo offers excellent speed and cost efficiency, ideal for fast response requirements.",
-            confidence_score=0.85,
-            suggested_config=SuggestedConfig(temperature=0.7, top_p=0.9, max_tokens=1000),
-            estimated_cost_per_1k=0.002,
-        ))
-    elif "quality" in description_lower or "best" in description_lower or "high" in description_lower:
+        recommendations.append(
+            ModelRecommendation(
+                model_id="openai/gpt-3.5-turbo",
+                reasoning="GPT-3.5 Turbo offers excellent speed and cost efficiency, ideal for fast response requirements.",
+                confidence_score=0.85,
+                suggested_config=SuggestedConfig(
+                    temperature=0.7, top_p=0.9, max_tokens=1000
+                ),
+                estimated_cost_per_1k=0.002,
+            )
+        )
+    elif (
+        "quality" in description_lower
+        or "best" in description_lower
+        or "high" in description_lower
+    ):
         # Recommend GPT-4 for quality
-        recommendations.append(ModelRecommendation(
-            model_id="openai/gpt-4o",
-            reasoning="GPT-4o provides the highest quality responses with advanced reasoning capabilities.",
-            confidence_score=0.95,
-            suggested_config=SuggestedConfig(temperature=0.7, top_p=0.9, max_tokens=2000),
-            estimated_cost_per_1k=0.01,
-        ))
-    elif "long" in description_lower or "document" in description_lower or "context" in description_lower:
+        recommendations.append(
+            ModelRecommendation(
+                model_id="openai/gpt-4o",
+                reasoning="GPT-4o provides the highest quality responses with advanced reasoning capabilities.",
+                confidence_score=0.95,
+                suggested_config=SuggestedConfig(
+                    temperature=0.7, top_p=0.9, max_tokens=2000
+                ),
+                estimated_cost_per_1k=0.01,
+            )
+        )
+    elif (
+        "long" in description_lower
+        or "document" in description_lower
+        or "context" in description_lower
+    ):
         # Recommend Claude for long context
-        recommendations.append(ModelRecommendation(
-            model_id="anthropic/claude-3-opus",
-            reasoning="Claude 3 Opus has excellent context handling and is suitable for long document analysis.",
-            confidence_score=0.90,
-            suggested_config=SuggestedConfig(temperature=0.3, top_p=0.9, max_tokens=4000),
-            estimated_cost_per_1k=0.015,
-        ))
+        recommendations.append(
+            ModelRecommendation(
+                model_id="anthropic/claude-3-opus",
+                reasoning="Claude 3 Opus has excellent context handling and is suitable for long document analysis.",
+                confidence_score=0.90,
+                suggested_config=SuggestedConfig(
+                    temperature=0.3, top_p=0.9, max_tokens=4000
+                ),
+                estimated_cost_per_1k=0.015,
+            )
+        )
 
     # Always add default recommendations to fill up to 3
     default_recommendations = [
@@ -202,21 +236,27 @@ def _get_fallback_recommendations(use_case: UseCaseInput) -> RecommendationRespo
             model_id="openai/gpt-4o-mini",
             reasoning="Balanced model offering good quality at reasonable cost.",
             confidence_score=0.80,
-            suggested_config=SuggestedConfig(temperature=0.7, top_p=0.9, max_tokens=1000),
+            suggested_config=SuggestedConfig(
+                temperature=0.7, top_p=0.9, max_tokens=1000
+            ),
             estimated_cost_per_1k=0.00015,
         ),
         ModelRecommendation(
             model_id="anthropic/claude-3-haiku",
             reasoning="Fast and efficient model for general use cases.",
             confidence_score=0.75,
-            suggested_config=SuggestedConfig(temperature=0.7, top_p=0.9, max_tokens=1000),
+            suggested_config=SuggestedConfig(
+                temperature=0.7, top_p=0.9, max_tokens=1000
+            ),
             estimated_cost_per_1k=0.00025,
         ),
         ModelRecommendation(
             model_id="meta-llama/llama-3-70b-instruct",
             reasoning="Open-source model with good performance for various tasks.",
             confidence_score=0.70,
-            suggested_config=SuggestedConfig(temperature=0.7, top_p=0.9, max_tokens=1000),
+            suggested_config=SuggestedConfig(
+                temperature=0.7, top_p=0.9, max_tokens=1000
+            ),
             estimated_cost_per_1k=0.002,
         ),
     ]

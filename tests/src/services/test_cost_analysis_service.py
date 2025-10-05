@@ -139,11 +139,15 @@ class TestCostAnalysisService:
         assert alerts[0].severity == AlertSeverity.HIGH
         assert "5x higher" in alerts[0].message
 
-    def test_generate_cost_alerts_budget_warning(self, sample_run_records: list[RunRecord]):
+    def test_generate_cost_alerts_budget_warning(
+        self, sample_run_records: list[RunRecord]
+    ):
         """Test budget warning alert generation."""
         current_cost = 0.055
 
-        with patch('src.services.cost_analysis_service.get_user_budget', return_value=0.05):
+        with patch(
+            "src.services.cost_analysis_service.get_user_budget", return_value=0.05
+        ):
             alerts = generate_cost_alerts(current_cost, 0.02, sample_run_records)
 
             # Should have budget warning (current_cost > budget * 0.8)
@@ -152,7 +156,9 @@ class TestCostAnalysisService:
             assert AlertType.BUDGET_WARNING in alert_types
             assert len(alerts) == 1
 
-    def test_generate_optimization_suggestions_context(self, sample_run_records: list[RunRecord]):
+    def test_generate_optimization_suggestions_context(
+        self, sample_run_records: list[RunRecord]
+    ):
         """Test context summarization suggestion generation."""
         # Create records with high token usage
         high_usage_records = [
@@ -177,13 +183,19 @@ class TestCostAnalysisService:
 
         assert len(suggestions) >= 1
         context_suggestion = next(
-            (s for s in suggestions if s.suggestion_type == SuggestionType.REDUCE_CONTEXT),
-            None
+            (
+                s
+                for s in suggestions
+                if s.suggestion_type == SuggestionType.REDUCE_CONTEXT
+            ),
+            None,
         )
         assert context_suggestion is not None
         assert "summarize" in context_suggestion.description.lower()
 
-    def test_generate_optimization_suggestions_model_switch(self, sample_run_records: list[RunRecord]):
+    def test_generate_optimization_suggestions_model_switch(
+        self, sample_run_records: list[RunRecord]
+    ):
         """Test model switching suggestion generation."""
         # Create records with expensive model usage
         expensive_records = [
@@ -207,8 +219,12 @@ class TestCostAnalysisService:
         suggestions = generate_optimization_suggestions(expensive_records, 0.15)
 
         model_suggestion = next(
-            (s for s in suggestions if s.suggestion_type == SuggestionType.SWITCH_MODEL),
-            None
+            (
+                s
+                for s in suggestions
+                if s.suggestion_type == SuggestionType.SWITCH_MODEL
+            ),
+            None,
         )
         assert model_suggestion is not None
         assert "switch" in model_suggestion.description.lower()
@@ -217,10 +233,10 @@ class TestCostAnalysisService:
         """Test context usage analysis."""
         stats = analyze_context_usage(sample_run_records)
 
-        assert stats['max_context_length'] == 150  # max of total_tokens
-        assert stats['average_context_length'] == 135.0  # (150 + 120) / 2
-        assert stats['current_cost'] == 0.055
-        assert stats['message_count'] == 2
+        assert stats["max_context_length"] == 150  # max of total_tokens
+        assert stats["average_context_length"] == 135.0  # (150 + 120) / 2
+        assert stats["current_cost"] == 0.055
+        assert stats["message_count"] == 2
 
     def test_detect_query_patterns(self):
         """Test query pattern detection."""
@@ -237,15 +253,15 @@ class TestCostAnalysisService:
         similarity = detect_query_patterns(["Hello"])
         assert similarity == 0.0
 
-    @patch('src.services.cost_analysis_service.get_session_telemetry')
-    @patch('src.services.cost_analysis_service.get_user_from_session')
-    @patch('src.services.cost_analysis_service.get_user_cost_history')
+    @patch("src.services.cost_analysis_service.get_session_telemetry")
+    @patch("src.services.cost_analysis_service.get_user_from_session")
+    @patch("src.services.cost_analysis_service.get_user_cost_history")
     def test_analyze_costs_success(
         self,
         mock_get_history: MagicMock,
         mock_get_user: MagicMock,
         mock_get_telemetry: MagicMock,
-        sample_run_records: list[RunRecord]
+        sample_run_records: list[RunRecord],
     ):
         """Test successful cost analysis."""
         mock_get_telemetry.return_value = sample_run_records
@@ -266,7 +282,7 @@ class TestCostAnalysisService:
         with pytest.raises(ValueError, match="session_id must be a non-empty string"):
             analyze_costs("")
 
-    @patch('src.services.cost_analysis_service.get_session_telemetry')
+    @patch("src.services.cost_analysis_service.get_session_telemetry")
     def test_analyze_costs_no_telemetry(self, mock_get_telemetry: MagicMock):
         """Test cost analysis with no telemetry data."""
         mock_get_telemetry.return_value = []
@@ -274,14 +290,14 @@ class TestCostAnalysisService:
         with pytest.raises(ValueError, match="No telemetry data found"):
             analyze_costs("session_123")
 
-    @patch('src.services.cost_analysis_service.calculate_cost_forecast')
-    @patch('src.services.cost_analysis_service.aggregate_costs_by_period')
-    @patch('src.services.cost_analysis_service.get_user_cost_history_detailed')
+    @patch("src.services.cost_analysis_service.calculate_cost_forecast")
+    @patch("src.services.cost_analysis_service.aggregate_costs_by_period")
+    @patch("src.services.cost_analysis_service.get_user_cost_history_detailed")
     def test_get_cost_trends(
         self,
         mock_get_detailed: MagicMock,
         mock_aggregate: MagicMock,
-        mock_forecast: MagicMock
+        mock_forecast: MagicMock,
     ):
         """Test cost trends retrieval."""
         mock_get_detailed.return_value = {"2024-01-01": [0.10, 0.20]}
@@ -312,7 +328,7 @@ class TestDataModels:
             alert_type=AlertType.HIGH_COST,
             message="🚨 High cost detected",
             severity=AlertSeverity.HIGH,
-            estimated_savings=2.50
+            estimated_savings=2.50,
         )
         assert alert.alert_type == AlertType.HIGH_COST
 
@@ -322,7 +338,7 @@ class TestDataModels:
                 alert_type=AlertType.OPTIMIZATION_OPPORTUNITY,
                 message="Optimization opportunity",
                 severity=AlertSeverity.MEDIUM,
-                estimated_savings=0.0
+                estimated_savings=0.0,
             )
 
     def test_optimization_suggestion_validation(self):
@@ -333,7 +349,7 @@ class TestDataModels:
             description="Switch to cheaper model",
             estimated_savings_percentage=0.80,
             estimated_savings_dollars=1.20,
-            confidence_score=0.75
+            confidence_score=0.75,
         )
         assert suggestion.confidence_score == 0.75
 
@@ -344,7 +360,7 @@ class TestDataModels:
                 description="Too much savings",
                 estimated_savings_percentage=1.50,  # > 100%
                 estimated_savings_dollars=1.20,
-                confidence_score=0.75
+                confidence_score=0.75,
             )
 
         # Invalid low confidence
@@ -354,7 +370,7 @@ class TestDataModels:
                 description="Low confidence",
                 estimated_savings_percentage=0.50,
                 estimated_savings_dollars=1.20,
-                confidence_score=0.05  # < 0.1
+                confidence_score=0.05,  # < 0.1
             )
 
     def test_cost_analysis_validation(self):
@@ -365,7 +381,7 @@ class TestDataModels:
             average_cost=1.00,
             cost_trend=CostTrend.INCREASING,
             alerts=[],
-            suggestions=[]
+            suggestions=[],
         )
         assert analysis.current_cost == 5.00
 
@@ -376,7 +392,7 @@ class TestDataModels:
                 average_cost=1.00,
                 cost_trend=CostTrend.STABLE,
                 alerts=[],
-                suggestions=[]
+                suggestions=[],
             )
 
         # Invalid negative average cost
@@ -386,7 +402,7 @@ class TestDataModels:
                 average_cost=-1.00,
                 cost_trend=CostTrend.STABLE,
                 alerts=[],
-                suggestions=[]
+                suggestions=[],
             )
 
         # Too many alerts
@@ -395,13 +411,16 @@ class TestDataModels:
                 current_cost=5.00,
                 average_cost=1.00,
                 cost_trend=CostTrend.STABLE,
-                alerts=[CostAlert(
-                    alert_type=AlertType.HIGH_COST,
-                    message="Alert",
-                    severity=AlertSeverity.LOW,
-                    estimated_savings=1.0
-                )] * 11,  # 11 alerts > 10 limit
-                suggestions=[]
+                alerts=[
+                    CostAlert(
+                        alert_type=AlertType.HIGH_COST,
+                        message="Alert",
+                        severity=AlertSeverity.LOW,
+                        estimated_savings=1.0,
+                    )
+                ]
+                * 11,  # 11 alerts > 10 limit
+                suggestions=[],
             )
 
         # Too many suggestions
@@ -411,13 +430,16 @@ class TestDataModels:
                 average_cost=1.00,
                 cost_trend=CostTrend.STABLE,
                 alerts=[],
-                suggestions=[OptimizationSuggestion(
-                    suggestion_type=SuggestionType.SWITCH_MODEL,
-                    description="Suggestion",
-                    estimated_savings_percentage=0.1,
-                    estimated_savings_dollars=0.1,
-                    confidence_score=0.5
-                )] * 6  # 6 suggestions > 5 limit
+                suggestions=[
+                    OptimizationSuggestion(
+                        suggestion_type=SuggestionType.SWITCH_MODEL,
+                        description="Suggestion",
+                        estimated_savings_percentage=0.1,
+                        estimated_savings_dollars=0.1,
+                        confidence_score=0.5,
+                    )
+                ]
+                * 6,  # 6 suggestions > 5 limit
             )
 
     def test_cost_analysis_methods(self):
@@ -427,14 +449,14 @@ class TestDataModels:
                 alert_type=AlertType.HIGH_COST,
                 message="🚨 High cost",
                 severity=AlertSeverity.HIGH,
-                estimated_savings=2.0
+                estimated_savings=2.0,
             ),
             CostAlert(
                 alert_type=AlertType.BUDGET_WARNING,
                 message="Budget warning",
                 severity=AlertSeverity.MEDIUM,
-                estimated_savings=1.0
-            )
+                estimated_savings=1.0,
+            ),
         ]
 
         suggestions = [
@@ -443,15 +465,15 @@ class TestDataModels:
                 description="Switch model",
                 estimated_savings_percentage=0.8,
                 estimated_savings_dollars=1.2,
-                confidence_score=0.9
+                confidence_score=0.9,
             ),
             OptimizationSuggestion(
                 suggestion_type=SuggestionType.REDUCE_CONTEXT,
                 description="Reduce context",
                 estimated_savings_percentage=0.5,
                 estimated_savings_dollars=0.8,
-                confidence_score=0.7
-            )
+                confidence_score=0.7,
+            ),
         ]
 
         analysis = CostAnalysis(
@@ -459,7 +481,7 @@ class TestDataModels:
             average_cost=1.00,
             cost_trend=CostTrend.INCREASING,
             alerts=alerts,
-            suggestions=suggestions
+            suggestions=suggestions,
         )
 
         # Test high priority alerts
@@ -482,7 +504,7 @@ class TestDataModels:
             average_cost=1.00,
             cost_trend=CostTrend.STABLE,
             alerts=[],
-            suggestions=[]
+            suggestions=[],
         )
         empty_top = empty_analysis.get_top_suggestions()
         assert len(empty_top) == 0
@@ -494,7 +516,7 @@ class TestDataModels:
                 description="Enable caching",
                 estimated_savings_percentage=0.1,
                 estimated_savings_dollars=0.1,
-                confidence_score=0.2
+                confidence_score=0.2,
             )
         ]
         low_analysis = CostAnalysis(
@@ -502,7 +524,7 @@ class TestDataModels:
             average_cost=1.00,
             cost_trend=CostTrend.STABLE,
             alerts=[],
-            suggestions=low_priority_suggestions
+            suggestions=low_priority_suggestions,
         )
         low_top = low_analysis.get_top_suggestions(3)
         assert len(low_top) == 1
@@ -515,7 +537,7 @@ class TestDataModels:
             description="Switch model",
             estimated_savings_percentage=0.6,  # min(0.6, 0.5) = 0.5
             estimated_savings_dollars=1.2,
-            confidence_score=0.8
+            confidence_score=0.8,
         )
 
         # priority = 0.8 * 0.8 * 0.5 = 0.32
@@ -529,11 +551,11 @@ class TestOptimizationSuggestionHelpers:
     def test_should_suggest_context_summarization(self):
         """Test context summarization suggestion logic."""
         # Should suggest when context is large and cost is high
-        context_stats_large = {'max_context_length': 25000}
+        context_stats_large = {"max_context_length": 25000}
         assert should_suggest_context_summarization(context_stats_large, 2.0) is True
 
         # Should not suggest when context is small
-        context_stats_small = {'max_context_length': 15000}
+        context_stats_small = {"max_context_length": 15000}
         assert should_suggest_context_summarization(context_stats_small, 2.0) is False
 
         # Should not suggest when cost is low
@@ -541,10 +563,7 @@ class TestOptimizationSuggestionHelpers:
 
     def test_calculate_context_savings(self):
         """Test context savings calculation."""
-        context_stats = {
-            'max_context_length': 30000,
-            'current_cost': 3.0
-        }
+        context_stats = {"max_context_length": 30000, "current_cost": 3.0}
         savings_pct, savings_dollars = calculate_context_savings(context_stats)
 
         # Expected: reduction = min(30000 * 0.4, 15000) = 12000
@@ -556,12 +575,12 @@ class TestOptimizationSuggestionHelpers:
     def test_calculate_context_confidence(self):
         """Test context confidence calculation."""
         # High context length
-        context_stats_high = {'max_context_length': 40000}
+        context_stats_high = {"max_context_length": 40000}
         confidence = calculate_context_confidence(context_stats_high)
         assert confidence == 0.9  # 0.6 + (40000/40000) * 0.3 = 0.9
 
         # Low context length
-        context_stats_low = {'max_context_length': 10000}
+        context_stats_low = {"max_context_length": 10000}
         confidence = calculate_context_confidence(context_stats_low)
         assert confidence == 0.675  # 0.6 + (10000/40000) * 0.3 = 0.675
 
@@ -627,7 +646,9 @@ class TestOptimizationSuggestionHelpers:
                 model_list_source="dynamic",
             )
         ]
-        savings_pct, savings_dollars, target_model = analyze_model_switch_opportunity(high_cost_records)
+        savings_pct, savings_dollars, target_model = analyze_model_switch_opportunity(
+            high_cost_records
+        )
         assert savings_pct == 0.8
         assert savings_dollars == 0.16  # 0.20 * 0.8
         assert target_model == "GPT-3.5-Turbo"
@@ -650,7 +671,9 @@ class TestOptimizationSuggestionHelpers:
                 model_list_source="dynamic",
             )
         ]
-        savings_pct, savings_dollars, target_model = analyze_model_switch_opportunity(low_cost_records)
+        savings_pct, savings_dollars, target_model = analyze_model_switch_opportunity(
+            low_cost_records
+        )
         assert savings_pct == 0.0
         assert savings_dollars == 0.0
         assert target_model == ""
@@ -688,7 +711,7 @@ class TestOptimizationSuggestionHelpers:
                 run_notes="Hello world example",
                 streaming=True,
                 model_list_source="dynamic",
-            )
+            ),
         ]
         assert should_suggest_caching(similar_records) is True
 
@@ -715,7 +738,9 @@ class TestOptimizationSuggestionHelpers:
     def test_calculate_caching_savings(self, sample_run_records):
         """Test caching savings calculation."""
         # Mock similar messages for high similarity
-        with patch('src.services.cost_analysis_service.detect_query_patterns', return_value=0.8):
+        with patch(
+            "src.services.cost_analysis_service.detect_query_patterns", return_value=0.8
+        ):
             savings_pct, savings_dollars = calculate_caching_savings(sample_run_records)
             expected_savings_pct = min(0.8 * 0.4, 0.25)  # 0.32, but capped at 0.25
             expected_savings_dollars = 0.055 * expected_savings_pct
@@ -726,7 +751,7 @@ class TestOptimizationSuggestionHelpers:
 class TestDataRetrievalFunctions:
     """Test cases for data retrieval helper functions."""
 
-    @patch('src.services.cost_analysis_service.load_recent_runs')
+    @patch("src.services.cost_analysis_service.load_recent_runs")
     def test_get_session_telemetry(self, mock_load_runs):
         """Test session telemetry retrieval."""
         mock_runs = [
@@ -757,7 +782,7 @@ class TestDataRetrievalFunctions:
         user_id = get_user_from_session("session_123")
         assert user_id == "default_user"
 
-    @patch('src.services.cost_analysis_service.load_recent_runs')
+    @patch("src.services.cost_analysis_service.load_recent_runs")
     def test_get_user_cost_history(self, mock_load_runs):
         """Test user cost history retrieval."""
         mock_runs = [
@@ -777,7 +802,9 @@ class TestDataRetrievalFunctions:
                 model_list_source="dynamic",
             ),
             RunRecord(
-                ts=datetime(2024, 1, 1, 12, 5, 0, tzinfo=timezone.utc),  # Within 5 minutes
+                ts=datetime(
+                    2024, 1, 1, 12, 5, 0, tzinfo=timezone.utc
+                ),  # Within 5 minutes
                 agent_name="TestAgent",
                 model="openai/gpt-4",
                 prompt_tokens=100,
@@ -790,7 +817,7 @@ class TestDataRetrievalFunctions:
                 run_notes="",
                 streaming=True,
                 model_list_source="dynamic",
-            )
+            ),
         ]
         mock_load_runs.return_value = mock_runs
 
@@ -807,7 +834,7 @@ class TestDataRetrievalFunctions:
 class TestTrendAnalysisFunctions:
     """Test cases for trend analysis functions."""
 
-    @patch('src.services.cost_analysis_service.load_recent_runs')
+    @patch("src.services.cost_analysis_service.load_recent_runs")
     def test_get_user_cost_history_detailed_daily(self, mock_load_runs):
         """Test detailed cost history for daily timeframe."""
         mock_runs = [
@@ -833,7 +860,7 @@ class TestTrendAnalysisFunctions:
         assert "2024-01-01" in history
         assert history["2024-01-01"] == [0.10]
 
-    @patch('src.services.cost_analysis_service.load_recent_runs')
+    @patch("src.services.cost_analysis_service.load_recent_runs")
     def test_get_user_cost_history_detailed_weekly(self, mock_load_runs):
         """Test detailed cost history for weekly timeframe."""
         mock_runs = [
@@ -861,7 +888,7 @@ class TestTrendAnalysisFunctions:
         expected_key = week_start.isoformat()
         assert expected_key in history
 
-    @patch('src.services.cost_analysis_service.load_recent_runs')
+    @patch("src.services.cost_analysis_service.load_recent_runs")
     def test_get_user_cost_history_detailed_monthly(self, mock_load_runs):
         """Test detailed cost history for monthly timeframe."""
         mock_runs = [
@@ -889,21 +916,14 @@ class TestTrendAnalysisFunctions:
 
     def test_aggregate_costs_by_period(self):
         """Test cost aggregation by period."""
-        historical_data = {
-            "2024-01-01": [0.10, 0.20],
-            "2024-01-02": [0.30]
-        }
+        historical_data = {"2024-01-01": [0.10, 0.20], "2024-01-02": [0.30]}
         aggregated = aggregate_costs_by_period(historical_data, "daily")
         assert aggregated["2024-01-01"] == 0.30  # 0.10 + 0.20
         assert aggregated["2024-01-02"] == 0.30
 
     def test_calculate_cost_forecast(self):
         """Test cost forecast calculation."""
-        aggregated_costs = {
-            "2024-01-01": 1.0,
-            "2024-01-02": 1.2,
-            "2024-01-03": 1.1
-        }
+        aggregated_costs = {"2024-01-01": 1.0, "2024-01-02": 1.2, "2024-01-03": 1.1}
         forecast = calculate_cost_forecast(aggregated_costs)
 
         # Simple moving average forecast

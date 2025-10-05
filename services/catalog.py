@@ -93,7 +93,7 @@ def fetch_models() -> tuple[list[ModelInfo], Literal["dynamic", "fallback"], dat
             "url": OPENROUTER_MODELS_URL,
             "timeout": REQUEST_TIMEOUT,
             "has_api_key": api_key is not None,
-        }
+        },
     )
 
     try:
@@ -107,7 +107,7 @@ def fetch_models() -> tuple[list[ModelInfo], Literal["dynamic", "fallback"], dat
             extra={
                 "response_size": len(str(payload)),
                 "models_count": len(payload.get("data", [])),
-            }
+            },
         )
 
         data = payload.get("data")
@@ -130,8 +130,12 @@ def fetch_models() -> tuple[list[ModelInfo], Literal["dynamic", "fallback"], dat
             description = entry.get("description")
             pricing = entry.get("pricing") or {}
 
-            input_price = _parse_price(pricing.get("prompt") if isinstance(pricing, dict) else None)
-            output_price = _parse_price(pricing.get("completion") if isinstance(pricing, dict) else None)
+            input_price = _parse_price(
+                pricing.get("prompt") if isinstance(pricing, dict) else None
+            )
+            output_price = _parse_price(
+                pricing.get("completion") if isinstance(pricing, dict) else None
+            )
 
             try:
                 model = ModelInfo(
@@ -161,7 +165,7 @@ def fetch_models() -> tuple[list[ModelInfo], Literal["dynamic", "fallback"], dat
             extra={
                 "models_count": len(models),
                 "cache_timestamp": timestamp.isoformat(),
-            }
+            },
         )
 
         return models, "dynamic", timestamp
@@ -172,7 +176,7 @@ def fetch_models() -> tuple[list[ModelInfo], Literal["dynamic", "fallback"], dat
             extra={
                 "error": str(exc),
                 "error_type": type(exc).__name__,
-            }
+            },
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning(
@@ -180,7 +184,7 @@ def fetch_models() -> tuple[list[ModelInfo], Literal["dynamic", "fallback"], dat
             extra={
                 "error": str(exc),
                 "error_type": type(exc).__name__,
-            }
+            },
         )
 
     timestamp = datetime.now(timezone.utc)
@@ -193,16 +197,22 @@ def fetch_models() -> tuple[list[ModelInfo], Literal["dynamic", "fallback"], dat
         extra={
             "fallback_models_count": len(FALLBACK_MODELS),
             "cache_timestamp": timestamp.isoformat(),
-        }
+        },
     )
 
     return _cached_models, "fallback", timestamp
 
 
-def get_models(force_refresh: bool = False) -> tuple[list[ModelInfo], Literal["dynamic", "fallback"], datetime]:
+def get_models(
+    force_refresh: bool = False,
+) -> tuple[list[ModelInfo], Literal["dynamic", "fallback"], datetime]:
     """Return cached models when fresh, otherwise refresh from OpenRouter."""
 
-    if not force_refresh and _cached_models is not None and _cache_timestamp is not None:
+    if (
+        not force_refresh
+        and _cached_models is not None
+        and _cache_timestamp is not None
+    ):
         age = datetime.now(timezone.utc) - _cache_timestamp
         if age < CACHE_TTL:
             logger.debug(
@@ -211,7 +221,7 @@ def get_models(force_refresh: bool = False) -> tuple[list[ModelInfo], Literal["d
                     "cache_age_seconds": age.total_seconds(),
                     "cache_source": _cache_source,
                     "models_count": len(_cached_models),
-                }
+                },
             )
             return _cached_models, _cache_source, _cache_timestamp
 
@@ -219,8 +229,8 @@ def get_models(force_refresh: bool = False) -> tuple[list[ModelInfo], Literal["d
         "Cache miss or forced refresh, fetching models",
         extra={
             "force_refresh": force_refresh,
-            "cache_age_seconds": age.total_seconds() if 'age' in locals() else None,
-        }
+            "cache_age_seconds": age.total_seconds() if "age" in locals() else None,
+        },
     )
 
     return fetch_models()
@@ -253,7 +263,7 @@ if __name__ == "__main__":
             "models_count": len(fetched_models),
             "source": source,
             "timestamp": fetched_ts.isoformat(),
-        }
+        },
     )
     for info in fetched_models[:5]:
         logger.info(
@@ -262,7 +272,7 @@ if __name__ == "__main__":
                 "display_name": info.display_name,
                 "id": info.id,
                 "provider": info.provider,
-            }
+            },
         )
 
     sample_id = fetched_models[0].id if fetched_models else FALLBACK_MODELS[0].id
@@ -274,12 +284,12 @@ if __name__ == "__main__":
                 "model_id": sample_id,
                 "prompt_price": pricing[0],
                 "completion_price": pricing[1],
-            }
+            },
         )
     else:
         logger.info(
             "Pricing unavailable",
             extra={
                 "model_id": sample_id,
-            }
+            },
         )

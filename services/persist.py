@@ -147,7 +147,15 @@ def _parse_row(row: dict[str, Any]) -> dict[str, Any]:
         parsed[field] = _coerce_bool(parsed.get(field))
 
     # Normalise optional string fields to empty string when missing.
-    for field in {"experiment_id", "task_label", "run_notes", "model_list_source", "web_status", "agent_name", "model"}:
+    for field in {
+        "experiment_id",
+        "task_label",
+        "run_notes",
+        "model_list_source",
+        "web_status",
+        "agent_name",
+        "model",
+    }:
         parsed[field] = (parsed.get(field) or "").strip()
 
     return parsed
@@ -161,6 +169,7 @@ def save_session(session: Session) -> Path:
     try:
         with session_path.open("w", encoding="utf-8") as file:
             import json
+
             json.dump(session.model_dump(), file, indent=2, default=str)
     except OSError as exc:
         raise RuntimeError(f"Failed to save session to {session_path}: {exc}") from exc
@@ -173,11 +182,16 @@ def load_session(session_path: Path) -> Session:
     try:
         with session_path.open("r", encoding="utf-8") as file:
             import json
+
             data = json.load(file)
     except OSError as exc:
-        raise RuntimeError(f"Failed to load session from {session_path}: {exc}") from exc
+        raise RuntimeError(
+            f"Failed to load session from {session_path}: {exc}"
+        ) from exc
     except json.JSONDecodeError as exc:
-        raise RuntimeError(f"Invalid JSON in session file {session_path}: {exc}") from exc
+        raise RuntimeError(
+            f"Invalid JSON in session file {session_path}: {exc}"
+        ) from exc
 
     return dict_to_session(data)
 
@@ -192,7 +206,9 @@ def list_sessions() -> list[tuple[str, Path]]:
         for session_file in SESSIONS_DIR.glob("*.json"):
             try:
                 session = load_session(session_file)
-                sessions.append((session.notes or f"Session {session.id[:8]}", session_file))
+                sessions.append(
+                    (session.notes or f"Session {session.id[:8]}", session_file)
+                )
             except Exception:
                 # Skip corrupted session files
                 continue
@@ -214,6 +230,7 @@ def dict_to_session(data: dict) -> Session:
     # Handle datetime parsing for created_at
     if isinstance(data.get("created_at"), str):
         from datetime import datetime
+
         data["created_at"] = datetime.fromisoformat(data["created_at"])
 
     return Session(**data)

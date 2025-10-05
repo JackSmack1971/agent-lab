@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 # Import required models (following AGENTS.md patterns)
 from agents.models import AgentConfig, RunRecord
 
+
 @pytest.fixture
 def tmp_csv(tmp_path: Path) -> Path:
     """
@@ -22,9 +23,12 @@ def tmp_csv(tmp_path: Path) -> Path:
         Path to initialized CSV file
     """
     csv_path: Path = tmp_path / "test_runs.csv"
-    header: str = "ts,agent_name,model,prompt_tokens,completion_tokens,total_tokens,latency_ms,cost_usd,experiment_id,task_label,run_notes,streaming,model_list_source,tool_web_enabled,web_status,aborted\n"
+    header: str = (
+        "ts,agent_name,model,prompt_tokens,completion_tokens,total_tokens,latency_ms,cost_usd,experiment_id,task_label,run_notes,streaming,model_list_source,tool_web_enabled,web_status,aborted\n"
+    )
     csv_path.write_text(header, encoding="utf-8")
     return csv_path
+
 
 @pytest.fixture
 def mock_openrouter_response() -> Mock:
@@ -41,10 +45,11 @@ def mock_openrouter_response() -> Mock:
         "data": [
             {"id": "openai/gpt-4-turbo", "name": "GPT-4 Turbo"},
             {"id": "anthropic/claude-3-opus", "name": "Claude 3 Opus"},
-            {"id": "meta-llama/llama-3-70b-instruct", "name": "Llama 3 70B"}
+            {"id": "meta-llama/llama-3-70b-instruct", "name": "Llama 3 70B"},
         ]
     }
     return mock_resp
+
 
 @pytest.fixture
 def sample_agent_config() -> AgentConfig:
@@ -61,8 +66,9 @@ def sample_agent_config() -> AgentConfig:
         temperature=0.7,
         top_p=0.9,
         tools=["math", "clock"],
-        extras={"max_tokens": 1000}
+        extras={"max_tokens": 1000},
     )
+
 
 @pytest.fixture
 def mock_env_vars(monkeypatch) -> None:
@@ -78,6 +84,7 @@ def mock_env_vars(monkeypatch) -> None:
     # Mock other potential environment variables
     monkeypatch.setenv("TEST_ENV", "test_value")
 
+
 @pytest.fixture
 async def async_client() -> AsyncGenerator[httpx.AsyncClient, None]:
     """
@@ -91,11 +98,10 @@ async def async_client() -> AsyncGenerator[httpx.AsyncClient, None]:
     timeout = httpx.Timeout(10.0, connect=5.0)
 
     async with httpx.AsyncClient(
-        limits=limits,
-        timeout=timeout,
-        follow_redirects=True
+        limits=limits, timeout=timeout, follow_redirects=True
     ) as client:
         yield client
+
 
 @pytest.fixture
 def sample_run_records() -> list[RunRecord]:

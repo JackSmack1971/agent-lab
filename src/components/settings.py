@@ -26,10 +26,12 @@ def create_settings_tab() -> gr.Blocks:
             shortcuts_enabled = gr.Checkbox(
                 label="Enable Keyboard Shortcuts",
                 value=True,
-                info="Toggle global keyboard shortcuts on/off"
+                info="Toggle global keyboard shortcuts on/off",
             )
 
-            gr.Markdown("*Keyboard shortcuts help you navigate and perform actions quickly.*")
+            gr.Markdown(
+                "*Keyboard shortcuts help you navigate and perform actions quickly.*"
+            )
 
         # Other Settings Sections (placeholders for future expansion)
         with gr.Group():
@@ -47,13 +49,15 @@ def create_settings_tab() -> gr.Blocks:
         shortcuts_enabled.change(
             fn=update_shortcuts_setting,
             inputs=[shortcuts_enabled, settings_state],
-            outputs=[settings_state]
+            outputs=[settings_state],
         )
 
     return settings_tab
 
 
-def update_shortcuts_setting(enabled: bool, current_settings: Dict[str, Any]) -> Dict[str, Any]:
+def update_shortcuts_setting(
+    enabled: bool, current_settings: Dict[str, Any]
+) -> Dict[str, Any]:
     """Update the keyboard shortcuts setting.
 
     Args:

@@ -17,6 +17,7 @@ class TestStreamingCancellation:
     @pytest.fixture
     def mock_delayed_stream(self):
         """Mock streaming response with delays between chunks to test cancellation timing."""
+
         class DelayedStream:
             def __init__(self, delay_between_chunks=0.01):
                 self.chunks = [
@@ -29,7 +30,7 @@ class TestStreamingCancellation:
                     Mock(delta=" the"),
                     Mock(delta=" lazy"),
                     Mock(delta=" dog"),
-                    Mock(delta=".")
+                    Mock(delta="."),
                 ]
                 self.delay = delay_between_chunks
                 self.index = 0
@@ -49,11 +50,15 @@ class TestStreamingCancellation:
         return DelayedStream
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
+    @patch("agents.runtime.Agent")
+    @patch("agents.runtime.OpenAI")
     async def test_streaming_cancellation_mid_response_integration(
-        self, mock_openai_class, mock_agent_class, mock_env_vars,
-        sample_agent_config, mock_delayed_stream
+        self,
+        mock_openai_class,
+        mock_agent_class,
+        mock_env_vars,
+        sample_agent_config,
+        mock_delayed_stream,
     ):
         """Test cancellation during active streaming returns partial response."""
         # Setup mocks
@@ -71,6 +76,7 @@ class TestStreamingCancellation:
         agent = build_agent(sample_agent_config)
 
         collected_deltas = []
+
         def on_delta(delta: str):
             collected_deltas.append(delta)
 
@@ -107,11 +113,10 @@ class TestStreamingCancellation:
         assert result.text == expected_text
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
+    @patch("agents.runtime.Agent")
+    @patch("agents.runtime.OpenAI")
     async def test_streaming_cancellation_immediate_integration(
-        self, mock_openai_class, mock_agent_class, mock_env_vars,
-        sample_agent_config
+        self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config
     ):
         """Test immediate cancellation before any chunks are processed."""
         # Setup mocks
@@ -131,6 +136,7 @@ class TestStreamingCancellation:
         agent = build_agent(sample_agent_config)
 
         collected_deltas = []
+
         def on_delta(delta: str):
             collected_deltas.append(delta)
 
@@ -147,11 +153,10 @@ class TestStreamingCancellation:
         assert result.latency_ms >= 0
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
+    @patch("agents.runtime.Agent")
+    @patch("agents.runtime.OpenAI")
     async def test_streaming_cancellation_with_usage_data_integration(
-        self, mock_openai_class, mock_agent_class, mock_env_vars,
-        sample_agent_config
+        self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config
     ):
         """Test cancellation preserves partial usage data when available."""
         # Setup mocks
@@ -177,6 +182,7 @@ class TestStreamingCancellation:
         agent = build_agent(sample_agent_config)
 
         collected_deltas = []
+
         def on_delta(delta: str):
             collected_deltas.append(delta)
 
@@ -207,11 +213,10 @@ class TestStreamingCancellation:
         assert result.latency_ms >= 0
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
+    @patch("agents.runtime.Agent")
+    @patch("agents.runtime.OpenAI")
     async def test_streaming_cancellation_performance_integration(
-        self, mock_openai_class, mock_agent_class, mock_env_vars,
-        sample_agent_config
+        self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config
     ):
         """Test that cancellation happens within required time limits (<500ms target)."""
         # Setup mocks
@@ -233,6 +238,7 @@ class TestStreamingCancellation:
         agent = build_agent(sample_agent_config)
 
         collected_deltas = []
+
         def on_delta(delta: str):
             collected_deltas.append(delta)
 
@@ -261,11 +267,10 @@ class TestStreamingCancellation:
         assert result.latency_ms >= 0
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
+    @patch("agents.runtime.Agent")
+    @patch("agents.runtime.OpenAI")
     async def test_streaming_no_cancellation_allows_full_response_integration(
-        self, mock_openai_class, mock_agent_class, mock_env_vars,
-        sample_agent_config
+        self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config
     ):
         """Test that streaming completes normally when not cancelled."""
         # Setup mocks
@@ -280,7 +285,7 @@ class TestStreamingCancellation:
             Mock(delta="The"),
             Mock(delta=" complete"),
             Mock(delta=" response"),
-            Mock(delta=".")
+            Mock(delta="."),
         ]
 
         async def mock_complete_stream():
@@ -293,13 +298,16 @@ class TestStreamingCancellation:
         agent = build_agent(sample_agent_config)
 
         collected_deltas = []
+
         def on_delta(delta: str):
             collected_deltas.append(delta)
 
         cancel_token = Event()
         # Don't set cancel token
 
-        result = await run_agent_stream(agent, "Complete response", on_delta, cancel_token)
+        result = await run_agent_stream(
+            agent, "Complete response", on_delta, cancel_token
+        )
 
         # Verify complete response
         assert isinstance(result, StreamResult)

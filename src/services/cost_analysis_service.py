@@ -65,7 +65,7 @@ def analyze_costs(session_id: str) -> CostAnalysis:
         average_cost=average_cost,
         cost_trend=cost_trend,
         alerts=alerts,
-        suggestions=suggestions
+        suggestions=suggestions,
     )
 
 
@@ -96,7 +96,11 @@ def get_cost_trends(user_id: str, timeframe: str = "daily") -> Dict:
         "aggregated_costs": aggregated_costs,
         "forecast": forecast,
         "total_periods": len(aggregated_costs),
-        "average_cost": sum(aggregated_costs.values()) / len(aggregated_costs) if aggregated_costs else 0
+        "average_cost": (
+            sum(aggregated_costs.values()) / len(aggregated_costs)
+            if aggregated_costs
+            else 0
+        ),
     }
 
 
@@ -112,7 +116,7 @@ def calculate_session_cost(telemetry_records: List[RunRecord]) -> float:
     total_cost = 0.0
 
     for record in telemetry_records:
-        if hasattr(record, 'cost_usd') and record.cost_usd is not None:
+        if hasattr(record, "cost_usd") and record.cost_usd is not None:
             total_cost += record.cost_usd
 
     return round(total_cost, 4)
@@ -163,9 +167,7 @@ def analyze_cost_trend(current_cost: float, historical_costs: List[float]) -> Co
 
 
 def generate_cost_alerts(
-    current_cost: float,
-    average_cost: float,
-    telemetry_data: List[RunRecord]
+    current_cost: float, average_cost: float, telemetry_data: List[RunRecord]
 ) -> List[CostAlert]:
     """Generate cost alerts based on current session data.
 
@@ -181,29 +183,32 @@ def generate_cost_alerts(
 
     # High cost anomaly alert
     if average_cost > 0 and current_cost > average_cost * 5:
-        alerts.append(CostAlert(
-            alert_type=AlertType.HIGH_COST,
-            message=f"🚨 Current session cost (${current_cost:.2f}) is {current_cost/average_cost:.1f}x higher than your average (${average_cost:.2f})",
-            severity=AlertSeverity.HIGH,
-            estimated_savings=current_cost - average_cost
-        ))
+        alerts.append(
+            CostAlert(
+                alert_type=AlertType.HIGH_COST,
+                message=f"🚨 Current session cost (${current_cost:.2f}) is {current_cost/average_cost:.1f}x higher than your average (${average_cost:.2f})",
+                severity=AlertSeverity.HIGH,
+                estimated_savings=current_cost - average_cost,
+            )
+        )
 
     # Budget warning (assuming user budget is available)
     user_budget = get_user_budget()
     if user_budget and current_cost > user_budget * 0.8:
-        alerts.append(CostAlert(
-            alert_type=AlertType.BUDGET_WARNING,
-            message=f"⚠️ Session cost (${current_cost:.2f}) exceeds 80% of budget (${user_budget:.2f})",
-            severity=AlertSeverity.MEDIUM,
-            estimated_savings=max(0, current_cost - user_budget)
-        ))
+        alerts.append(
+            CostAlert(
+                alert_type=AlertType.BUDGET_WARNING,
+                message=f"⚠️ Session cost (${current_cost:.2f}) exceeds 80% of budget (${user_budget:.2f})",
+                severity=AlertSeverity.MEDIUM,
+                estimated_savings=max(0, current_cost - user_budget),
+            )
+        )
 
     return alerts
 
 
 def generate_optimization_suggestions(
-    telemetry_data: List[RunRecord],
-    current_cost: float
+    telemetry_data: List[RunRecord], current_cost: float
 ) -> List[OptimizationSuggestion]:
     """Generate optimization suggestions based on usage patterns.
 
@@ -222,84 +227,96 @@ def generate_optimization_suggestions(
     # Suggestion 1: Context summarization
     if should_suggest_context_summarization(context_stats, current_cost):
         savings_pct, savings_dollars = calculate_context_savings(context_stats)
-        suggestions.append(OptimizationSuggestion(
-            suggestion_type=SuggestionType.REDUCE_CONTEXT,
-            description="Summarize earlier messages to reduce context length and API costs",
-            estimated_savings_percentage=savings_pct,
-            estimated_savings_dollars=savings_dollars,
-            confidence_score=calculate_context_confidence(context_stats)
-        ))
+        suggestions.append(
+            OptimizationSuggestion(
+                suggestion_type=SuggestionType.REDUCE_CONTEXT,
+                description="Summarize earlier messages to reduce context length and API costs",
+                estimated_savings_percentage=savings_pct,
+                estimated_savings_dollars=savings_dollars,
+                confidence_score=calculate_context_confidence(context_stats),
+            )
+        )
 
     # Suggestion 2: Model switching
     if should_suggest_model_switch(telemetry_data, current_cost):
-        savings_pct, savings_dollars, target_model = analyze_model_switch_opportunity(telemetry_data)
-        suggestions.append(OptimizationSuggestion(
-            suggestion_type=SuggestionType.SWITCH_MODEL,
-            description=f"Switch to {target_model} for better cost-efficiency while maintaining quality",
-            estimated_savings_percentage=savings_pct,
-            estimated_savings_dollars=savings_dollars,
-            confidence_score=0.75  # Conservative confidence for model switches
-        ))
+        savings_pct, savings_dollars, target_model = analyze_model_switch_opportunity(
+            telemetry_data
+        )
+        suggestions.append(
+            OptimizationSuggestion(
+                suggestion_type=SuggestionType.SWITCH_MODEL,
+                description=f"Switch to {target_model} for better cost-efficiency while maintaining quality",
+                estimated_savings_percentage=savings_pct,
+                estimated_savings_dollars=savings_dollars,
+                confidence_score=0.75,  # Conservative confidence for model switches
+            )
+        )
 
     # Suggestion 3: Context caching
     if should_suggest_caching(telemetry_data):
         savings_pct, savings_dollars = calculate_caching_savings(telemetry_data)
-        suggestions.append(OptimizationSuggestion(
-            suggestion_type=SuggestionType.ENABLE_CACHING,
-            description="Enable semantic caching for repeated queries to reduce API calls",
-            estimated_savings_percentage=savings_pct,
-            estimated_savings_dollars=savings_dollars,
-            confidence_score=0.65  # Moderate confidence for caching benefits
-        ))
+        suggestions.append(
+            OptimizationSuggestion(
+                suggestion_type=SuggestionType.ENABLE_CACHING,
+                description="Enable semantic caching for repeated queries to reduce API calls",
+                estimated_savings_percentage=savings_pct,
+                estimated_savings_dollars=savings_dollars,
+                confidence_score=0.65,  # Moderate confidence for caching benefits
+            )
+        )
 
     return suggestions
 
 
 def should_suggest_context_summarization(
-    context_stats: Dict,
-    current_cost: float
+    context_stats: Dict, current_cost: float
 ) -> bool:
     """Determine if context summarization should be suggested."""
-    return (context_stats.get('max_context_length', 0) > 15000 and
-            current_cost > 1.0)
+    return context_stats.get("max_context_length", 0) > 15000 and current_cost > 1.0
 
 
 def calculate_context_savings(context_stats: Dict) -> tuple[float, float]:
     """Calculate estimated savings from context summarization."""
-    current_length = context_stats.get('max_context_length', 0)
+    current_length = context_stats.get("max_context_length", 0)
     estimated_reduction = min(current_length * 0.4, 15000)  # Estimate 40% reduction
     savings_pct = min(estimated_reduction / current_length, 0.5)
-    savings_dollars = context_stats.get('current_cost', 0) * savings_pct
+    savings_dollars = context_stats.get("current_cost", 0) * savings_pct
     return round(savings_pct, 4), round(savings_dollars, 4)
 
 
 def calculate_context_confidence(context_stats: Dict) -> float:
     """Calculate confidence score for context summarization."""
-    length_ratio = min(context_stats.get('max_context_length', 0) / 40000, 1.0)
+    length_ratio = min(context_stats.get("max_context_length", 0) / 40000, 1.0)
     return round(0.6 + (length_ratio * 0.3), 4)  # 0.6 to 0.9 confidence
 
 
 def should_suggest_model_switch(
-    telemetry_data: List[RunRecord],
-    current_cost: float
+    telemetry_data: List[RunRecord], current_cost: float
 ) -> bool:
     """Determine if model switching should be suggested."""
     # Check if using expensive model with low utilization
-    expensive_models = ['openai/gpt-4', 'claude-3-opus']
-    return any(record.model in expensive_models and record.cost_usd > 0.01
-                for record in telemetry_data if hasattr(record, 'model'))
+    expensive_models = ["openai/gpt-4", "claude-3-opus"]
+    return any(
+        record.model in expensive_models and record.cost_usd > 0.01
+        for record in telemetry_data
+        if hasattr(record, "model")
+    )
 
 
 def analyze_model_switch_opportunity(
-    telemetry_data: List[RunRecord]
+    telemetry_data: List[RunRecord],
 ) -> tuple[float, float, str]:
     """Analyze potential savings from switching to cheaper model."""
     # Simplified analysis - in real implementation would compare quality metrics
-    current_cost_per_message = sum(r.cost_usd for r in telemetry_data) / len(telemetry_data)
+    current_cost_per_message = sum(r.cost_usd for r in telemetry_data) / len(
+        telemetry_data
+    )
     if current_cost_per_message > 0.10:
         # Assume switching to GPT-3.5 saves 80%
         savings_pct = 0.80
-        savings_dollars = round(sum(r.cost_usd for r in telemetry_data) * savings_pct, 4)
+        savings_dollars = round(
+            sum(r.cost_usd for r in telemetry_data) * savings_pct, 4
+        )
         return savings_pct, round(savings_dollars, 4), "GPT-3.5-Turbo"
     return 0.0, 0.0, ""
 
@@ -307,13 +324,17 @@ def analyze_model_switch_opportunity(
 def should_suggest_caching(telemetry_data: List[RunRecord]) -> bool:
     """Determine if caching should be suggested."""
     # Look for repeated similar queries
-    messages = [r.run_notes for r in telemetry_data if hasattr(r, 'run_notes') and r.run_notes]
+    messages = [
+        r.run_notes for r in telemetry_data if hasattr(r, "run_notes") and r.run_notes
+    ]
     return detect_query_patterns(messages) > 0.3  # 30% similarity threshold
 
 
 def calculate_caching_savings(telemetry_data: List[RunRecord]) -> tuple[float, float]:
     """Calculate estimated savings from semantic caching."""
-    messages = [r.run_notes for r in telemetry_data if hasattr(r, 'run_notes') and r.run_notes]
+    messages = [
+        r.run_notes for r in telemetry_data if hasattr(r, "run_notes") and r.run_notes
+    ]
     pattern_similarity = detect_query_patterns(messages)
     savings_pct = min(pattern_similarity * 0.4, 0.25)  # Up to 25% savings
     total_cost = sum(r.cost_usd for r in telemetry_data)
@@ -322,6 +343,7 @@ def calculate_caching_savings(telemetry_data: List[RunRecord]) -> tuple[float, f
 
 
 # Helper functions for data retrieval
+
 
 def get_session_telemetry(session_id: str) -> List[RunRecord]:
     """Retrieve telemetry data for a session.
@@ -339,9 +361,11 @@ def get_session_telemetry(session_id: str) -> List[RunRecord]:
     # Filter by experiment_id or task_label that might contain session_id
     session_runs = []
     for run in all_runs:
-        if (run.experiment_id == session_id or
-            run.task_label == session_id or
-            session_id in run.run_notes):
+        if (
+            run.experiment_id == session_id
+            or run.task_label == session_id
+            or session_id in run.run_notes
+        ):
             session_runs.append(run)
 
     return session_runs
@@ -384,11 +408,17 @@ def get_user_cost_history(user_id: str) -> List[float]:
     # Calculate total cost for each conversation
     conversation_costs = []
     for conversation_runs in conversations.values():
-        conv_cost = sum(r.cost_usd for r in conversation_runs if hasattr(r, 'cost_usd') and r.cost_usd is not None)
+        conv_cost = sum(
+            r.cost_usd
+            for r in conversation_runs
+            if hasattr(r, "cost_usd") and r.cost_usd is not None
+        )
         if conv_cost > 0:  # Only include conversations with costs
             conversation_costs.append(round(conv_cost, 4))
 
-    return sorted(conversation_costs, reverse=True)[:20]  # Top 20 most expensive conversations
+    return sorted(conversation_costs, reverse=True)[
+        :20
+    ]  # Top 20 most expensive conversations
 
 
 def get_user_budget() -> Optional[float]:
@@ -416,10 +446,12 @@ def analyze_context_usage(telemetry_data: List[RunRecord]) -> Dict:
     total_cost = sum(r.cost_usd for r in telemetry_data)
 
     return {
-        'max_context_length': max_tokens,
-        'average_context_length': total_tokens / len(telemetry_data) if telemetry_data else 0,
-        'current_cost': total_cost,
-        'message_count': len(telemetry_data)
+        "max_context_length": max_tokens,
+        "average_context_length": (
+            total_tokens / len(telemetry_data) if telemetry_data else 0
+        ),
+        "current_cost": total_cost,
+        "message_count": len(telemetry_data),
     }
 
 

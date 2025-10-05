@@ -56,7 +56,7 @@ def build_agent(cfg: AgentConfig, include_web: bool = False) -> Agent:
             "temperature": cfg.temperature,
             "top_p": cfg.top_p,
             "include_web": include_web,
-        }
+        },
     )
 
     client = OpenAI(base_url=OPENROUTER_BASE_URL, api_key=api_key)
@@ -120,8 +120,8 @@ async def run_agent(agent: Agent, user_message: str) -> Tuple[str, Dict[str, Any
         "Starting agent execution",
         extra={
             "message_length": len(user_message),
-            "agent_model": getattr(agent, 'model', 'unknown'),
-        }
+            "agent_model": getattr(agent, "model", "unknown"),
+        },
     )
 
     try:
@@ -130,14 +130,14 @@ async def run_agent(agent: Agent, user_message: str) -> Tuple[str, Dict[str, Any
             "Agent execution completed successfully",
             extra={
                 "response_length": len(result.data),
-            }
+            },
         )
     except Exception as exc:  # pragma: no cover - runtime guard
         logger.error(
             "Agent execution failed",
             extra={
                 "error": str(exc),
-            }
+            },
         )
         raise RuntimeError(f"Agent execution failed: {exc}") from exc
 
@@ -166,8 +166,8 @@ async def run_agent_stream(
         "Starting agent streaming",
         extra={
             "message_length": len(user_message),
-            "agent_model": getattr(agent, 'model', 'unknown'),
-        }
+            "agent_model": getattr(agent, "model", "unknown"),
+        },
     )
 
     loop = asyncio.get_running_loop()
@@ -249,7 +249,7 @@ async def run_agent_stream(
             "latency_ms": latency_ms,
             "aborted": aborted,
             "usage_available": usage is not None,
-        }
+        },
     )
 
     return StreamResult("".join(text_parts), usage, latency_ms, aborted)

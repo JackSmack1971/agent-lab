@@ -6,12 +6,16 @@ help panels, visual indicators, and accessibility features.
 
 from typing import Dict, List, Optional, Any
 import gradio as gr
-from src.utils.keyboard_handler import KeyboardHandler, KeyboardShortcut, ShortcutContext, ContextManager
+from src.utils.keyboard_handler import (
+    KeyboardHandler,
+    KeyboardShortcut,
+    ShortcutContext,
+    ContextManager,
+)
 
 
 def create_keyboard_shortcuts_ui(
-    keyboard_handler: KeyboardHandler,
-    context_manager: ContextManager
+    keyboard_handler: KeyboardHandler, context_manager: ContextManager
 ) -> gr.Blocks:
     """Create the keyboard shortcuts UI component with help overlay and indicators.
 
@@ -57,7 +61,7 @@ def create_keyboard_shortcuts_ui(
             help_toggle_btn,
             search_input,
             category_contents,
-            toast_notification_area
+            toast_notification_area,
         )
 
     return shortcuts_ui
@@ -72,7 +76,7 @@ def create_shortcut_indicator_bar() -> gr.HTML:
     return gr.HTML(
         value=render_shortcut_indicators_html([]),
         elem_id="shortcut-indicators",
-        elem_classes=["shortcut-indicators"]
+        elem_classes=["shortcut-indicators"],
     )
 
 
@@ -147,7 +151,7 @@ def create_help_overlay_panel() -> tuple:
         search_input = gr.Textbox(
             placeholder="Search shortcuts...",
             label="Search",
-            elem_classes=["shortcut-search"]
+            elem_classes=["shortcut-search"],
         )
 
         # Category tabs
@@ -177,14 +181,12 @@ def create_category_content(category: str) -> gr.HTML:
     """
     return gr.HTML(
         value=render_category_shortcuts_html(category, []),
-        elem_id=f"category-{category.lower()}"
+        elem_id=f"category-{category.lower()}",
     )
 
 
 def render_category_shortcuts_html(
-    category: str,
-    shortcuts: List[KeyboardShortcut],
-    search_filter: str = ""
+    category: str, shortcuts: List[KeyboardShortcut], search_filter: str = ""
 ) -> str:
     """Render HTML for shortcuts in a specific category with optional filtering.
 
@@ -235,7 +237,7 @@ def create_visual_keyboard_diagram() -> gr.HTML:
     return gr.HTML(
         value=render_keyboard_diagram_html(),
         elem_id="keyboard-diagram",
-        elem_classes=["keyboard-diagram"]
+        elem_classes=["keyboard-diagram"],
     )
 
 
@@ -277,11 +279,7 @@ def create_toast_area() -> gr.HTML:
     Returns:
         HTML component for displaying toast messages
     """
-    return gr.HTML(
-        value="",
-        elem_id="toast-area",
-        elem_classes=["toast-area"]
-    )
+    return gr.HTML(value="", elem_id="toast-area", elem_classes=["toast-area"])
 
 
 def show_shortcut_toast(shortcut: KeyboardShortcut, action_result: str) -> str:
@@ -325,7 +323,7 @@ def setup_event_handlers(
     help_toggle_btn: gr.Button,
     search_input: gr.Textbox,
     category_contents: Dict[str, gr.HTML],
-    toast_notification_area: gr.HTML
+    toast_notification_area: gr.HTML,
 ) -> None:
     """Set up all event handlers for dynamic UI updates.
 
@@ -347,44 +345,38 @@ def setup_event_handlers(
     """
     # Global keyboard event listener (attached to document)
     shortcuts_ui.load(
-        fn=None,
-        inputs=None,
-        outputs=None,
-        js=setup_global_keyboard_listener()
+        fn=None, inputs=None, outputs=None, js=setup_global_keyboard_listener()
     )
 
     # Context update triggers
     context_state.change(
         fn=update_shortcut_indicators,
         inputs=[context_state, available_shortcuts_state],
-        outputs=[shortcut_indicator_bar]
+        outputs=[shortcut_indicator_bar],
     )
 
     # Help panel toggle
     help_toggle_btn.click(
         fn=toggle_help_panel,
         inputs=[shortcut_help_visible],
-        outputs=[help_overlay, shortcut_help_visible]
+        outputs=[help_overlay, shortcut_help_visible],
     )
 
     # Search functionality
     search_input.change(
         fn=filter_shortcuts_display,
         inputs=[search_query, available_shortcuts_state],
-        outputs=list(category_contents.values())
+        outputs=list(category_contents.values()),
     )
 
     # Toast auto-hide timer
     active_toast.change(
-        fn=schedule_toast_hide,
-        inputs=[active_toast],
-        outputs=[toast_notification_area]
+        fn=schedule_toast_hide, inputs=[active_toast], outputs=[toast_notification_area]
     )
 
 
 def update_shortcut_indicators(
-    context: ShortcutContext,
-    available_shortcuts: List[KeyboardShortcut]
+    context: ShortcutContext, available_shortcuts: List[KeyboardShortcut]
 ) -> str:
     """Update shortcut indicator bar based on current context.
 
@@ -396,7 +388,8 @@ def update_shortcut_indicators(
         HTML string for updated indicator bar
     """
     context_shortcuts = [
-        shortcut for shortcut in available_shortcuts
+        shortcut
+        for shortcut in available_shortcuts
         if is_shortcut_available_in_context(shortcut, context)
     ]
 
@@ -406,7 +399,7 @@ def update_shortcut_indicators(
 def update_shortcut_help(
     context: ShortcutContext,
     available_shortcuts: List[KeyboardShortcut],
-    search_query: str = ""
+    search_query: str = "",
 ) -> Dict[str, str]:
     """Update shortcut help panel content based on context and search.
 
@@ -424,7 +417,7 @@ def update_shortcut_help(
 def update_help_panel_content(
     context: ShortcutContext,
     available_shortcuts: List[KeyboardShortcut],
-    search_query: str
+    search_query: str,
 ) -> Dict[str, str]:
     """Update all help panel content based on context and search.
 
@@ -437,7 +430,8 @@ def update_help_panel_content(
         Dictionary mapping category names to HTML content
     """
     context_shortcuts = [
-        shortcut for shortcut in available_shortcuts
+        shortcut
+        for shortcut in available_shortcuts
         if is_shortcut_available_in_context(shortcut, context)
     ]
 
@@ -453,9 +447,7 @@ def update_help_panel_content(
 
 
 def filter_shortcuts_by_category_and_search(
-    shortcuts: List[KeyboardShortcut],
-    category: str,
-    search_query: str
+    shortcuts: List[KeyboardShortcut], category: str, search_query: str
 ) -> List[KeyboardShortcut]:
     """Filter shortcuts by category and search query.
 
@@ -474,22 +466,24 @@ def filter_shortcuts_by_category_and_search(
         category_map = {
             "Navigation": ["global", "navigation"],
             "Actions": ["global", "actions"],
-            "Configuration": ["global", "config"]
+            "Configuration": ["global", "config"],
         }
         allowed_contexts = category_map.get(category, [])
         filtered = [
-            s for s in filtered
-            if any(ctx in s.context for ctx in allowed_contexts)
+            s for s in filtered if any(ctx in s.context for ctx in allowed_contexts)
         ]
 
     # Apply search filter
     if search_query:
         query_lower = search_query.lower()
         filtered = [
-            s for s in filtered
-            if (query_lower in s.name.lower() or
-                query_lower in s.description.lower() or
-                any(query_lower in key.lower() for key in s.key_combination))
+            s
+            for s in filtered
+            if (
+                query_lower in s.name.lower()
+                or query_lower in s.description.lower()
+                or any(query_lower in key.lower() for key in s.key_combination)
+            )
         ]
 
     return filtered
@@ -505,16 +499,16 @@ def format_key_combination(combination: List[str]) -> str:
         Formatted string for display (e.g., "Ctrl+M")
     """
     key_display_map = {
-        'ctrl': 'Ctrl',
-        'meta': 'Cmd',
-        'alt': 'Alt',
-        'shift': 'Shift',
-        'enter': 'Enter',
-        'escape': 'Esc',
-        'arrowup': '↑',
-        'arrowdown': '↓',
-        'arrowleft': '←',
-        'arrowright': '→'
+        "ctrl": "Ctrl",
+        "meta": "Cmd",
+        "alt": "Alt",
+        "shift": "Shift",
+        "enter": "Enter",
+        "escape": "Esc",
+        "arrowup": "↑",
+        "arrowdown": "↓",
+        "arrowleft": "←",
+        "arrowright": "→",
     }
 
     formatted_keys = []
@@ -524,7 +518,9 @@ def format_key_combination(combination: List[str]) -> str:
     return "+".join(formatted_keys)
 
 
-def is_shortcut_available_in_context(shortcut: KeyboardShortcut, context: ShortcutContext) -> bool:
+def is_shortcut_available_in_context(
+    shortcut: KeyboardShortcut, context: ShortcutContext
+) -> bool:
     """Check if shortcut is available in the given context.
 
     Args:
@@ -535,7 +531,7 @@ def is_shortcut_available_in_context(shortcut: KeyboardShortcut, context: Shortc
         True if available, False otherwise
     """
     # Global shortcuts available unless in modal
-    if 'global' in shortcut.context and not context.modal_open:
+    if "global" in shortcut.context and not context.modal_open:
         return True
 
     # Tab-specific shortcuts
@@ -543,11 +539,11 @@ def is_shortcut_available_in_context(shortcut: KeyboardShortcut, context: Shortc
         return True
 
     # Input field restrictions
-    if context.input_active and 'input_safe' not in shortcut.context:
+    if context.input_active and "input_safe" not in shortcut.context:
         return False
 
     # Streaming restrictions
-    if context.streaming_active and 'streaming_safe' not in shortcut.context:
+    if context.streaming_active and "streaming_safe" not in shortcut.context:
         return False
 
     # Action availability
@@ -569,7 +565,9 @@ def toggle_help_panel(visible: bool) -> tuple:
     return not visible, not visible
 
 
-def filter_shortcuts_display(search_query: str, shortcuts: List[KeyboardShortcut]) -> Dict[str, str]:
+def filter_shortcuts_display(
+    search_query: str, shortcuts: List[KeyboardShortcut]
+) -> Dict[str, str]:
     """Filter shortcuts display based on search.
 
     Args:

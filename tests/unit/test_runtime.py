@@ -42,9 +42,11 @@ class TestBuildAgent:
             with pytest.raises(ValueError, match="OPENROUTER_API_KEY not set"):
                 build_agent(cfg)
 
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
-    def test_build_agent_with_valid_config_and_api_key(self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config) -> None:
+    @patch("agents.runtime.Agent")
+    @patch("agents.runtime.OpenAI")
+    def test_build_agent_with_valid_config_and_api_key(
+        self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config
+    ) -> None:
         """Test successful agent building with valid config and API key."""
         # Setup mocks
         mock_client = Mock()
@@ -59,8 +61,7 @@ class TestBuildAgent:
 
         # Verify OpenAI client was created with correct parameters
         mock_openai_class.assert_called_once_with(
-            base_url="https://openrouter.ai/api/v1",
-            api_key="mock_api_key_for_testing"
+            base_url="https://openrouter.ai/api/v1", api_key="mock_api_key_for_testing"
         )
 
         # Verify Agent was created with correct parameters
@@ -79,9 +80,11 @@ class TestBuildAgent:
 
         assert agent is mock_agent_instance
 
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
-    def test_build_agent_registers_tools(self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config) -> None:
+    @patch("agents.runtime.Agent")
+    @patch("agents.runtime.OpenAI")
+    def test_build_agent_registers_tools(
+        self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config
+    ) -> None:
         """Test that build_agent registers the required tools."""
         mock_client = Mock()
         mock_openai_class.return_value = mock_client
@@ -97,9 +100,11 @@ class TestBuildAgent:
         calls = mock_agent_instance.tool.call_args_list
         assert len(calls) == 2
 
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
-    def test_build_agent_with_web_tool_when_available(self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config) -> None:
+    @patch("agents.runtime.Agent")
+    @patch("agents.runtime.OpenAI")
+    def test_build_agent_with_web_tool_when_available(
+        self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config
+    ) -> None:
         """Test agent building with web tool when fetch_url is available."""
         mock_client = Mock()
         mock_openai_class.return_value = mock_client
@@ -115,9 +120,11 @@ class TestBuildAgent:
         # Should have registered 3 tools: add_numbers, utc_now, fetch_url
         assert mock_agent_instance.tool.call_count == 3
 
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
-    def test_build_agent_with_web_tool_when_unavailable_raises_error(self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config) -> None:
+    @patch("agents.runtime.Agent")
+    @patch("agents.runtime.OpenAI")
+    def test_build_agent_with_web_tool_when_unavailable_raises_error(
+        self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config
+    ) -> None:
         """Test that build_agent raises RuntimeError when web tool requested but unavailable."""
         mock_client = Mock()
         mock_openai_class.return_value = mock_client
@@ -135,9 +142,11 @@ class TestRunAgent:
     """Test suite for run_agent function."""
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
-    async def test_run_agent_successful_execution(self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config) -> None:
+    @patch("agents.runtime.Agent")
+    @patch("agents.runtime.OpenAI")
+    async def test_run_agent_successful_execution(
+        self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config
+    ) -> None:
         """Test successful agent execution returning text and usage."""
         mock_client = Mock()
         mock_openai_class.return_value = mock_client
@@ -158,9 +167,11 @@ class TestRunAgent:
         assert usage == {}
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
-    async def test_run_agent_handles_exceptions(self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config) -> None:
+    @patch("agents.runtime.Agent")
+    @patch("agents.runtime.OpenAI")
+    async def test_run_agent_handles_exceptions(
+        self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config
+    ) -> None:
         """Test that run_agent wraps exceptions in RuntimeError."""
         mock_client = Mock()
         mock_openai_class.return_value = mock_client
@@ -181,9 +192,11 @@ class TestRunAgentStream:
     """Test suite for run_agent_stream function."""
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
-    async def test_run_agent_stream_basic_functionality(self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config) -> None:
+    @patch("agents.runtime.Agent")
+    @patch("agents.runtime.OpenAI")
+    async def test_run_agent_stream_basic_functionality(
+        self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config
+    ) -> None:
         """Test basic streaming functionality."""
         mock_client = Mock()
         mock_openai_class.return_value = mock_client
@@ -209,6 +222,7 @@ class TestRunAgentStream:
         agent = build_agent(sample_agent_config)
 
         deltas = []
+
         def on_delta(delta: str) -> None:
             deltas.append(delta)
 
@@ -226,9 +240,11 @@ class TestRunAgentStream:
         assert deltas == ["Hello", " world", "!"]
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
-    async def test_run_agent_stream_handles_cancellation(self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config) -> None:
+    @patch("agents.runtime.Agent")
+    @patch("agents.runtime.OpenAI")
+    async def test_run_agent_stream_handles_cancellation(
+        self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config
+    ) -> None:
         """Test that streaming respects cancellation token."""
         mock_client = Mock()
         mock_openai_class.return_value = mock_client
@@ -249,6 +265,7 @@ class TestRunAgentStream:
         agent = build_agent(sample_agent_config)
 
         deltas = []
+
         def on_delta(delta: str) -> None:
             deltas.append(delta)
 
@@ -264,9 +281,11 @@ class TestRunAgentStream:
         assert result.text == ""
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
-    async def test_run_agent_stream_aggregates_deltas(self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config) -> None:
+    @patch("agents.runtime.Agent")
+    @patch("agents.runtime.OpenAI")
+    async def test_run_agent_stream_aggregates_deltas(
+        self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config
+    ) -> None:
         """Test that streaming correctly aggregates text from deltas."""
         mock_client = Mock()
         mock_openai_class.return_value = mock_client
@@ -292,6 +311,7 @@ class TestRunAgentStream:
         agent = build_agent(sample_agent_config)
 
         collected_deltas = []
+
         def on_delta(delta: str) -> None:
             collected_deltas.append(delta)
 
@@ -304,9 +324,11 @@ class TestRunAgentStream:
         assert collected_deltas == ["The", " quick", " brown"]
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
-    async def test_run_agent_stream_measures_latency(self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config) -> None:
+    @patch("agents.runtime.Agent")
+    @patch("agents.runtime.OpenAI")
+    async def test_run_agent_stream_measures_latency(
+        self, mock_openai_class, mock_agent_class, mock_env_vars, sample_agent_config
+    ) -> None:
         """Test that latency is measured correctly."""
         mock_client = Mock()
         mock_openai_class.return_value = mock_client
@@ -341,10 +363,7 @@ class TestStreamResult:
     def test_stream_result_creation(self) -> None:
         """Test StreamResult can be created with valid parameters."""
         result = StreamResult(
-            text="Hello world",
-            usage={"tokens": 10},
-            latency_ms=500,
-            aborted=False
+            text="Hello world", usage={"tokens": 10}, latency_ms=500, aborted=False
         )
 
         assert result.text == "Hello world"

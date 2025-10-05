@@ -24,14 +24,16 @@ def create_cost_optimizer_tab() -> gr.Blocks:
     """
     with gr.Blocks() as cost_tab:
         gr.Markdown("# 💰 Cost Optimizer")
-        gr.Markdown("Monitor your AI costs and get optimization suggestions in real-time.")
+        gr.Markdown(
+            "Monitor your AI costs and get optimization suggestions in real-time."
+        )
 
         # Session ID input (for demo purposes - in real app this would be automatic)
         session_id_input = gr.Textbox(
             label="Session ID",
             value="demo_session_123",
             placeholder="Enter session ID to analyze",
-            visible=False  # Hide in production
+            visible=False,  # Hide in production
         )
 
         # Real-time cost display section
@@ -42,12 +44,10 @@ def create_cost_optimizer_tab() -> gr.Blocks:
                     label="Session Cost",
                     value="$0.00",
                     interactive=False,
-                    elem_classes=["cost-display"]
+                    elem_classes=["cost-display"],
                 )
                 cost_trend_indicator = gr.Textbox(
-                    label="Cost Trend",
-                    value="📊 Analyzing...",
-                    interactive=False
+                    label="Cost Trend", value="📊 Analyzing...", interactive=False
                 )
 
             with gr.Column(scale=1):
@@ -57,26 +57,24 @@ def create_cost_optimizer_tab() -> gr.Blocks:
                     minimum=0,
                     maximum=100,
                     value=0,
-                    interactive=False
+                    interactive=False,
                 )
                 budget_text = gr.Textbox(
-                    label="Budget Status",
-                    value="No budget set",
-                    interactive=False
+                    label="Budget Status", value="No budget set", interactive=False
                 )
 
         # Alerts section
         with gr.Row():
             alerts_display = gr.HTML(
                 value="<div class='alerts-container'>No active alerts</div>",
-                label="Cost Alerts"
+                label="Cost Alerts",
             )
 
         # Optimization suggestions section
         with gr.Row():
             suggestions_display = gr.HTML(
                 value="<div class='suggestions-container'>Analyzing usage patterns...</div>",
-                label="Optimization Suggestions"
+                label="Optimization Suggestions",
             )
 
         # Cost trends visualization
@@ -84,24 +82,20 @@ def create_cost_optimizer_tab() -> gr.Blocks:
             timeframe_selector = gr.Radio(
                 label="Time Period",
                 choices=["daily", "weekly", "monthly"],
-                value="daily"
+                value="daily",
             )
             trends_chart = gr.Plot(label="Cost Trends")
 
         # Cost breakdown
         with gr.Row():
             breakdown_display = gr.Dataframe(
-                headers=["Category", "Cost", "Percentage"],
-                label="Cost Breakdown"
+                headers=["Category", "Cost", "Percentage"], label="Cost Breakdown"
             )
 
         # Settings section
         with gr.Accordion("Cost Settings", open=False):
             budget_input = gr.Number(
-                label="Daily Budget ($)",
-                minimum=0,
-                maximum=100,
-                value=None
+                label="Daily Budget ($)", minimum=0, maximum=100, value=None
             )
             save_budget_btn = gr.Button("Save Budget")
 
@@ -124,7 +118,9 @@ def create_cost_optimizer_tab() -> gr.Blocks:
                 budget_pct = 0.0
                 budget_status = "No budget set"
                 if analysis.average_cost > 0:
-                    budget_pct = min((analysis.current_cost / (analysis.average_cost * 2)) * 100, 100)
+                    budget_pct = min(
+                        (analysis.current_cost / (analysis.average_cost * 2)) * 100, 100
+                    )
                     budget_status = f"${analysis.current_cost:.2f} / ${analysis.average_cost * 2:.2f}"
 
                 return cost_text, trend_text, budget_pct, budget_status
@@ -152,7 +148,7 @@ def create_cost_optimizer_tab() -> gr.Blocks:
                     severity_class = {
                         "low": "alert-low",
                         "medium": "alert-medium",
-                        "high": "alert-high"
+                        "high": "alert-high",
                     }.get(alert.severity.value, "alert-low")
 
                     alerts_html += f"""
@@ -204,7 +200,9 @@ def create_cost_optimizer_tab() -> gr.Blocks:
 
             except Exception as exc:
                 logger.error(f"Failed to update suggestions: {exc}")
-                return "<div class='suggestions-container'>Error loading suggestions</div>"
+                return (
+                    "<div class='suggestions-container'>Error loading suggestions</div>"
+                )
 
         def update_trends_chart(session_id: str, timeframe: str) -> go.Figure:
             """Update cost trends chart.
@@ -223,11 +221,13 @@ def create_cost_optimizer_tab() -> gr.Blocks:
                 if not trends_data["aggregated_costs"]:
                     # Create empty chart
                     fig = go.Figure()
-                    fig.add_trace(go.Scatter(x=[], y=[], mode='lines+markers', name='Costs'))
+                    fig.add_trace(
+                        go.Scatter(x=[], y=[], mode="lines+markers", name="Costs")
+                    )
                     fig.update_layout(
                         title="No cost data available",
                         xaxis_title="Time Period",
-                        yaxis_title="Cost ($)"
+                        yaxis_title="Cost ($)",
                     )
                     return fig
 
@@ -236,31 +236,35 @@ def create_cost_optimizer_tab() -> gr.Blocks:
                 costs = list(trends_data["aggregated_costs"].values())
 
                 fig = go.Figure()
-                fig.add_trace(go.Scatter(
-                    x=periods,
-                    y=costs,
-                    mode='lines+markers',
-                    name='Historical Costs',
-                    line=dict(color='blue', width=2)
-                ))
+                fig.add_trace(
+                    go.Scatter(
+                        x=periods,
+                        y=costs,
+                        mode="lines+markers",
+                        name="Historical Costs",
+                        line=dict(color="blue", width=2),
+                    )
+                )
 
                 # Add forecast if available
                 if trends_data["forecast"]:
                     forecast_periods = list(trends_data["forecast"].keys())
                     forecast_costs = list(trends_data["forecast"].values())
-                    fig.add_trace(go.Scatter(
-                        x=forecast_periods,
-                        y=forecast_costs,
-                        mode='markers',
-                        name='Forecast',
-                        marker=dict(color='red', size=8, symbol='diamond')
-                    ))
+                    fig.add_trace(
+                        go.Scatter(
+                            x=forecast_periods,
+                            y=forecast_costs,
+                            mode="markers",
+                            name="Forecast",
+                            marker=dict(color="red", size=8, symbol="diamond"),
+                        )
+                    )
 
                 fig.update_layout(
                     title=f"Cost Trends - {timeframe.title()}",
                     xaxis_title="Time Period",
                     yaxis_title="Cost ($)",
-                    hovermode='x unified'
+                    hovermode="x unified",
                 )
 
                 return fig
@@ -269,7 +273,9 @@ def create_cost_optimizer_tab() -> gr.Blocks:
                 logger.error(f"Failed to update trends chart: {exc}")
                 # Return empty chart
                 fig = go.Figure()
-                fig.add_trace(go.Scatter(x=[], y=[], mode='lines+markers', name='Costs'))
+                fig.add_trace(
+                    go.Scatter(x=[], y=[], mode="lines+markers", name="Costs")
+                )
                 fig.update_layout(title="Error loading chart")
                 return fig
 
@@ -289,70 +295,85 @@ def create_cost_optimizer_tab() -> gr.Blocks:
                 breakdown_data = [
                     ["Total Session Cost", f"${analysis.current_cost:.2f}", "100%"],
                     ["Average Cost", f"${analysis.average_cost:.2f}", "-"],
-                    ["Trend", analysis.cost_trend.value.title(), "-"]
+                    ["Trend", analysis.cost_trend.value.title(), "-"],
                 ]
 
-                return pd.DataFrame(breakdown_data, columns=["Category", "Cost", "Percentage"])
+                return pd.DataFrame(
+                    breakdown_data, columns=["Category", "Cost", "Percentage"]
+                )
 
             except Exception as exc:
                 logger.error(f"Failed to update cost breakdown: {exc}")
-                return pd.DataFrame([["Error", "N/A", "N/A"]], columns=["Category", "Cost", "Percentage"])
+                return pd.DataFrame(
+                    [["Error", "N/A", "N/A"]],
+                    columns=["Category", "Cost", "Percentage"],
+                )
 
         # Connect event handlers
         session_id_input.change(
             fn=update_cost_display,
             inputs=[session_id_input],
-            outputs=[current_cost_display, cost_trend_indicator, budget_progress, budget_text]
+            outputs=[
+                current_cost_display,
+                cost_trend_indicator,
+                budget_progress,
+                budget_text,
+            ],
         )
 
         session_id_input.change(
             fn=update_alerts_display,
             inputs=[session_id_input],
-            outputs=[alerts_display]
+            outputs=[alerts_display],
         )
 
         session_id_input.change(
             fn=update_suggestions_display,
             inputs=[session_id_input],
-            outputs=[suggestions_display]
+            outputs=[suggestions_display],
         )
 
         timeframe_selector.change(
             fn=update_trends_chart,
             inputs=[session_id_input, timeframe_selector],
-            outputs=[trends_chart]
+            outputs=[trends_chart],
         )
 
         session_id_input.change(
             fn=update_cost_breakdown,
             inputs=[session_id_input],
-            outputs=[breakdown_display]
+            outputs=[breakdown_display],
         )
 
         # Initialize displays
         cost_tab.load(
             fn=lambda: update_cost_display("demo_session_123"),
-            outputs=[current_cost_display, cost_trend_indicator, budget_progress, budget_text]
+            outputs=[
+                current_cost_display,
+                cost_trend_indicator,
+                budget_progress,
+                budget_text,
+            ],
         )
 
         cost_tab.load(
             fn=lambda: update_alerts_display("demo_session_123"),
-            outputs=[alerts_display]
+            outputs=[alerts_display],
         )
 
         cost_tab.load(
             fn=lambda: update_suggestions_display("demo_session_123"),
-            outputs=[suggestions_display]
+            outputs=[suggestions_display],
         )
 
         cost_tab.load(
             fn=lambda: update_trends_chart("demo_session_123", "daily"),
-            outputs=[trends_chart]
+            outputs=[trends_chart],
         )
 
         cost_tab.load(
             fn=lambda: update_cost_breakdown("demo_session_123"),
-            outputs=[breakdown_display]
+            outputs=[breakdown_display],
         )
 
     return cost_tab

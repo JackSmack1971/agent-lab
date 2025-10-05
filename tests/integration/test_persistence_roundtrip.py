@@ -10,8 +10,15 @@ from unittest.mock import patch
 
 from agents.models import RunRecord
 from services.persist import (
-    append_run, load_recent_runs, init_csv, CSV_PATH, CSV_HEADERS,
-    _parse_row, _coerce_int, _coerce_float, _coerce_bool
+    append_run,
+    load_recent_runs,
+    init_csv,
+    CSV_PATH,
+    CSV_HEADERS,
+    _parse_row,
+    _coerce_int,
+    _coerce_float,
+    _coerce_bool,
 )
 
 
@@ -47,7 +54,7 @@ class TestPersistenceRoundtrip:
                 model_list_source="dynamic",
                 tool_web_enabled=False,
                 web_status="off",
-                aborted=False
+                aborted=False,
             ),
             RunRecord(
                 ts=base_time.replace(microsecond=base_time.microsecond + 1000),
@@ -65,7 +72,7 @@ class TestPersistenceRoundtrip:
                 model_list_source="fallback",
                 tool_web_enabled=True,
                 web_status="ok",
-                aborted=False
+                aborted=False,
             ),
             RunRecord(
                 ts=base_time.replace(microsecond=base_time.microsecond + 2000),
@@ -83,14 +90,16 @@ class TestPersistenceRoundtrip:
                 model_list_source="dynamic",
                 tool_web_enabled=False,
                 web_status="off",
-                aborted=True
-            )
+                aborted=True,
+            ),
         ]
 
-    def test_persistence_roundtrip_basic_csv_operations_integration(self, temp_csv_file, sample_run_records):
+    def test_persistence_roundtrip_basic_csv_operations_integration(
+        self, temp_csv_file, sample_run_records
+    ):
         """Test basic CSV write and read roundtrip."""
         # Override CSV path for testing
-        with patch('services.persist.CSV_PATH', temp_csv_file):
+        with patch("services.persist.CSV_PATH", temp_csv_file):
             # Initialize CSV
             init_csv()
 
@@ -120,21 +129,25 @@ class TestPersistenceRoundtrip:
                 assert loaded.completion_tokens == original.completion_tokens
                 assert loaded.total_tokens == original.total_tokens
                 assert loaded.latency_ms == original.latency_ms
-                assert abs(loaded.cost_usd - original.cost_usd) < 0.001  # Float precision
+                assert (
+                    abs(loaded.cost_usd - original.cost_usd) < 0.001
+                )  # Float precision
                 assert loaded.streaming == original.streaming
                 assert loaded.aborted == original.aborted
                 assert loaded.experiment_id == original.experiment_id
                 assert loaded.task_label == original.task_label
 
-    def test_persistence_roundtrip_csv_header_integrity_integration(self, temp_csv_file, sample_run_records):
+    def test_persistence_roundtrip_csv_header_integrity_integration(
+        self, temp_csv_file, sample_run_records
+    ):
         """Test CSV header matches expected schema."""
-        with patch('services.persist.CSV_PATH', temp_csv_file):
+        with patch("services.persist.CSV_PATH", temp_csv_file):
             # Initialize and write data
             init_csv()
             append_run(sample_run_records[0])
 
             # Read raw CSV to verify header
-            with open(temp_csv_file, 'r', encoding='utf-8') as f:
+            with open(temp_csv_file, "r", encoding="utf-8") as f:
                 reader = csv.reader(f)
                 header = next(reader)
 
@@ -143,16 +156,30 @@ class TestPersistenceRoundtrip:
 
             # Verify all expected columns are present
             expected_headers = [
-                "ts", "agent_name", "model", "prompt_tokens", "completion_tokens",
-                "total_tokens", "latency_ms", "cost_usd", "experiment_id", "task_label",
-                "run_notes", "streaming", "model_list_source", "tool_web_enabled",
-                "web_status", "aborted"
+                "ts",
+                "agent_name",
+                "model",
+                "prompt_tokens",
+                "completion_tokens",
+                "total_tokens",
+                "latency_ms",
+                "cost_usd",
+                "experiment_id",
+                "task_label",
+                "run_notes",
+                "streaming",
+                "model_list_source",
+                "tool_web_enabled",
+                "web_status",
+                "aborted",
             ]
             assert header == expected_headers
 
-    def test_persistence_roundtrip_data_type_preservation_integration(self, temp_csv_file):
+    def test_persistence_roundtrip_data_type_preservation_integration(
+        self, temp_csv_file
+    ):
         """Test that data types are preserved through CSV roundtrip."""
-        with patch('services.persist.CSV_PATH', temp_csv_file):
+        with patch("services.persist.CSV_PATH", temp_csv_file):
             # Create record with specific data types
             record = RunRecord(
                 ts=datetime.now(),
@@ -169,7 +196,7 @@ class TestPersistenceRoundtrip:
                 web_status="blocked",
                 aborted=False,
                 experiment_id="type_test",
-                task_label="data_types"
+                task_label="data_types",
             )
 
             # Write and read back
@@ -206,7 +233,7 @@ class TestPersistenceRoundtrip:
 
     def test_persistence_roundtrip_edge_case_values_integration(self, temp_csv_file):
         """Test roundtrip with edge case and boundary values."""
-        with patch('services.persist.CSV_PATH', temp_csv_file):
+        with patch("services.persist.CSV_PATH", temp_csv_file):
             # Test with zero values
             zero_record = RunRecord(
                 ts=datetime.now(),
@@ -221,7 +248,7 @@ class TestPersistenceRoundtrip:
                 model_list_source="fallback",
                 tool_web_enabled=False,
                 web_status="off",
-                aborted=False
+                aborted=False,
             )
 
             # Test with maximum reasonable values
@@ -241,7 +268,7 @@ class TestPersistenceRoundtrip:
                 aborted=True,
                 experiment_id="edge_case_test",
                 task_label="maximum_values",
-                run_notes="Testing boundary conditions"
+                run_notes="Testing boundary conditions",
             )
 
             init_csv()
@@ -276,22 +303,26 @@ class TestPersistenceRoundtrip:
             assert zero_loaded.streaming is False
             assert zero_loaded.aborted is False
 
-    def test_persistence_roundtrip_malformed_data_handling_integration(self, temp_csv_file):
+    def test_persistence_roundtrip_malformed_data_handling_integration(
+        self, temp_csv_file
+    ):
         """Test handling of malformed CSV data."""
-        with patch('services.persist.CSV_PATH', temp_csv_file):
+        with patch("services.persist.CSV_PATH", temp_csv_file):
             # Create CSV with some malformed data
             init_csv()
 
             # Manually add malformed row
-            with open(temp_csv_file, 'a', newline='', encoding='utf-8') as f:
+            with open(temp_csv_file, "a", newline="", encoding="utf-8") as f:
                 writer = csv.DictWriter(f, fieldnames=CSV_HEADERS)
                 # Row with invalid timestamp
-                writer.writerow({
-                    **{header: "" for header in CSV_HEADERS},
-                    "ts": "invalid-timestamp",
-                    "agent_name": "MalformedAgent",
-                    "latency_ms": "not-a-number"
-                })
+                writer.writerow(
+                    {
+                        **{header: "" for header in CSV_HEADERS},
+                        "ts": "invalid-timestamp",
+                        "agent_name": "MalformedAgent",
+                        "latency_ms": "not-a-number",
+                    }
+                )
 
             # Valid row
             valid_record = RunRecord(
@@ -303,7 +334,7 @@ class TestPersistenceRoundtrip:
                 model_list_source="dynamic",
                 tool_web_enabled=False,
                 web_status="off",
-                aborted=False
+                aborted=False,
             )
             append_run(valid_record)
 
@@ -314,9 +345,11 @@ class TestPersistenceRoundtrip:
             assert len(loaded) == 1
             assert loaded[0].agent_name == "ValidAgent"
 
-    def test_persistence_roundtrip_empty_and_missing_fields_integration(self, temp_csv_file):
+    def test_persistence_roundtrip_empty_and_missing_fields_integration(
+        self, temp_csv_file
+    ):
         """Test handling of empty and missing optional fields."""
-        with patch('services.persist.CSV_PATH', temp_csv_file):
+        with patch("services.persist.CSV_PATH", temp_csv_file):
             # Record with minimal required fields
             minimal_record = RunRecord(
                 ts=datetime.now(),
@@ -327,7 +360,7 @@ class TestPersistenceRoundtrip:
                 model_list_source="fallback",
                 tool_web_enabled=False,
                 web_status="off",
-                aborted=False
+                aborted=False,
                 # All optional fields left as defaults
             )
 
@@ -353,9 +386,11 @@ class TestPersistenceRoundtrip:
             assert record.total_tokens == 0
             assert record.cost_usd == 0.0
 
-    def test_persistence_roundtrip_large_dataset_performance_integration(self, temp_csv_file):
+    def test_persistence_roundtrip_large_dataset_performance_integration(
+        self, temp_csv_file
+    ):
         """Test roundtrip performance with larger dataset."""
-        with patch('services.persist.CSV_PATH', temp_csv_file):
+        with patch("services.persist.CSV_PATH", temp_csv_file):
             init_csv()
 
             # Create multiple records
@@ -367,7 +402,9 @@ class TestPersistenceRoundtrip:
                 microsecond_offset = (i * 1000) % 1000000
                 record_time = base_time.replace(microsecond=microsecond_offset)
                 if i >= 1000:  # If we exceed microsecond range, add seconds
-                    record_time = record_time.replace(second=record_time.second + (i // 1000))
+                    record_time = record_time.replace(
+                        second=record_time.second + (i // 1000)
+                    )
 
                 record = RunRecord(
                     ts=record_time,
@@ -375,16 +412,16 @@ class TestPersistenceRoundtrip:
                     model="openai/gpt-4-turbo",
                     prompt_tokens=100 + i,
                     completion_tokens=50 + i,
-                    total_tokens=150 + 2*i,
-                    latency_ms=1000 + i*10,
-                    cost_usd=0.01 + i*0.001,
+                    total_tokens=150 + 2 * i,
+                    latency_ms=1000 + i * 10,
+                    cost_usd=0.01 + i * 0.001,
                     streaming=True,
                     model_list_source="dynamic",
                     tool_web_enabled=False,
                     web_status="off",
                     aborted=False,
                     experiment_id=f"perf_exp_{i:03d}",
-                    task_label="performance_test"
+                    task_label="performance_test",
                 )
                 records.append(record)
                 append_run(record)
@@ -408,9 +445,11 @@ class TestPersistenceRoundtrip:
             last_loaded = loaded_by_name["PerfAgent099"]
             assert last_loaded.prompt_tokens == 199
 
-    def test_persistence_roundtrip_csv_append_consistency_integration(self, temp_csv_file, sample_run_records):
+    def test_persistence_roundtrip_csv_append_consistency_integration(
+        self, temp_csv_file, sample_run_records
+    ):
         """Test that appending maintains CSV consistency."""
-        with patch('services.persist.CSV_PATH', temp_csv_file):
+        with patch("services.persist.CSV_PATH", temp_csv_file):
             init_csv()
 
             # Append records one by one
@@ -418,7 +457,7 @@ class TestPersistenceRoundtrip:
                 append_run(record)
 
             # Verify CSV structure after each append
-            with open(temp_csv_file, 'r', encoding='utf-8') as f:
+            with open(temp_csv_file, "r", encoding="utf-8") as f:
                 lines = f.readlines()
 
             # Should have header + 3 data rows

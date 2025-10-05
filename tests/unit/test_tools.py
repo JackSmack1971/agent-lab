@@ -76,8 +76,10 @@ class TestTools:
         assert abs(result_timestamp - start_time) <= 1
         assert abs(result_timestamp - end_time) <= 1
 
-    @given(a=st.floats(allow_nan=False, allow_infinity=False),
-            b=st.floats(allow_nan=False, allow_infinity=False))
+    @given(
+        a=st.floats(allow_nan=False, allow_infinity=False),
+        b=st.floats(allow_nan=False, allow_infinity=False),
+    )
     @pytest.mark.asyncio
     async def test_add_numbers_commutative(self, a: float, b: float) -> None:
         """Property test: addition is commutative (a + b = b + a)."""
@@ -86,8 +88,14 @@ class TestTools:
         result_ba = await add_numbers(ctx, AddInput(a=b, b=a))
         assert result_ab == result_ba
 
-    @given(a=st.floats(min_value=-1e10, max_value=1e10, allow_nan=False, allow_infinity=False),
-            b=st.floats(min_value=-1e10, max_value=1e10, allow_nan=False, allow_infinity=False))
+    @given(
+        a=st.floats(
+            min_value=-1e10, max_value=1e10, allow_nan=False, allow_infinity=False
+        ),
+        b=st.floats(
+            min_value=-1e10, max_value=1e10, allow_nan=False, allow_infinity=False
+        ),
+    )
     @pytest.mark.asyncio
     async def test_add_numbers_correctness(self, a: float, b: float) -> None:
         """Property test: add_numbers returns the correct sum a + b."""

@@ -20,7 +20,13 @@ from loguru import logger
 
 from agents.models import AgentConfig, RunRecord, Session
 from agents.runtime import build_agent, run_agent_stream
-from services.persist import append_run, init_csv, list_sessions, save_session, load_session
+from services.persist import (
+    append_run,
+    init_csv,
+    list_sessions,
+    save_session,
+    load_session,
+)
 from services.catalog import get_model_choices, get_models
 from uuid import uuid4
 from datetime import datetime, timezone
@@ -93,20 +99,21 @@ def load_initial_models() -> tuple[
             "model_count": len(display_choices),
             "source": source_enum,
             "source_label": source_label,
-        }
+        },
     )
 
     return display_choices, source_label, models, source_enum
 
 
-INITIAL_MODEL_CHOICES, INITIAL_MODEL_SOURCE_LABEL, _INITIAL_MODELS, INITIAL_MODEL_SOURCE_ENUM = (
-    load_initial_models()
-)
+(
+    INITIAL_MODEL_CHOICES,
+    INITIAL_MODEL_SOURCE_LABEL,
+    _INITIAL_MODELS,
+    INITIAL_MODEL_SOURCE_ENUM,
+) = load_initial_models()
 
 DEFAULT_MODEL_ID = (
-    INITIAL_MODEL_CHOICES[0][1]
-    if INITIAL_MODEL_CHOICES
-    else "openai/gpt-4-turbo"
+    INITIAL_MODEL_CHOICES[0][1] if INITIAL_MODEL_CHOICES else "openai/gpt-4-turbo"
 )
 
 INITIAL_DROPDOWN_VALUES = [choice[0] for choice in INITIAL_MODEL_CHOICES]
@@ -146,63 +153,127 @@ def _web_badge_html(enabled: bool) -> str:
     badge_color = "#0066cc" if enabled else "#666666"
     badge_state = "ON" if enabled else "OFF"
     return (
-        "<span style=\"background:{color};color:white;padding:4px 8px;border-radius:4px;\">"
+        '<span style="background:{color};color:white;padding:4px 8px;border-radius:4px;">'
         "Web Tool: {state}</span>"
     ).format(color=badge_color, state=badge_state)
 
 
 # UX Improvements - Inline Validation, Keyboard Shortcuts, Loading States
 
+
 def validate_agent_name(name: str) -> dict:
     """Validate agent name field."""
     if not name or not name.strip():
-        return {"status": "error", "message": "❌ Agent Name: This field is required", "is_valid": False}
+        return {
+            "status": "error",
+            "message": "❌ Agent Name: This field is required",
+            "is_valid": False,
+        }
     if len(name) > 100:
-        return {"status": "error", "message": "❌ Agent Name: Maximum 100 characters allowed", "is_valid": False}
+        return {
+            "status": "error",
+            "message": "❌ Agent Name: Maximum 100 characters allowed",
+            "is_valid": False,
+        }
     return {"status": "success", "message": "✅ Agent Name is valid", "is_valid": True}
+
 
 def validate_system_prompt(prompt: str) -> dict:
     """Validate system prompt field."""
     if not prompt or not prompt.strip():
-        return {"status": "error", "message": "❌ System Prompt: This field is required", "is_valid": False}
+        return {
+            "status": "error",
+            "message": "❌ System Prompt: This field is required",
+            "is_valid": False,
+        }
     if len(prompt) > 10000:
-        return {"status": "error", "message": "❌ System Prompt: Maximum 10,000 characters allowed", "is_valid": False}
-    return {"status": "success", "message": "✅ System Prompt is valid", "is_valid": True}
+        return {
+            "status": "error",
+            "message": "❌ System Prompt: Maximum 10,000 characters allowed",
+            "is_valid": False,
+        }
+    return {
+        "status": "success",
+        "message": "✅ System Prompt is valid",
+        "is_valid": True,
+    }
+
 
 def validate_temperature(temp: str | float) -> dict:
     """Validate temperature field."""
     try:
         temp_val = float(temp)
         if temp_val < 0.0:
-            return {"status": "error", "message": "❌ Temperature: Minimum value is 0.0", "is_valid": False}
+            return {
+                "status": "error",
+                "message": "❌ Temperature: Minimum value is 0.0",
+                "is_valid": False,
+            }
         if temp_val > 2.0:
-            return {"status": "error", "message": "❌ Temperature: Maximum value is 2.0", "is_valid": False}
-        return {"status": "success", "message": "✅ Temperature is valid", "is_valid": True}
+            return {
+                "status": "error",
+                "message": "❌ Temperature: Maximum value is 2.0",
+                "is_valid": False,
+            }
+        return {
+            "status": "success",
+            "message": "✅ Temperature is valid",
+            "is_valid": True,
+        }
     except (ValueError, TypeError):
-        return {"status": "error", "message": "❌ Temperature: Must be a number between 0.0 and 2.0", "is_valid": False}
+        return {
+            "status": "error",
+            "message": "❌ Temperature: Must be a number between 0.0 and 2.0",
+            "is_valid": False,
+        }
+
 
 def validate_top_p(top_p: str | float) -> dict:
     """Validate top_p field."""
     try:
         top_p_val = float(top_p)
         if top_p_val < 0.0:
-            return {"status": "error", "message": "❌ Top P: Minimum value is 0.0", "is_valid": False}
+            return {
+                "status": "error",
+                "message": "❌ Top P: Minimum value is 0.0",
+                "is_valid": False,
+            }
         if top_p_val > 1.0:
-            return {"status": "error", "message": "❌ Top P: Maximum value is 1.0", "is_valid": False}
+            return {
+                "status": "error",
+                "message": "❌ Top P: Maximum value is 1.0",
+                "is_valid": False,
+            }
         return {"status": "success", "message": "✅ Top P is valid", "is_valid": True}
     except (ValueError, TypeError):
-        return {"status": "error", "message": "❌ Top P: Must be a number between 0.0 and 1.0", "is_valid": False}
+        return {
+            "status": "error",
+            "message": "❌ Top P: Must be a number between 0.0 and 1.0",
+            "is_valid": False,
+        }
+
 
 def validate_model_selection(model_id: str, available_models: list | None) -> dict:
     """Validate model selection."""
     if not available_models:
-        return {"status": "error", "message": "❌ Model: No models available", "is_valid": False}
+        return {
+            "status": "error",
+            "message": "❌ Model: No models available",
+            "is_valid": False,
+        }
     model_ids = [m.id for m in available_models]
     if model_id not in model_ids:
-        return {"status": "error", "message": "❌ Model: Please select a valid model", "is_valid": False}
+        return {
+            "status": "error",
+            "message": "❌ Model: Please select a valid model",
+            "is_valid": False,
+        }
     return {"status": "success", "message": "✅ Model is valid", "is_valid": True}
 
-def validate_form_field(field_name: str, value: Any, available_models: list | None = None) -> dict:
+
+def validate_form_field(
+    field_name: str, value: Any, available_models: list | None = None
+) -> dict:
     """Central validation dispatcher."""
     if field_name == "agent_name":
         return validate_agent_name(value)
@@ -216,32 +287,34 @@ def validate_form_field(field_name: str, value: Any, available_models: list | No
         return validate_model_selection(value, available_models)
     return {"status": "unknown", "message": "", "is_valid": True}
 
+
 # Keyboard Shortcuts Implementation
 def handle_keyboard_shortcut(keyboard_event: gr.EventData) -> str:
     """Handle keyboard shortcuts from JavaScript."""
     try:
-        event_data = keyboard_event._data if hasattr(keyboard_event, '_data') else {}
-        key = event_data.get('key', '').lower()
-        ctrl_key = event_data.get('ctrlKey', False)
-        meta_key = event_data.get('metaKey', False)
-        shift_key = event_data.get('shiftKey', False)
+        event_data = keyboard_event._data if hasattr(keyboard_event, "_data") else {}
+        key = event_data.get("key", "").lower()
+        ctrl_key = event_data.get("ctrlKey", False)
+        meta_key = event_data.get("metaKey", False)
+        shift_key = event_data.get("shiftKey", False)
 
         # Normalize Ctrl/Cmd
         modifier = ctrl_key or meta_key
 
         # Define shortcuts
-        if modifier and key == 'enter':
-            return 'send_message'
-        elif modifier and key == 'k':
-            return 'focus_input'
-        elif modifier and key == 'r':
-            return 'refresh_models'
-        elif key == 'escape':
-            return 'stop_generation'
+        if modifier and key == "enter":
+            return "send_message"
+        elif modifier and key == "k":
+            return "focus_input"
+        elif modifier and key == "r":
+            return "refresh_models"
+        elif key == "escape":
+            return "stop_generation"
 
-        return 'none'
+        return "none"
     except Exception:
-        return 'none'
+        return "none"
+
 
 # Loading States Implementation
 class LoadingStateManager:
@@ -253,51 +326,58 @@ class LoadingStateManager:
     def start_loading(self, operation_id: str, operation_type: str) -> dict:
         """Start loading state for an operation."""
         self.active_operations[operation_id] = {
-            'type': operation_type,
-            'start_time': datetime.now(timezone.utc)
+            "type": operation_type,
+            "start_time": datetime.now(timezone.utc),
         }
 
-        if operation_type == 'button':
-            return {'interactive': False, 'value': self._get_loading_text(operation_type)}
-        elif operation_type == 'panel':
-            return {'visible': True, '__type__': 'update'}
+        if operation_type == "button":
+            return {
+                "interactive": False,
+                "value": self._get_loading_text(operation_type),
+            }
+        elif operation_type == "panel":
+            return {"visible": True, "__type__": "update"}
         return {}
 
     def complete_loading(self, operation_id: str, success: bool = True) -> dict:
         """Complete loading state for an operation."""
         if operation_id in self.active_operations:
-            operation_type = self.active_operations[operation_id]['type']
+            operation_type = self.active_operations[operation_id]["type"]
             del self.active_operations[operation_id]
 
-            if operation_type == 'button':
-                return {'interactive': True, 'value': self._get_default_text(operation_type)}
-            elif operation_type == 'panel':
-                return {'visible': False, '__type__': 'update'}
+            if operation_type == "button":
+                return {
+                    "interactive": True,
+                    "value": self._get_default_text(operation_type),
+                }
+            elif operation_type == "panel":
+                return {"visible": False, "__type__": "update"}
         return {}
 
     def _get_loading_text(self, operation_type: str) -> str:
         """Get loading text for operation type."""
         texts = {
-            'button': {
-                'agent_build': 'Building...',
-                'model_refresh': 'Refreshing...',
-                'session_save': 'Saving...',
-                'session_load': 'Loading...'
+            "button": {
+                "agent_build": "Building...",
+                "model_refresh": "Refreshing...",
+                "session_save": "Saving...",
+                "session_load": "Loading...",
             }
         }
-        return texts.get('button', {}).get(operation_type, 'Loading...')
+        return texts.get("button", {}).get(operation_type, "Loading...")
 
     def _get_default_text(self, operation_type: str) -> str:
         """Get default text for operation type."""
         texts = {
-            'button': {
-                'agent_build': 'Build Agent',
-                'model_refresh': 'Refresh Models',
-                'session_save': 'Save Session',
-                'session_load': 'Load Session'
+            "button": {
+                "agent_build": "Build Agent",
+                "model_refresh": "Refresh Models",
+                "session_save": "Save Session",
+                "session_load": "Load Session",
             }
         }
-        return texts.get('button', {}).get(operation_type, '')
+        return texts.get("button", {}).get(operation_type, "")
+
 
 # Global loading state manager
 loading_manager = LoadingStateManager()
@@ -357,15 +437,16 @@ def refresh_models_handler(
     try:
         models, source_enum, timestamp = get_models(force_refresh=True)
         choices = [
-            (f"{model.display_name} ({model.provider})", model.id)
-            for model in models
+            (f"{model.display_name} ({model.provider})", model.id) for model in models
         ]
         if source_enum == "dynamic":
             fetch_time = timestamp.astimezone(timezone.utc).strftime("%H:%M")
             source_label = f"Dynamic (fetched {fetch_time})"
         else:
             source_label = "Fallback"
-        message = f"✅ Model catalog refreshed: {len(choices)} options from {source_enum}."
+        message = (
+            f"✅ Model catalog refreshed: {len(choices)} options from {source_enum}."
+        )
     except Exception:  # pragma: no cover - defensive guard
         # Security: revert to fallback data without exposing sensitive error details.
         logger.warning("Model refresh failed; falling back to cached list.")
@@ -383,8 +464,10 @@ def refresh_models_handler(
     current_model_id = id_mapping.get(current_display_label, config_state.model)
     # Find display label for current model ID
     display_labels = [choice[0] for choice in choices]
-    selected_label = current_display_label if current_display_label in display_labels else (
-        display_labels[0] if display_labels else DEFAULT_MODEL_ID
+    selected_label = (
+        current_display_label
+        if current_display_label in display_labels
+        else (display_labels[0] if display_labels else DEFAULT_MODEL_ID)
     )
 
     dropdown_update = gr.update(choices=display_labels, value=selected_label)
@@ -578,35 +661,43 @@ async def send_message_streaming(
                 continue
         return 0.0
 
-    prompt_tokens = _extract_int([
-        "prompt_tokens",
-        "promptTokens",
-        "input_tokens",
-        "inputTokens",
-        "prompt",
-    ])
-    completion_tokens = _extract_int([
-        "completion_tokens",
-        "completionTokens",
-        "output_tokens",
-        "outputTokens",
-        "completion",
-    ])
-    total_tokens = _extract_int([
-        "total_tokens",
-        "totalTokens",
-        "tokens",
-    ])
+    prompt_tokens = _extract_int(
+        [
+            "prompt_tokens",
+            "promptTokens",
+            "input_tokens",
+            "inputTokens",
+            "prompt",
+        ]
+    )
+    completion_tokens = _extract_int(
+        [
+            "completion_tokens",
+            "completionTokens",
+            "output_tokens",
+            "outputTokens",
+            "completion",
+        ]
+    )
+    total_tokens = _extract_int(
+        [
+            "total_tokens",
+            "totalTokens",
+            "tokens",
+        ]
+    )
 
     if total_tokens == 0 and (prompt_tokens or completion_tokens):
         total_tokens = prompt_tokens + completion_tokens
 
-    cost_usd = _extract_float([
-        "cost_usd",
-        "total_cost",
-        "cost",
-        "usd_cost",
-    ])
+    cost_usd = _extract_float(
+        [
+            "cost_usd",
+            "total_cost",
+            "cost",
+            "usd_cost",
+        ]
+    )
 
     usage_available = bool(usage)
 
@@ -639,11 +730,12 @@ async def send_message_streaming(
     except Exception as exc:  # pragma: no cover - filesystem/runtime guard
         run_info = f"⚠️ Response logged with warning: {exc}"
     else:
-        status_prefix = "⏹️ Generation stopped" if stream_result.aborted else "✅ Response ready"
+        status_prefix = (
+            "⏹️ Generation stopped" if stream_result.aborted else "✅ Response ready"
+        )
         if usage_available:
             token_fragment = (
-                " | 🔢 "
-                f"{prompt_tokens}?{completion_tokens} ({total_tokens} total)"
+                " | 🔢 " f"{prompt_tokens}?{completion_tokens} ({total_tokens} total)"
             )
         else:
             token_fragment = " | 🔢 tokens unavailable"
@@ -656,7 +748,11 @@ async def send_message_streaming(
         if task_label.strip() and task_label != "other":
             tag_info += f" | ??? Task: {task_label}"
         if run_notes.strip():
-            tag_info += f" | ?? Notes: {run_notes.strip()[:30]}..." if len(run_notes.strip()) > 30 else f" | ?? {run_notes.strip()}"
+            tag_info += (
+                f" | ?? Notes: {run_notes.strip()[:30]}..."
+                if len(run_notes.strip()) > 30
+                else f" | ?? {run_notes.strip()}"
+            )
 
         # Resolve model ID to display label for UI
         reverse_mapping = {v: k for k, v in id_mapping.items()}
@@ -711,18 +807,34 @@ def save_session_handler(
     # Create new session or update existing
     session = Session(
         id=current_session.id if current_session else str(uuid4()),
-        created_at=current_session.created_at if current_session else datetime.now(timezone.utc),
+        created_at=(
+            current_session.created_at
+            if current_session
+            else datetime.now(timezone.utc)
+        ),
         agent_config=config_state,
-        transcript=[{"role": msg[0], "content": msg[1], "ts": datetime.now(timezone.utc).isoformat()}
-                   for pair in history_state for msg in [("user", pair[0]), ("assistant", pair[1])]],
+        transcript=[
+            {
+                "role": msg[0],
+                "content": msg[1],
+                "ts": datetime.now(timezone.utc).isoformat(),
+            }
+            for pair in history_state
+            for msg in [("user", pair[0]), ("assistant", pair[1])]
+        ],
         model_id=config_state.model,
-        notes=session_name
+        notes=session_name,
     )
 
     try:
         path = save_session(session)
         sessions_list = [(s[0], s[0]) for s in list_sessions()]
-        return session, f"? Saved: {path.name}", sessions_list, gr.update(choices=sessions_list)
+        return (
+            session,
+            f"? Saved: {path.name}",
+            sessions_list,
+            gr.update(choices=sessions_list),
+        )
     except Exception as exc:
         return current_session, f"? Save failed: {exc}", [], gr.update()
 
@@ -733,12 +845,34 @@ def load_session_handler(
 ) -> tuple[Session | None, str, list, AgentConfig, str, str, str, float, float, bool]:
     """Load session from disk and restore all state."""
     if not session_name:
-        return None, "?? Select a session to load", [], DEFAULT_AGENT_CONFIG, "", "", "", 0.7, 1.0, False
+        return (
+            None,
+            "?? Select a session to load",
+            [],
+            DEFAULT_AGENT_CONFIG,
+            "",
+            "",
+            "",
+            0.7,
+            1.0,
+            False,
+        )
 
     try:
         sessions = {s[0]: s[1] for s in list_sessions()}
         if session_name not in sessions:
-            return None, f"? Session not found: {session_name}", [], DEFAULT_AGENT_CONFIG, "", "", "", 0.7, 1.0, False
+            return (
+                None,
+                f"? Session not found: {session_name}",
+                [],
+                DEFAULT_AGENT_CONFIG,
+                "",
+                "",
+                "",
+                0.7,
+                1.0,
+                False,
+            )
 
         session = load_session(sessions[session_name])
 
@@ -767,10 +901,21 @@ def load_session_handler(
             cfg.system_prompt,
             cfg.temperature,
             cfg.top_p,
-            "web_fetch" in cfg.tools
+            "web_fetch" in cfg.tools,
         )
     except Exception as exc:
-        return None, f"? Load failed: {exc}", [], DEFAULT_AGENT_CONFIG, "", "", "", 0.7, 1.0, False
+        return (
+            None,
+            f"? Load failed: {exc}",
+            [],
+            DEFAULT_AGENT_CONFIG,
+            "",
+            "",
+            "",
+            0.7,
+            1.0,
+            False,
+        )
 
 
 def new_session_handler() -> tuple[None, str, list, str]:
@@ -790,9 +935,9 @@ def create_ui() -> gr.Blocks:
         model_choices_state = gr.State(INITIAL_MODEL_CHOICES)
         model_source_label_state = gr.State(INITIAL_MODEL_SOURCE_LABEL)
         model_source_enum_state = gr.State(INITIAL_MODEL_SOURCE_ENUM)
-        model_id_mapping_state = gr.State({
-            choice[0]: choice[1] for choice in INITIAL_MODEL_CHOICES
-        })
+        model_id_mapping_state = gr.State(
+            {choice[0]: choice[1] for choice in INITIAL_MODEL_CHOICES}
+        )
         current_session_state = gr.State(None)
 
         with gr.Row(equal_height=True):
@@ -802,9 +947,13 @@ def create_ui() -> gr.Blocks:
                 model_selector = gr.Dropdown(
                     label="Model",
                     choices=INITIAL_DROPDOWN_VALUES or [DEFAULT_MODEL_ID],
-                    value=INITIAL_DROPDOWN_VALUES[0] if INITIAL_DROPDOWN_VALUES else DEFAULT_MODEL_ID,
+                    value=(
+                        INITIAL_DROPDOWN_VALUES[0]
+                        if INITIAL_DROPDOWN_VALUES
+                        else DEFAULT_MODEL_ID
+                    ),
                     filterable=True,
-                    info="Start typing to search models by name or provider"
+                    info="Start typing to search models by name or provider",
                 )
                 model_source_indicator = gr.Markdown(
                     value=_format_source_display(INITIAL_MODEL_SOURCE_LABEL)
@@ -839,19 +988,25 @@ def create_ui() -> gr.Blocks:
                     session_name_input = gr.Textbox(
                         label="Session Name",
                         placeholder="experiment-gpt4-vs-claude",
-                        info="Give this session a memorable name"
+                        info="Give this session a memorable name",
                     )
                     with gr.Row():
-                        save_session_btn = gr.Button("?? Save", variant="secondary", scale=1)
-                        load_session_btn = gr.Button("?? Load", variant="secondary", scale=1)
-                        new_session_btn = gr.Button("?? New", variant="secondary", scale=1)
+                        save_session_btn = gr.Button(
+                            "?? Save", variant="secondary", scale=1
+                        )
+                        load_session_btn = gr.Button(
+                            "?? Load", variant="secondary", scale=1
+                        )
+                        new_session_btn = gr.Button(
+                            "?? New", variant="secondary", scale=1
+                        )
 
                     session_list = gr.Dropdown(
                         label="Saved Sessions",
                         choices=[],
                         value=None,
                         interactive=True,
-                        info="Select a session to load"
+                        info="Select a session to load",
                     )
                     session_status = gr.Markdown(value="_No active session_")
 
@@ -860,20 +1015,28 @@ def create_ui() -> gr.Blocks:
                     experiment_id_input = gr.Textbox(
                         label="Experiment ID",
                         placeholder="prompt-optimization-v3",
-                        info="?? Group related runs together (e.g., 'temperature-test', 'model-comparison')"
+                        info="?? Group related runs together (e.g., 'temperature-test', 'model-comparison')",
                     )
                     task_label_input = gr.Dropdown(
                         label="Task Type",
-                        choices=["reasoning", "creative", "coding", "summarization", "analysis", "debugging", "other"],
+                        choices=[
+                            "reasoning",
+                            "creative",
+                            "coding",
+                            "summarization",
+                            "analysis",
+                            "debugging",
+                            "other",
+                        ],
                         value="other",
                         allow_custom_value=True,
-                        info="Categorize what kind of task this run performs"
+                        info="Categorize what kind of task this run performs",
                     )
                     run_notes_input = gr.Textbox(
                         label="Run Notes",
                         placeholder="Testing impact of higher temperature on creative tasks...",
                         lines=2,
-                        info="Free-form notes about this specific run"
+                        info="Free-form notes about this specific run",
                     )
 
                 build_agent = gr.Button("Build Agent", variant="primary")
@@ -884,13 +1047,15 @@ def create_ui() -> gr.Blocks:
                 with gr.Row():
                     user_input = gr.Textbox(label="Message", scale=4, lines=2)
                     send_btn = gr.Button("Send", scale=1)
-                stop_btn = gr.Button("Stop", variant="stop", visible=False, interactive=False)
+                stop_btn = gr.Button(
+                    "Stop", variant="stop", visible=False, interactive=False
+                )
 
             with gr.Column(scale=1):
                 gr.Markdown("## Run Info")
                 run_info_display = gr.Markdown(value="No runs yet")
                 web_badge = gr.HTML(
-                    value="<span style=\"background:#666;color:white;padding:4px 8px;border-radius:4px;\">Web Tool: OFF</span>"
+                    value='<span style="background:#666;color:white;padding:4px 8px;border-radius:4px;">Web Tool: OFF</span>'
                 )
                 download_csv = gr.Button("Download runs.csv")
 
@@ -958,35 +1123,57 @@ def create_ui() -> gr.Blocks:
         stop_btn.click(
             fn=stop_generation,
             inputs=[cancel_event_state, is_generating_state],
-            outputs=[run_info_display, cancel_event_state, is_generating_state, send_btn, stop_btn],
+            outputs=[
+                run_info_display,
+                cancel_event_state,
+                is_generating_state,
+                send_btn,
+                stop_btn,
+            ],
         )
 
         # Session management event handlers
         save_session_btn.click(
             fn=save_session_handler,
-            inputs=[session_name_input, config_state, history_state, current_session_state],
-            outputs=[current_session_state, session_status, session_list, session_list]
+            inputs=[
+                session_name_input,
+                config_state,
+                history_state,
+                current_session_state,
+            ],
+            outputs=[current_session_state, session_status, session_list, session_list],
         )
 
         load_session_btn.click(
             fn=load_session_handler,
             inputs=[session_list, model_id_mapping_state],
             outputs=[
-                current_session_state, session_status, history_state,
-                config_state, agent_name, model_selector, system_prompt,
-                temperature, top_p, web_tool_enabled
-            ]
+                current_session_state,
+                session_status,
+                history_state,
+                config_state,
+                agent_name,
+                model_selector,
+                system_prompt,
+                temperature,
+                top_p,
+                web_tool_enabled,
+            ],
         )
 
         new_session_btn.click(
             fn=new_session_handler,
-            outputs=[current_session_state, session_status, history_state, session_name_input]
+            outputs=[
+                current_session_state,
+                session_status,
+                history_state,
+                session_name_input,
+            ],
         )
 
         # Populate session list on app load
         demo.load(
-            fn=lambda: [(s[0], s[0]) for s in list_sessions()],
-            outputs=[session_list]
+            fn=lambda: [(s[0], s[0]) for s in list_sessions()], outputs=[session_list]
         )
 
     return demo

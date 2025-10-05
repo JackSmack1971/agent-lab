@@ -7,16 +7,28 @@ from typing import Any, Callable, Optional
 
 import gradio as gr
 
-from src.models.recommendation import ModelRecommendation, RecommendationResponse, UseCaseInput
+from src.models.recommendation import (
+    ModelRecommendation,
+    RecommendationResponse,
+    UseCaseInput,
+)
 from src.services.recommendation_service import analyze_use_case
 
 
 def validate_use_case_description(description: str) -> dict:
     """Validate use case description field."""
     if not description or not description.strip():
-        return {"status": "error", "message": "❌ Use Case: This field is required", "is_valid": False}
+        return {
+            "status": "error",
+            "message": "❌ Use Case: This field is required",
+            "is_valid": False,
+        }
     if len(description) > 500:
-        return {"status": "error", "message": "❌ Use Case: Maximum 500 characters allowed", "is_valid": False}
+        return {
+            "status": "error",
+            "message": "❌ Use Case: Maximum 500 characters allowed",
+            "is_valid": False,
+        }
     return {"status": "success", "message": "✅ Use Case is valid", "is_valid": True}
 
 
@@ -27,12 +39,28 @@ def validate_max_cost(cost: str) -> dict:
     try:
         cost_val = float(cost)
         if cost_val <= 0:
-            return {"status": "error", "message": "❌ Max Cost: Must be greater than 0", "is_valid": False}
+            return {
+                "status": "error",
+                "message": "❌ Max Cost: Must be greater than 0",
+                "is_valid": False,
+            }
         if cost_val > 1.0:
-            return {"status": "error", "message": "❌ Max Cost: Maximum $1.00 per 1K tokens", "is_valid": False}
-        return {"status": "success", "message": "✅ Max Cost is valid", "is_valid": True}
+            return {
+                "status": "error",
+                "message": "❌ Max Cost: Maximum $1.00 per 1K tokens",
+                "is_valid": False,
+            }
+        return {
+            "status": "success",
+            "message": "✅ Max Cost is valid",
+            "is_valid": True,
+        }
     except (ValueError, TypeError):
-        return {"status": "error", "message": "❌ Max Cost: Must be a number", "is_valid": False}
+        return {
+            "status": "error",
+            "message": "❌ Max Cost: Must be a number",
+            "is_valid": False,
+        }
 
 
 def validate_min_speed(speed: str) -> dict:
@@ -42,12 +70,28 @@ def validate_min_speed(speed: str) -> dict:
     try:
         speed_val = float(speed)
         if speed_val <= 0:
-            return {"status": "error", "message": "❌ Min Speed: Must be greater than 0", "is_valid": False}
+            return {
+                "status": "error",
+                "message": "❌ Min Speed: Must be greater than 0",
+                "is_valid": False,
+            }
         if speed_val > 1000:
-            return {"status": "error", "message": "❌ Min Speed: Maximum 1000 tokens/second", "is_valid": False}
-        return {"status": "success", "message": "✅ Min Speed is valid", "is_valid": True}
+            return {
+                "status": "error",
+                "message": "❌ Min Speed: Maximum 1000 tokens/second",
+                "is_valid": False,
+            }
+        return {
+            "status": "success",
+            "message": "✅ Min Speed is valid",
+            "is_valid": True,
+        }
     except (ValueError, TypeError):
-        return {"status": "error", "message": "❌ Min Speed: Must be a number", "is_valid": False}
+        return {
+            "status": "error",
+            "message": "❌ Min Speed: Must be a number",
+            "is_valid": False,
+        }
 
 
 def validate_context_length(length: str) -> dict:
@@ -57,12 +101,28 @@ def validate_context_length(length: str) -> dict:
     try:
         length_val = int(length)
         if length_val <= 0:
-            return {"status": "error", "message": "❌ Context Length: Must be greater than 0", "is_valid": False}
+            return {
+                "status": "error",
+                "message": "❌ Context Length: Must be greater than 0",
+                "is_valid": False,
+            }
         if length_val > 200000:
-            return {"status": "error", "message": "❌ Context Length: Maximum 200,000 tokens", "is_valid": False}
-        return {"status": "success", "message": "✅ Context Length is valid", "is_valid": True}
+            return {
+                "status": "error",
+                "message": "❌ Context Length: Maximum 200,000 tokens",
+                "is_valid": False,
+            }
+        return {
+            "status": "success",
+            "message": "✅ Context Length is valid",
+            "is_valid": True,
+        }
     except (ValueError, TypeError):
-        return {"status": "error", "message": "❌ Context Length: Must be a whole number", "is_valid": False}
+        return {
+            "status": "error",
+            "message": "❌ Context Length: Must be a whole number",
+            "is_valid": False,
+        }
 
 
 def format_recommendation_card(recommendation: ModelRecommendation, index: int) -> str:
@@ -120,7 +180,9 @@ async def get_recommendations_async(
         # Parse optional constraints
         max_cost_val = float(max_cost) if max_cost and max_cost.strip() else None
         min_speed_val = float(min_speed) if min_speed and min_speed.strip() else None
-        context_length_val = int(context_length) if context_length and context_length.strip() else None
+        context_length_val = (
+            int(context_length) if context_length and context_length.strip() else None
+        )
 
         # Create use case input
         use_case = UseCaseInput(
@@ -172,7 +234,9 @@ def create_model_matchmaker_tab(
 
     with gr.Blocks() as matchmaker_tab:
         gr.Markdown("# 🤖 AI Model Matchmaker")
-        gr.Markdown("Describe your use case and get personalized model recommendations with optimal configurations.")
+        gr.Markdown(
+            "Describe your use case and get personalized model recommendations with optimal configurations."
+        )
 
         with gr.Row():
             with gr.Column(scale=1):
@@ -204,10 +268,20 @@ def create_model_matchmaker_tab(
 
                 # Validation outputs
                 validation_outputs = [
-                    gr.Textbox(label="Use Case Validation", interactive=False, visible=False),
-                    gr.Textbox(label="Max Cost Validation", interactive=False, visible=False),
-                    gr.Textbox(label="Min Speed Validation", interactive=False, visible=False),
-                    gr.Textbox(label="Context Length Validation", interactive=False, visible=False),
+                    gr.Textbox(
+                        label="Use Case Validation", interactive=False, visible=False
+                    ),
+                    gr.Textbox(
+                        label="Max Cost Validation", interactive=False, visible=False
+                    ),
+                    gr.Textbox(
+                        label="Min Speed Validation", interactive=False, visible=False
+                    ),
+                    gr.Textbox(
+                        label="Context Length Validation",
+                        interactive=False,
+                        visible=False,
+                    ),
                 ]
 
                 find_button = gr.Button(
@@ -245,7 +319,12 @@ def create_model_matchmaker_tab(
             ]
 
         # Connect validation
-        input_components = [use_case_input, max_cost_input, min_speed_input, context_length_input]
+        input_components = [
+            use_case_input,
+            max_cost_input,
+            min_speed_input,
+            context_length_input,
+        ]
         for i, component in enumerate(input_components):
             component.change(
                 fn=lambda *args, idx=i: validate_inputs(*args[:4])[idx],
