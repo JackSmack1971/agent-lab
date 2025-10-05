@@ -344,37 +344,45 @@ class ContextManager:
         Returns:
             True if shortcut is available, False otherwise.
         """
-        # Modal blocks ALL shortcuts (no exceptions)
-        if context.modal_open:
+        try:
+            shortcut_context = shortcut.context  # Security: may raise if shortcut misconfigured
+            if not isinstance(shortcut_context, list):
+                raise TypeError("Shortcut context must be a list of strings.")
+
+            # Modal blocks ALL shortcuts (no exceptions)
+            if context.modal_open:
+                return False
+
+            # Input restrictions check for 'input_safe' flag
+            if context.input_active and 'input_safe' not in shortcut_context:
+                return False
+
+            # Streaming restrictions check for 'streaming_safe' flag
+            if context.streaming_active and 'streaming_safe' not in shortcut_context:
+                return False
+
+            # Available actions check: if list is non-empty, action must be in it
+            if context.available_actions is not None and shortcut.action not in context.available_actions:
+                return False
+
+            # Global shortcuts
+            if 'global' in shortcut_context:
+                return True
+
+            # Tab-specific shortcuts
+            if context.active_tab and context.active_tab in shortcut_context:
+                return True
+
+            # Context flags (input_safe, streaming_safe, etc.)
+            context_flags = {'input_safe', 'streaming_safe'}
+            if shortcut_context and any(flag in context_flags for flag in shortcut_context):
+                return True
+
+            # Empty context = not available by default
             return False
-
-        # Input restrictions check for 'input_safe' flag
-        if context.input_active and 'input_safe' not in shortcut.context:
+        except Exception as exc:  # Security: log unexpected failures for visibility
+            logger.error("error checking shortcut availability: %s", exc, exc_info=True)
             return False
-
-        # Streaming restrictions check for 'streaming_safe' flag
-        if context.streaming_active and 'streaming_safe' not in shortcut.context:
-            return False
-
-        # Available actions check: if list is non-empty, action must be in it
-        if context.available_actions is not None and shortcut.action not in context.available_actions:
-            return False
-
-        # Global shortcuts
-        if 'global' in shortcut.context:
-            return True
-
-        # Tab-specific shortcuts
-        if context.active_tab and context.active_tab in shortcut.context:
-            return True
-
-        # Context flags (input_safe, streaming_safe, etc.)
-        context_flags = {'input_safe', 'streaming_safe'}
-        if shortcut.context and any(flag in context_flags for flag in shortcut.context):
-            return True
-
-        # Empty context = not available by default
-        return False
 
 
 class KeyboardHandler:
