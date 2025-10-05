@@ -8,8 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 import pytest
 
 from agents.models import AgentConfig
-from agents.runtime import (StreamResult, build_agent, run_agent,
-                            run_agent_stream)
+from agents.runtime import StreamResult, build_agent, run_agent, run_agent_stream
 
 
 @pytest.fixture

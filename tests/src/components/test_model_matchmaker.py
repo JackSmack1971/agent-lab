@@ -6,14 +6,19 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from src.components.model_matchmaker import (format_recommendation_card,
-                                             get_recommendations_async,
-                                             validate_context_length,
-                                             validate_max_cost,
-                                             validate_min_speed,
-                                             validate_use_case_description)
-from src.models.recommendation import (ModelRecommendation,
-                                       RecommendationResponse, SuggestedConfig)
+from src.components.model_matchmaker import (
+    format_recommendation_card,
+    get_recommendations_async,
+    validate_context_length,
+    validate_max_cost,
+    validate_min_speed,
+    validate_use_case_description,
+)
+from src.models.recommendation import (
+    ModelRecommendation,
+    RecommendationResponse,
+    SuggestedConfig,
+)
 
 
 class TestModelMatchmakerValidation:

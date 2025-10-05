@@ -12,9 +12,12 @@ import httpx
 from pydantic import ValidationError
 
 from services.catalog import get_models
-from src.models.recommendation import (ModelRecommendation,
-                                       RecommendationResponse, SuggestedConfig,
-                                       UseCaseInput)
+from src.models.recommendation import (
+    ModelRecommendation,
+    RecommendationResponse,
+    SuggestedConfig,
+    UseCaseInput,
+)
 
 # Logger configured at module level to avoid leaking sensitive data.
 logger = logging.getLogger(__name__)

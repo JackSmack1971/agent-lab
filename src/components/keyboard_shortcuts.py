@@ -8,8 +8,12 @@ from typing import Any, Dict, List, Optional
 
 import gradio as gr
 
-from src.utils.keyboard_handler import (ContextManager, KeyboardHandler,
-                                        KeyboardShortcut, ShortcutContext)
+from src.utils.keyboard_handler import (
+    ContextManager,
+    KeyboardHandler,
+    KeyboardShortcut,
+    ShortcutContext,
+)
 
 
 def create_keyboard_shortcuts_ui(

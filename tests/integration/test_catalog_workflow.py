@@ -6,9 +6,15 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from services.catalog import (CACHE_TTL, FALLBACK_MODELS, ModelInfo,
-                              fetch_models, get_model_choices, get_models,
-                              get_pricing)
+from services.catalog import (
+    CACHE_TTL,
+    FALLBACK_MODELS,
+    ModelInfo,
+    fetch_models,
+    get_model_choices,
+    get_models,
+    get_pricing,
+)
 
 
 @pytest.mark.integration

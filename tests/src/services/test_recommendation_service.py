@@ -8,12 +8,18 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from src.models.recommendation import (ModelRecommendation,
-                                       RecommendationResponse, SuggestedConfig,
-                                       UseCaseInput)
+from src.models.recommendation import (
+    ModelRecommendation,
+    RecommendationResponse,
+    SuggestedConfig,
+    UseCaseInput,
+)
 from src.services.recommendation_service import (
-    _build_system_prompt, _call_gpt4_for_recommendations,
-    _get_fallback_recommendations, analyze_use_case)
+    _build_system_prompt,
+    _call_gpt4_for_recommendations,
+    _get_fallback_recommendations,
+    analyze_use_case,
+)
 
 
 class TestRecommendationService:

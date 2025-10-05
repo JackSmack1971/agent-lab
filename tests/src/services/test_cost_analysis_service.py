@@ -8,19 +8,40 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from agents.models import RunRecord
-from src.models.cost_analysis import (AlertSeverity, AlertType, CostAlert,
-                                      CostAnalysis, CostTrend,
-                                      OptimizationSuggestion, SuggestionType)
+from src.models.cost_analysis import (
+    AlertSeverity,
+    AlertType,
+    CostAlert,
+    CostAnalysis,
+    CostTrend,
+    OptimizationSuggestion,
+    SuggestionType,
+)
 from src.services.cost_analysis_service import (
-    aggregate_costs_by_period, analyze_context_usage, analyze_cost_trend,
-    analyze_costs, analyze_model_switch_opportunity, calculate_average_cost,
-    calculate_caching_savings, calculate_context_confidence,
-    calculate_context_savings, calculate_cost_forecast, calculate_session_cost,
-    detect_query_patterns, generate_cost_alerts,
-    generate_optimization_suggestions, get_cost_trends, get_session_telemetry,
-    get_user_budget, get_user_cost_history, get_user_cost_history_detailed,
-    get_user_from_session, should_suggest_caching,
-    should_suggest_context_summarization, should_suggest_model_switch)
+    aggregate_costs_by_period,
+    analyze_context_usage,
+    analyze_cost_trend,
+    analyze_costs,
+    analyze_model_switch_opportunity,
+    calculate_average_cost,
+    calculate_caching_savings,
+    calculate_context_confidence,
+    calculate_context_savings,
+    calculate_cost_forecast,
+    calculate_session_cost,
+    detect_query_patterns,
+    generate_cost_alerts,
+    generate_optimization_suggestions,
+    get_cost_trends,
+    get_session_telemetry,
+    get_user_budget,
+    get_user_cost_history,
+    get_user_cost_history_detailed,
+    get_user_from_session,
+    should_suggest_caching,
+    should_suggest_context_summarization,
+    should_suggest_model_switch,
+)
 
 
 class TestCostAnalysisService:

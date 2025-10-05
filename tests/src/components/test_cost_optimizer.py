@@ -7,8 +7,10 @@ from unittest.mock import MagicMock, patch
 import gradio as gr
 import pytest
 
-from src.components.cost_optimizer import (apply_optimization_suggestion,
-                                           create_cost_optimizer_tab)
+from src.components.cost_optimizer import (
+    apply_optimization_suggestion,
+    create_cost_optimizer_tab,
+)
 
 
 class TestCostOptimizerUI:

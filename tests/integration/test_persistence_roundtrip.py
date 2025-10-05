@@ -10,9 +10,17 @@ from unittest.mock import patch
 import pytest
 
 from agents.models import RunRecord
-from services.persist import (CSV_HEADERS, CSV_PATH, _coerce_bool,
-                              _coerce_float, _coerce_int, _parse_row,
-                              append_run, init_csv, load_recent_runs)
+from services.persist import (
+    CSV_HEADERS,
+    CSV_PATH,
+    _coerce_bool,
+    _coerce_float,
+    _coerce_int,
+    _parse_row,
+    append_run,
+    init_csv,
+    load_recent_runs,
+)
 
 
 @pytest.mark.integration

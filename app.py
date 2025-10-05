@@ -25,8 +25,13 @@ from loguru import logger
 from agents.models import AgentConfig, RunRecord, Session
 from agents.runtime import build_agent, run_agent_stream
 from services.catalog import get_model_choices, get_models
-from services.persist import (append_run, init_csv, list_sessions,
-                              load_session, save_session)
+from services.persist import (
+    append_run,
+    init_csv,
+    list_sessions,
+    load_session,
+    save_session,
+)
 
 ComponentUpdate = dict[str, Any]
 

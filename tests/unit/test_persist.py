@@ -10,9 +10,16 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from agents.models import RunRecord
-from services.persist import (CSV_HEADERS, _coerce_bool, _coerce_float,
-                              _coerce_int, _parse_row, append_run, init_csv,
-                              load_recent_runs)
+from services.persist import (
+    CSV_HEADERS,
+    _coerce_bool,
+    _coerce_float,
+    _coerce_int,
+    _parse_row,
+    append_run,
+    init_csv,
+    load_recent_runs,
+)
 
 
 class TestPersist:

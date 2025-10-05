@@ -15,16 +15,23 @@ import gradio as gr
 
 # Import existing app functionality
 from app import create_ui as create_agent_lab_ui
+
 # Import cost optimizer component
 from src.components.cost_optimizer import create_cost_optimizer_tab
 from src.components.keyboard_shortcuts import create_keyboard_shortcuts_ui
+
 # Import model matchmaker component
 from src.components.model_matchmaker import create_model_matchmaker_tab
 from src.components.settings import create_settings_tab
 from src.models.recommendation import ModelRecommendation
+
 # Import keyboard shortcuts components
-from src.utils.keyboard_handler import (ContextManager, KeyboardHandler,
-                                        KeyboardShortcut, ShortcutContext)
+from src.utils.keyboard_handler import (
+    ContextManager,
+    KeyboardHandler,
+    KeyboardShortcut,
+    ShortcutContext,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -429,8 +436,7 @@ def render_shortcut_indicators_html(available_shortcuts: List[KeyboardShortcut])
     Returns:
         HTML string with shortcut badges
     """
-    from src.components.keyboard_shortcuts import \
-        render_shortcut_indicators_html
+    from src.components.keyboard_shortcuts import render_shortcut_indicators_html
 
     return render_shortcut_indicators_html(available_shortcuts)
 

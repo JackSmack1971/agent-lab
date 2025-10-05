@@ -5,10 +5,16 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from app import (LoadingStateManager, handle_keyboard_shortcut,
-                 validate_agent_name, validate_form_field,
-                 validate_model_selection, validate_system_prompt,
-                 validate_temperature, validate_top_p)
+from app import (
+    LoadingStateManager,
+    handle_keyboard_shortcut,
+    validate_agent_name,
+    validate_form_field,
+    validate_model_selection,
+    validate_system_prompt,
+    validate_temperature,
+    validate_top_p,
+)
 
 
 class TestInlineValidation:

@@ -6,10 +6,18 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from services.catalog import (FALLBACK_MODELS, ModelInfo, _cache_source,
-                              _cache_timestamp, _cached_models, _parse_price,
-                              fetch_models, get_model_choices, get_models,
-                              get_pricing)
+from services.catalog import (
+    FALLBACK_MODELS,
+    ModelInfo,
+    _cache_source,
+    _cache_timestamp,
+    _cached_models,
+    _parse_price,
+    fetch_models,
+    get_model_choices,
+    get_models,
+    get_pricing,
+)
 
 
 class TestParsePrice:
