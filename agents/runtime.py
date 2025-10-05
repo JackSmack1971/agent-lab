@@ -149,6 +149,7 @@ async def run_agent_stream(
     user_message: str,
     on_delta: Callable[[str], None],
     cancel_token: Event,
+    correlation_id: str | None = None,
 ) -> StreamResult:
     """Stream a single user message through the provided agent.
 
@@ -162,7 +163,9 @@ async def run_agent_stream(
     provider includes it; otherwise the ``usage`` field will be ``None``.
     """
 
-    logger.info(
+    logger_bound = logger.bind(correlation_id=correlation_id) if correlation_id else logger
+
+    logger_bound.info(
         "Starting agent streaming",
         extra={
             "message_length": len(user_message),
@@ -242,7 +245,7 @@ async def run_agent_stream(
 
     latency_ms = int((loop.time() - start_ts) * 1000)
 
-    logger.info(
+    logger_bound.info(
         "Agent streaming completed",
         extra={
             "response_length": len(text_parts),

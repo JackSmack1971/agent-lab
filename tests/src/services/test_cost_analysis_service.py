@@ -250,13 +250,13 @@ class TestCostAnalysisService:
         """Test successful cost analysis."""
         mock_get_telemetry.return_value = sample_run_records
         mock_get_user.return_value = "test_user"
-        mock_get_history.return_value = [0.01, 0.02, 0.03]
+        mock_get_history.return_value = [0.005, 0.01, 0.015]  # Lower historical costs to trigger alerts
 
         result = analyze_costs("session_123")
 
         assert isinstance(result, CostAnalysis)
         assert result.current_cost == 0.055
-        assert result.average_cost == 0.02  # median of [0.01, 0.02, 0.03]
+        assert result.average_cost == 0.01  # median of [0.005, 0.01, 0.015]
         assert result.cost_trend == CostTrend.INCREASING
         assert len(result.alerts) > 0
         assert len(result.suggestions) > 0

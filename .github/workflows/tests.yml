@@ -103,3 +103,43 @@ jobs:
     - name: Run mypy
       run: |
         mypy agents services tests --ignore-missing-imports
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.12"
+
+    - name: Install security tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit safety pip-audit
+
+    - name: Run bandit security scan
+      run: |
+        bandit -c .bandit.yml -r . --severity-level HIGH --format json --output bandit-results.json || (echo "HIGH severity issues found:" && jq '.results[] | {filename, issue_severity, issue_text}' bandit-results.json && exit 1)
+        echo "Bandit scan completed - no HIGH severity issues found."
+
+    - name: Run safety dependency scan
+      run: |
+        safety check --file requirements.txt --output json --save-json safety-results.json || (echo "Security vulnerabilities found in dependencies:" && jq '.vulnerabilities[] | {package, vulnerability}' safety-results.json 2>/dev/null && exit 1)
+        echo "Safety scan completed - no vulnerabilities found."
+
+    - name: Run pip-audit dependency scan
+      run: |
+        pip-audit --format json --output pip-audit-results.json || (echo "Vulnerabilities found in dependencies:" && jq '.vulnerabilities[] | {name, version, description}' pip-audit-results.json 2>/dev/null && exit 1)
+        echo "pip-audit scan completed - no vulnerabilities found."
+
+    - name: Upload security scan results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-scan-results
+        path: |
+          bandit-results.json
+          safety-results.json
+          pip-audit-results.json

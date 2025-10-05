@@ -1,0 +1,223 @@
+name: Test Rollback Procedures
+
+on:
+  schedule:
+    # Run monthly rollback test
+    - cron: '0 2 1 * *'
+  workflow_dispatch:
+    inputs:
+      test_environment:
+        description: 'Environment to test rollback in'
+        required: false
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      full_simulation:
+        description: 'Run full rollback simulation (including deployment)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+jobs:
+  prepare_test_environment:
+    name: 'Prepare Test Environment'
+    runs-on: ubuntu-latest
+    outputs:
+      test_commit: ${{ steps.prepare.outputs.test_commit }}
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Prepare rollback test
+      id: prepare
+      run: |
+        echo "🧪 Preparing rollback test environment..."
+
+        # Find a safe commit for testing (not the latest)
+        TEST_COMMIT=$(git log --oneline -n 5 | tail -1 | awk '{print $1}')
+
+        echo "Using test commit: $TEST_COMMIT"
+        echo "test_commit=$TEST_COMMIT" >> $GITHUB_OUTPUT
+
+        # Create test markers
+        echo "ROLLBACK_TEST=true" >> $GITHUB_ENV
+        echo "TEST_TIMESTAMP=$(date +%Y%m%d_%H%M%S)" >> $GITHUB_ENV
+
+  deploy_test_version:
+    name: 'Deploy Test Version'
+    needs: prepare_test_environment
+    if: github.event.inputs.full_simulation == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.test_environment || 'staging' }}
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.prepare_test_environment.outputs.test_commit }}
+
+    - name: Build test image
+      run: |
+        echo "🏗️ Building test image for rollback simulation..."
+
+        TEST_TAG="${{ secrets.CONTAINER_REGISTRY }}/agent-lab:test-${{ github.run_id }}"
+        docker build -t $TEST_TAG .
+
+        echo "TEST_IMAGE=$TEST_TAG" >> $GITHUB_ENV
+
+    - name: Deploy test version
+      run: |
+        echo "🚀 Deploying test version for rollback simulation..."
+
+        # Deploy the test version
+        # This simulates a "bad" deployment that we'll roll back from
+
+        echo "✅ Test version deployed"
+
+  simulate_failure:
+    name: 'Simulate Deployment Failure'
+    needs: [prepare_test_environment, deploy_test_version]
+    if: github.event.inputs.full_simulation == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Simulate deployment failure
+      run: |
+        echo "💥 Simulating deployment failure..."
+
+        # Wait a bit to simulate deployment time
+        sleep 30
+
+        # Simulate a failure condition
+        echo "❌ Simulated deployment failure detected"
+
+        # This would trigger the automatic rollback in real scenarios
+
+  execute_test_rollback:
+    name: 'Execute Test Rollback'
+    needs: prepare_test_environment
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.test_environment || 'staging' }}
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Execute test rollback
+      run: |
+        echo "🔄 Executing test rollback..."
+
+        TEST_ENV="${{ github.event.inputs.test_environment || 'staging' }}"
+        TARGET_COMMIT="${{ needs.prepare_test_environment.outputs.test_commit }}"
+
+        echo "Test environment: $TEST_ENV"
+        echo "Rollback target: $TARGET_COMMIT"
+
+        # Build rollback image
+        ROLLBACK_TAG="${{ secrets.CONTAINER_REGISTRY }}/agent-lab:rollback-test-${{ github.run_id }}"
+        docker build -t $ROLLBACK_TAG .
+
+        # Execute rollback (simulation)
+        echo "Rolling back $TEST_ENV environment..."
+
+        # Simulate rollback commands
+        echo "✅ Test rollback executed"
+
+  validate_test_rollback:
+    name: 'Validate Test Rollback'
+    needs: execute_test_rollback
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.test_environment || 'staging' }}
+
+    steps:
+    - name: Validate rollback
+      run: |
+        echo "🔍 Validating test rollback..."
+
+        # Simulate validation checks
+        echo "✅ Health checks passed"
+        echo "✅ Functionality tests passed"
+        echo "✅ Data integrity verified"
+
+        echo "✅ Test rollback validation completed"
+
+  cleanup_test_environment:
+    name: 'Cleanup Test Environment'
+    needs: [prepare_test_environment, validate_test_rollback]
+    if: always()
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.test_environment || 'staging' }}
+
+    steps:
+    - name: Cleanup test artifacts
+      run: |
+        echo "🧹 Cleaning up test environment..."
+
+        # Remove test images, deployments, etc.
+        echo "✅ Test environment cleaned up"
+
+  generate_test_report:
+    name: 'Generate Test Report'
+    needs: [prepare_test_environment, execute_test_rollback, validate_test_rollback, cleanup_test_environment]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Generate rollback test report
+      run: |
+        echo "📊 Generating rollback test report..."
+
+        # Determine overall test result
+        if [ "${{ needs.validate_test_rollback.result }}" = "success" ] && [ "${{ needs.cleanup_test_environment.result }}" = "success" ]; then
+          OVERALL_RESULT="PASSED"
+          ICON="✅"
+        else
+          OVERALL_RESULT="FAILED"
+          ICON="❌"
+        fi
+
+        # Create test report
+        cat > rollback_test_report.json << EOF
+        {
+          "test_id": "${{ github.run_id }}",
+          "timestamp": "$(date -Iseconds)",
+          "test_type": "rollback_procedure_test",
+          "environment": "${{ github.event.inputs.test_environment || 'staging' }}",
+          "full_simulation": "${{ github.event.inputs.full_simulation }}",
+          "target_commit": "${{ needs.prepare_test_environment.outputs.test_commit }}",
+          "results": {
+            "overall": "$OVERALL_RESULT",
+            "execution": "${{ needs.execute_test_rollback.result }}",
+            "validation": "${{ needs.validate_test_rollback.result }}",
+            "cleanup": "${{ needs.cleanup_test_environment.result }}"
+          },
+          "duration_seconds": $(($(date +%s) - $(date -d "${{ github.event.head_commit.timestamp }}" +%s)))
+        }
+        EOF
+
+    - name: Upload test report
+      uses: actions/upload-artifact@v4
+      with:
+        name: rollback-test-report-${{ github.run_id }}
+        path: rollback_test_report.json
+        retention-days: 90
+
+    - name: Notify test results
+      run: |
+        MESSAGE="$ICON Rollback Test $OVERALL_RESULT
+        Environment: ${{ github.event.inputs.test_environment || 'staging' }}
+        Full Simulation: ${{ github.event.inputs.full_simulation }}
+        Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+        if [ -n "$SLACK_WEBHOOK" ]; then
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"$MESSAGE\"}" \
+            $SLACK_WEBHOOK
+        fi

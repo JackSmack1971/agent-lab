@@ -2,7 +2,7 @@
 
 import pytest
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 import csv
 import tempfile
 import os
@@ -50,7 +50,7 @@ class TestPersistenceRoundtrip:
                 aborted=False
             ),
             RunRecord(
-                ts=base_time.replace(microsecond=base_time.microsecond + 1000),
+                ts=base_time + timedelta(microseconds=1000),
                 agent_name="TestAgent2",
                 model="anthropic/claude-3-opus",
                 prompt_tokens=200,
@@ -68,7 +68,7 @@ class TestPersistenceRoundtrip:
                 aborted=False
             ),
             RunRecord(
-                ts=base_time.replace(microsecond=base_time.microsecond + 2000),
+                ts=base_time + timedelta(microseconds=2000),
                 agent_name="TestAgent1",
                 model="openai/gpt-4-turbo",
                 prompt_tokens=50,

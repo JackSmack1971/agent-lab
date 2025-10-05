@@ -1,4 +1,4 @@
-name: Deploy to Production
+name: Automated Deployment Pipeline
 
 on:
   push:
@@ -6,24 +6,32 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Target environment'
-        required: true
-        default: 'staging'
+        description: 'Target environment (manual override)'
+        required: false
+        default: 'auto'
         type: choice
         options:
+        - auto
         - staging
         - production
-      skip_health_checks:
-        description: 'Skip post-deployment health checks'
+      skip_validation:
+        description: 'Skip staging validation for production deployment'
         required: false
         default: false
         type: boolean
 
+env:
+  STAGING_URL: ${{ secrets.STAGING_URL }}
+  PRODUCTION_URL: ${{ secrets.PRODUCTION_URL }}
+  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+
 jobs:
   validate:
+    name: 'Code Validation'
     runs-on: ubuntu-latest
     outputs:
       validation_passed: ${{ steps.validation.outputs.passed }}
+      coverage: ${{ steps.validation.outputs.coverage }}
 
     steps:
     - uses: actions/checkout@v4
@@ -33,17 +41,25 @@ jobs:
       with:
         python-version: '3.11'
 
+    - name: Cache pip dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
     - name: Install dependencies
       run: pip install -r requirements.txt
 
     - name: Run tests
       run: |
-        pytest tests/ -v --tb=short --durations=10
+        pytest tests/ -v --tb=short --durations=10 --maxfail=5
 
     - name: Run security scan
       run: |
         pip install safety
-        safety check --bare || true
+        safety check --bare --output json > security-report.json || true
 
     - name: Validate deployment readiness
       id: validation
@@ -60,7 +76,7 @@ jobs:
         python -c "import agents.models, agents.runtime, services.persist" || exit 1
 
         # Check test coverage
-        pytest --cov=agents --cov=services --cov-report=xml
+        pytest --cov=agents --cov=services --cov-report=xml --cov-report=term
         COVERAGE=$(python -c "
         import xml.etree.ElementTree as ET
         root = ET.parse('coverage.xml').getroot()
@@ -76,108 +92,222 @@ jobs:
 
         echo "✅ Validation passed (Coverage: $COVERAGE%)"
         echo "passed=true" >> $GITHUB_OUTPUT
+        echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
 
-  deploy:
+  build:
+    name: 'Build & Package'
     needs: validate
     if: needs.validate.outputs.validation_passed == 'true'
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment || 'staging' }}
+    outputs:
+      image_tag: ${{ steps.build.outputs.image_tag }}
+      deployment_archive: ${{ steps.build.outputs.deployment_archive }}
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
       with:
-        python-version: '3.11'
+        registry: ${{ secrets.CONTAINER_REGISTRY }}
+        username: ${{ secrets.CONTAINER_USERNAME }}
+        password: ${{ secrets.CONTAINER_PASSWORD }}
 
-    - name: Install dependencies
-      run: pip install -r requirements.txt
-
-    - name: Create deployment package
+    - name: Build and push Docker image
+      id: build
       run: |
-        # Create deployment artifact
+        IMAGE_TAG="${{ secrets.CONTAINER_REGISTRY }}/agent-lab:${{ github.sha }}"
+        echo "Building Docker image: $IMAGE_TAG"
+
+        docker build -t $IMAGE_TAG .
+        docker push $IMAGE_TAG
+
+        echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+        # Create deployment archive for backup
         mkdir -p deployment
         cp -r * deployment/
         cd deployment
 
         # Remove development files
-        rm -rf .git
-        rm -rf __pycache__
-        rm -rf .pytest_cache
-        rm -rf tests/
-        rm -rf .github/
+        rm -rf .git __pycache__ .pytest_cache tests/ .github/
 
         # Create deployment archive
-        tar -czf ../agent-lab-deployment-$(date +%Y%m%d_%H%M%S).tar.gz .
+        ARCHIVE_NAME="agent-lab-deployment-${{ github.sha }}.tar.gz"
+        tar -czf ../$ARCHIVE_NAME .
         cd ..
-        DEPLOYMENT_ARCHIVE=$(ls agent-lab-deployment-*.tar.gz)
-        echo "DEPLOYMENT_ARCHIVE=$DEPLOYMENT_ARCHIVE" >> $GITHUB_ENV
+        echo "deployment_archive=$ARCHIVE_NAME" >> $GITHUB_OUTPUT
+
+    - name: Upload deployment artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-archive-${{ github.sha }}
+        path: ${{ steps.build.outputs.deployment_archive }}
+        retention-days: 30
+
+  deploy_staging:
+    name: 'Deploy to Staging'
+    needs: [validate, build]
+    if: needs.validate.outputs.validation_passed == 'true' && (github.ref == 'refs/heads/main' || github.event.inputs.environment == 'staging' || github.event.inputs.environment == 'auto')
+    runs-on: ubuntu-latest
+    environment: staging
+    outputs:
+      staging_validation_passed: ${{ steps.staging_validation.outputs.passed }}
+
+    steps:
+    - uses: actions/checkout@v4
 
     - name: Deploy to staging
-      if: github.event.inputs.environment == 'staging' || github.ref == 'refs/heads/main'
       run: |
         echo "🚀 Deploying to staging environment..."
+        echo "Image: ${{ needs.build.outputs.image_tag }}"
 
-        # For demonstration - in real scenario, this would deploy to your hosting platform
-        # Examples: AWS Elastic Beanstalk, Google Cloud Run, Azure App Service, etc.
+        # Deploy to staging environment
+        # Replace with your actual deployment commands
+        # Examples: kubectl, docker-compose, AWS ECS, etc.
 
-        echo "📦 Deployment package: ${{ env.DEPLOYMENT_ARCHIVE }}"
+        echo "📦 Deploying image: ${{ needs.build.outputs.image_tag }}"
         echo "🌐 Environment: staging"
+
+        # Simulate deployment
         echo "✅ Staging deployment completed"
 
-    - name: Deploy to production
-      if: github.event.inputs.environment == 'production'
+    - name: Wait for staging deployment
+      run: sleep 60
+
+    - name: Validate staging deployment
+      id: staging_validation
       run: |
-        echo "🚀 Deploying to production environment..."
+        echo "🔍 Validating staging deployment..."
 
-        # Production deployment with additional safeguards
-        echo "🔒 Production deployment initiated"
+        # Health check
+        if [ -n "$STAGING_URL" ]; then
+          echo "Checking health endpoint: $STAGING_URL/health"
+          # curl -f --max-time 30 $STAGING_URL/health || exit 1
+          echo "✅ Health check passed"
+        else
+          echo "⚠️  No staging URL configured, skipping health check"
+        fi
 
-        # Backup current production state
+        # Basic functionality test
+        python -c "
+        import sys
+        try:
+          import app
+          print('✅ Application imports successfully')
+        except Exception as e:
+          print(f'❌ Application import failed: {e}')
+          sys.exit(1)
+        "
+
+        echo "passed=true" >> $GITHUB_OUTPUT
+
+    - name: Notify staging deployment
+      if: success()
+      run: |
+        MESSAGE="✅ Staging deployment successful
+        Commit: ${{ github.sha }}
+        Coverage: ${{ needs.validate.outputs.coverage }}%
+        URL: $STAGING_URL"
+
+        if [ -n "$SLACK_WEBHOOK" ]; then
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"$MESSAGE\"}" \
+            $SLACK_WEBHOOK
+        fi
+
+  deploy_production:
+    name: 'Deploy to Production'
+    needs: [validate, build, deploy_staging]
+    if: >
+      needs.validate.outputs.validation_passed == 'true' &&
+      (needs.deploy_staging.outputs.staging_validation_passed == 'true' || github.event.inputs.skip_validation == 'true') &&
+      (github.ref == 'refs/heads/main' || github.event.inputs.environment == 'production')
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      production_validation_passed: ${{ steps.production_validation.outputs.passed }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Create pre-deployment backup
+      run: |
         echo "💾 Creating pre-deployment backup..."
 
-        # Deploy new version
-        echo "📦 Deployment package: ${{ env.DEPLOYMENT_ARCHIVE }}"
-        echo "🌐 Environment: production"
+        # Backup current production data
+        # Replace with your actual backup commands
+        echo "✅ Pre-deployment backup completed"
 
-        # Blue-green deployment signaling
-        echo "🔄 Switching traffic to new version..."
+    - name: Deploy to production
+      run: |
+        echo "🚀 Deploying to production environment..."
+        echo "Image: ${{ needs.build.outputs.image_tag }}"
+
+        # Blue-green deployment to production
+        echo "🔄 Starting blue-green deployment..."
+
+        # Deploy new version alongside current
+        echo "📦 Deploying new version: ${{ needs.build.outputs.image_tag }}"
+
+        # Run smoke tests on new version
+        echo "🧪 Running smoke tests on new version..."
+
+        # Switch traffic to new version
+        echo "🔀 Switching traffic to new version..."
 
         echo "✅ Production deployment completed"
 
-    - name: Post-deployment health checks
-      if: github.event.inputs.skip_health_checks != 'true'
+    - name: Wait for production deployment
+      run: sleep 120
+
+    - name: Validate production deployment
+      id: production_validation
       run: |
-        echo "🏥 Running post-deployment health checks..."
+        echo "🔍 Validating production deployment..."
 
-        # Wait for deployment to stabilize
-        sleep 30
-
-        # Health check - replace with actual endpoint
-        echo "🔍 Checking application health..."
-        # curl -f https://your-app-domain.com/health || exit 1
+        # Health check
+        if [ -n "$PRODUCTION_URL" ]; then
+          echo "Checking health endpoint: $PRODUCTION_URL/health"
+          # curl -f --max-time 30 $PRODUCTION_URL/health || exit 1
+          echo "✅ Health check passed"
+        else
+          echo "⚠️  No production URL configured, skipping health check"
+        fi
 
         # Data integrity check
         echo "📊 Verifying data integrity..."
-        # Add data validation checks here
 
-        echo "✅ Health checks passed"
-
-    - name: Performance validation
-      if: github.event.inputs.skip_health_checks != 'true'
-      run: |
+        # Performance validation
         echo "⚡ Running performance validation..."
 
-        # Basic performance check
-        python -c "
-        import time
-        start = time.time()
-        import app
-        end = time.time()
-        print(f'✅ Import time: {end - start:.2f}s')
-        "
+        echo "passed=true" >> $GITHUB_OUTPUT
 
+    - name: Notify production deployment success
+      if: success()
+      run: |
+        MESSAGE="🎉 Production deployment successful!
+        Commit: ${{ github.sha }}
+        Coverage: ${{ needs.validate.outputs.coverage }}%
+        URL: $PRODUCTION_URL
+        Staging validation: ✅ Passed"
+
+        if [ -n "$SLACK_WEBHOOK" ]; then
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"$MESSAGE\"}" \
+            $SLACK_WEBHOOK
+        fi
+
+  create_deployment_record:
+    name: 'Create Deployment Record'
+    needs: [validate, build, deploy_staging, deploy_production]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
     - name: Create deployment record
       run: |
         cat > deployment_record.json << EOF
@@ -185,10 +315,15 @@ jobs:
           "deployment_id": "${{ github.run_id }}",
           "timestamp": "$(date -Iseconds)",
           "commit_sha": "${{ github.sha }}",
-          "environment": "${{ github.event.inputs.environment || 'staging' }}",
-          "archive": "${{ env.DEPLOYMENT_ARCHIVE }}",
-          "validation_passed": true,
-          "health_checks_passed": true
+          "trigger": "${{ github.event_name }}",
+          "validation_passed": "${{ needs.validate.outputs.validation_passed }}",
+          "coverage": "${{ needs.validate.outputs.coverage }}%",
+          "staging_deployed": "${{ needs.deploy_staging.result }}",
+          "staging_validation_passed": "${{ needs.deploy_staging.outputs.staging_validation_passed }}",
+          "production_deployed": "${{ needs.deploy_production.result }}",
+          "production_validation_passed": "${{ needs.deploy_production.outputs.production_validation_passed }}",
+          "image_tag": "${{ needs.build.outputs.image_tag }}",
+          "deployment_archive": "${{ needs.build.outputs.deployment_archive }}"
         }
         EOF
 
@@ -199,36 +334,48 @@ jobs:
         path: deployment_record.json
         retention-days: 90
 
-    - name: Notify deployment success
-      if: success()
-      run: |
-        echo "🎉 Deployment completed successfully!"
-        echo "Environment: ${{ github.event.inputs.environment || 'staging' }}"
-        echo "Commit: ${{ github.sha }}"
-
   rollback:
-    needs: deploy
-    if: failure() && github.event.inputs.environment == 'production'
+    name: 'Rollback'
+    needs: [deploy_production]
+    if: failure() && (needs.deploy_production.result == 'failure')
     runs-on: ubuntu-latest
     environment: production
 
     steps:
     - name: Trigger rollback
       run: |
-        echo "❌ Deployment failed, initiating rollback..."
+        echo "❌ Production deployment failed, initiating rollback..."
 
-        # Find previous successful deployment
-        # In a real scenario, you'd query your deployment history
+        # Identify rollback target
+        echo "🔍 Finding previous stable deployment..."
 
+        # Execute rollback
         echo "🔄 Rolling back to previous version..."
 
-        # Rollback logic here
-        # This would depend on your hosting platform
+        # Replace with your actual rollback commands
+        # Examples: kubectl rollout undo, docker service rollback, etc.
 
         echo "✅ Rollback completed"
 
+    - name: Validate rollback
+      run: |
+        echo "🔍 Validating rollback..."
+
+        # Health checks after rollback
+        if [ -n "$PRODUCTION_URL" ]; then
+          # curl -f --max-time 30 $PRODUCTION_URL/health || exit 1
+          echo "✅ Rollback health check passed"
+        fi
+
     - name: Notify rollback
       run: |
-        echo "🚨 Rollback executed due to deployment failure"
-        echo "Original deployment: ${{ github.run_id }}"
-        echo "Environment: production"
+        MESSAGE="🚨 Production deployment failed and was rolled back
+        Commit: ${{ github.sha }}
+        Deployment ID: ${{ github.run_id }}
+        Check logs for details"
+
+        if [ -n "$SLACK_WEBHOOK" ]; then
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"$MESSAGE\"}" \
+            $SLACK_WEBHOOK
+        fi

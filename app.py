@@ -9,6 +9,7 @@ from os import getenv
 from pathlib import Path
 from threading import Event
 from typing import Any, AsyncGenerator, Literal
+from uuid import uuid4
 
 ROOT_DIR = Path(__file__).resolve().parent
 if str(ROOT_DIR) not in sys.path:
@@ -16,7 +17,9 @@ if str(ROOT_DIR) not in sys.path:
 
 import gradio as gr
 from dotenv import load_dotenv
+from fastapi import Response
 from loguru import logger
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
 from agents.models import AgentConfig, RunRecord, Session
 from agents.runtime import build_agent, run_agent_stream
@@ -28,9 +31,19 @@ from pathlib import Path
 
 ComponentUpdate = dict[str, Any]
 
+# Prometheus metrics
+REQUEST_COUNT = Counter('agent_lab_requests_total', 'Total number of requests', ['method', 'endpoint', 'status'])
+REQUEST_LATENCY = Histogram('agent_lab_request_duration_seconds', 'Request duration in seconds', ['method', 'endpoint'])
+HEALTH_CHECK_COUNT = Counter('agent_lab_health_checks_total', 'Total health checks', ['status'])
+AGENT_BUILD_COUNT = Counter('agent_lab_agent_builds_total', 'Total agent builds', ['success'])
+AGENT_RUN_COUNT = Counter('agent_lab_agent_runs_total', 'Total agent runs', ['aborted'])
+
 
 def health_check() -> dict[str, Any]:
     """Perform health checks and return status information."""
+    import httpx
+    from agents.tools import fetch_url
+
     timestamp = datetime.now(timezone.utc).isoformat()
 
     # Check API key presence
@@ -41,13 +54,34 @@ def health_check() -> dict[str, Any]:
     csv_file = data_dir / "runs.csv"
     database_ok = data_dir.exists() and csv_file.exists()
 
+    # Check OpenRouter API connectivity
+    api_connectivity_ok = False
+    if api_key_present:
+        try:
+            # Simple connectivity check to OpenRouter models endpoint
+            response = httpx.get("https://openrouter.ai/api/v1/models", headers={"Authorization": f"Bearer {getenv('OPENROUTER_API_KEY')}"}, timeout=5.0)
+            api_connectivity_ok = response.status_code == 200
+        except Exception:
+            api_connectivity_ok = False
+
+    # Check web tool availability
+    web_tool_ok = fetch_url is not None
+
     # Determine overall status
-    if api_key_present and database_ok:
+    critical_deps = [api_key_present, database_ok, api_connectivity_ok]
+    optional_deps = [web_tool_ok]
+
+    healthy_count = sum(critical_deps) + sum(optional_deps)
+    total_deps = len(critical_deps) + len(optional_deps)
+
+    if healthy_count == total_deps:
         status = "healthy"
-    elif api_key_present or database_ok:
+    elif healthy_count >= len(critical_deps):
         status = "degraded"
     else:
         status = "unhealthy"
+
+    HEALTH_CHECK_COUNT.labels(status=status).inc()
 
     return {
         "status": status,
@@ -56,6 +90,8 @@ def health_check() -> dict[str, Any]:
         "dependencies": {
             "api_key": api_key_present,
             "database": database_ok,
+            "api_connectivity": api_connectivity_ok,
+            "web_tool": web_tool_ok,
         },
     }
 
@@ -331,7 +367,9 @@ def build_agent_handler(
 
     try:
         agent = build_agent(updated_config, include_web=web_enabled)
+        AGENT_BUILD_COUNT.labels(success='true').inc()
     except Exception as exc:  # pragma: no cover - runtime guard
+        AGENT_BUILD_COUNT.labels(success='false').inc()
         error_badge = _web_badge_html("web_fetch" in config_state.tools)
         return config_state, f"❌ Error: {exc}", error_badge, None
 
@@ -428,6 +466,10 @@ async def send_message_streaming(
 ]:
     """Stream a chat message to the agent and persist telemetry securely."""
 
+    correlation_id = str(uuid4())
+    logger_bound = logger.bind(correlation_id=correlation_id)
+    start_time = datetime.now(timezone.utc)
+
     chat_history = history[:] if history else []
     trimmed_message = message.strip()
 
@@ -475,7 +517,7 @@ async def send_message_streaming(
         delta_event.set()
 
     stream_task = asyncio.create_task(
-        run_agent_stream(agent_state, trimmed_message, handle_delta, cancel_token)
+        run_agent_stream(agent_state, trimmed_message, handle_delta, cancel_token, correlation_id)
     )
 
     streaming_info = "🔄 Streaming response..."
@@ -635,7 +677,7 @@ async def send_message_streaming(
     )
 
     try:
-        await asyncio.to_thread(append_run, record)
+        await asyncio.to_thread(append_run, record, correlation_id)
     except Exception as exc:  # pragma: no cover - filesystem/runtime guard
         run_info = f"⚠️ Response logged with warning: {exc}"
     else:
@@ -667,6 +709,10 @@ async def send_message_streaming(
             f"🧠 {model_display} | 📅 {timestamp.isoformat()}"
             f"{token_fragment}{cost_fragment}{aborted_fragment}{tag_info}"
         )
+
+    latency = (datetime.now(timezone.utc) - start_time).total_seconds()
+    AGENT_RUN_COUNT.labels(aborted=str(stream_result.aborted)).inc()
+    REQUEST_LATENCY.observe(latency, {'method': 'stream', 'endpoint': 'send_message'})
 
     yield (
         chat_history,
@@ -998,6 +1044,12 @@ if __name__ == "__main__":
     # Add health check endpoint
     app = create_ui()
     app.app.add_api_route("/health", health_check, methods=["GET"])
+
+    # Add Prometheus metrics endpoint
+    def metrics():
+        return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+    app.app.add_api_route("/metrics", metrics, methods=["GET"])
 
     # Security: Configurable server host binding with secure default
     server_host = getenv("GRADIO_SERVER_HOST", "127.0.0.1")

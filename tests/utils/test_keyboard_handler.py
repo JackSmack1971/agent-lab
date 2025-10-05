@@ -168,7 +168,7 @@ class TestShortcutContext:
         assert context.modal_open is False
         assert context.input_active is False
         assert context.streaming_active is False
-        assert context.available_actions == []
+        assert context.available_actions is None
 
 
 class TestShortcutEvent:
@@ -315,7 +315,7 @@ class TestContextManager:
 
     def test_update_context_exception_handling(self, context_manager):
         """Test exception handling in context updates."""
-        with patch.object(context_manager._current_context, '__setattr__', side_effect=Exception('Test error')):
+        with patch.object(ShortcutContext, '__setattr__', side_effect=Exception('Test error')):
             with patch('src.utils.keyboard_handler.logger') as mock_logger:
                 context_manager.update_context(active_tab='chat')
                 mock_logger.error.assert_called_once()
@@ -367,8 +367,10 @@ class TestContextManager:
         )
 
         with patch('src.utils.keyboard_handler.logger') as mock_logger:
-            # Force an exception
-            with patch.object(shortcut, 'context', side_effect=Exception('Test error')):
+            # Force an exception by mocking context to raise on access
+            mock_context = Mock()
+            mock_context.__contains__ = Mock(side_effect=Exception('Test error'))
+            with patch.object(shortcut, 'context', mock_context):
                 result = context_manager.is_shortcut_available(shortcut, ShortcutContext())
                 assert result is False
                 mock_logger.error.assert_called_once()
@@ -417,12 +419,15 @@ class TestKeyboardHandler:
     def test_initialization_default_dependencies(self):
         """Test initialization with default dependencies."""
         with patch('src.utils.keyboard_handler.PlatformDetector') as mock_pd_class, \
-             patch('src.utils.keyboard_handler.ContextManager') as mock_cm_class:
+              patch('src.utils.keyboard_handler.ContextManager') as mock_cm_class:
 
             mock_pd_instance = Mock()
             mock_pd_instance.get_platform.return_value = 'linux'
+            mock_pd_instance.normalize_combination.return_value = ['ctrl', 's']
             mock_pd_class.return_value = mock_pd_instance
-            mock_cm_class.return_value = Mock()
+            mock_cm_instance = Mock()
+            mock_cm_instance.is_shortcut_available.return_value = True
+            mock_cm_class.return_value = mock_cm_instance
 
             handler = KeyboardHandler()
 
@@ -479,10 +484,10 @@ class TestKeyboardHandler:
         except CoreValidationError as e:
             validation_error = e
 
-        with patch.object(KeyboardShortcut, '__init__', side_effect=validation_error):
+        with patch.object(KeyboardShortcut, 'model_validate', side_effect=validation_error):
 
             with pytest.raises(ValueError, match='Invalid shortcut data'):
-                keyboard_handler.register_shortcut(Mock())
+                keyboard_handler.register_shortcut(KeyboardShortcut(id='test', name='test', description='test', key_combination=['a'], action='test'))
 
     def test_register_shortcut_with_conflicts(self, keyboard_handler, mock_platform_detector):
         """Test registration with conflicts (should still succeed but log)."""
@@ -621,9 +626,9 @@ class TestKeyboardHandler:
         except CoreValidationError as e:
             validation_error = e
 
-        with patch.object(ShortcutEvent, '__init__', side_effect=validation_error):
+        with patch.object(ShortcutEvent, 'model_validate', side_effect=validation_error):
 
-            event = Mock()
+            event = ShortcutEvent(key='t', ctrl_key=True)
             with pytest.raises(ValueError, match='Invalid keyboard event'):
                 keyboard_handler.process_event(event)
 
@@ -686,17 +691,19 @@ class TestKeyboardHandler:
 
     def test_process_event_validation_error_handling(self, keyboard_handler):
         """Test handling of ValidationError in process_event."""
-        # Create an invalid event that will cause ValidationError
+        from src.utils.keyboard_handler import ShortcutEvent
+        # Create a real ValidationError
+        try:
+            ShortcutEvent(key='', ctrl_key=True)
+        except CoreValidationError as e:
+            validation_error = e
+
         with patch('src.utils.keyboard_handler.logger') as mock_logger:
-            with patch.object(ShortcutEvent, '__new__', side_effect=ValidationError([{'loc': ('key',), 'msg': 'validation_error'}], ShortcutEvent)):
-                # This should trigger the ValidationError in process_event
-                try:
-                    result = keyboard_handler.process_event(ShortcutEvent(key='', ctrl_key=True))  # Invalid key
-                except ValidationError:
-                    # The method should catch this and return None
-                    pass
-                # Since the event creation itself fails, we can't test the internal handling
-                # But the test for ValidationError in process_event exists elsewhere
+            with patch.object(ShortcutEvent, 'model_validate', side_effect=validation_error):
+                event = ShortcutEvent(key='t', ctrl_key=True)
+                result = keyboard_handler.process_event(event)
+                assert result is None
+                mock_logger.error.assert_called_once()
 
     def test_unregister_shortcut_exception_handling(self, keyboard_handler):
         """Test exception handling in unregister_shortcut."""

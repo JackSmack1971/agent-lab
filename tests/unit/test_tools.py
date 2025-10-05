@@ -1,10 +1,11 @@
 """Unit tests for tools module."""
 
+import httpx
 import pytest
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock, patch
 from hypothesis import given, strategies as st
 
-from agents.tools import add_numbers, utc_now, AddInput, NowInput
+from agents.tools import add_numbers, utc_now, fetch_url, AddInput, NowInput, FetchInput
 from pydantic_ai import RunContext
 
 
@@ -102,3 +103,75 @@ class TestTools:
         ctx = Mock(spec=RunContext)
         result = await add_numbers(ctx, AddInput(a=a, b=0.0))
         assert result == a
+
+    @pytest.mark.asyncio
+    async def test_fetch_url_allowed_domain(self) -> None:
+        """Test fetch_url with an allowed domain."""
+        ctx = Mock(spec=RunContext)
+        input_data = FetchInput(url="https://api.github.com/user", timeout_s=5.0)
+
+        mock_response = Mock()
+        mock_response.text = "Mocked content over 4096 characters" * 100
+        mock_response.raise_for_status = Mock()
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+
+            result = await fetch_url(ctx, input_data)
+
+            assert result == "Mocked content over 4096 characters"[:4096]
+            mock_client.assert_called_once_with(timeout=5.0, follow_redirects=True)
+            mock_client.return_value.__aenter__.return_value.get.assert_called_once_with("https://api.github.com/user")
+
+    @pytest.mark.asyncio
+    async def test_fetch_url_blocked_domain(self) -> None:
+        """Test fetch_url blocks non-allowed domains."""
+        ctx = Mock(spec=RunContext)
+        input_data = FetchInput(url="https://evil.com/data")
+
+        result = await fetch_url(ctx, input_data)
+
+        assert result == "Refused: domain 'evil.com' not in allow-list."
+
+    @pytest.mark.asyncio
+    async def test_fetch_url_timeout(self) -> None:
+        """Test fetch_url handles timeout errors."""
+        ctx = Mock(spec=RunContext)
+        input_data = FetchInput(url="https://api.github.com/user")
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(side_effect=httpx.TimeoutException("Timeout"))
+
+            result = await fetch_url(ctx, input_data)
+
+            assert result == "Error: Request timed out."
+
+    @pytest.mark.asyncio
+    async def test_fetch_url_http_error(self) -> None:
+        """Test fetch_url handles HTTP errors."""
+        ctx = Mock(spec=RunContext)
+        input_data = FetchInput(url="https://api.github.com/user")
+
+        mock_response = Mock()
+        mock_response.status_code = 404
+        mock_response.reason_phrase = "Not Found"
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(side_effect=httpx.HTTPStatusError("404", request=Mock(), response=mock_response))
+
+            result = await fetch_url(ctx, input_data)
+
+            assert result == "Error: HTTP 404 - Not Found"
+
+    @pytest.mark.asyncio
+    async def test_fetch_url_generic_error(self) -> None:
+        """Test fetch_url handles generic exceptions."""
+        ctx = Mock(spec=RunContext)
+        input_data = FetchInput(url="https://api.github.com/user")
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(side_effect=Exception("Network error"))
+
+            result = await fetch_url(ctx, input_data)
+
+            assert result == "Error: Network error"

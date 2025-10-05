@@ -307,7 +307,7 @@ class TestLoadingStateManager:
         # Complete loading
         updates = self.manager.complete_loading('test_op', True)
         assert updates['interactive'] is True
-        assert updates['value'] == 'button'  # Should be default text
+        assert updates['value'] == ''  # Should be default text for unknown operation
 
     def test_complete_loading_panel(self):
         """Test completing loading state for panel."""

@@ -1,0 +1,525 @@
+{
+  "repo": {
+    "root": "/agent-lab",
+    "primary_branch": "main",
+    "commit_sha": ""
+  },
+  "inventory": {
+    "files_total": 60,
+    "languages": [
+      {"name": "Python", "sloc_approx": 2800},
+      {"name": "Markdown", "sloc_approx": 2000},
+      {"name": "YAML", "sloc_approx": 200},
+      {"name": "Dockerfile", "sloc_approx": 50}
+    ],
+    "key_artifacts": {
+      "docs": [
+        "README.md",
+        "AGENTS.md",
+        "PRD.md",
+        "TRD.md",
+        "roadmap.md",
+        "docs/keyboard_shortcuts.md",
+        "tests/README.md",
+        "tests/CONTRIBUTING.md",
+        "integration-report.md",
+        "backup-strategy.md"
+      ],
+      "specs": [
+        "PRD.md",
+        "TRD.md",
+        "AGENTS.md",
+        "integration-report.md"
+      ],
+      "packaging": [
+        "requirements.txt",
+        "requirements.lock"
+      ],
+      "runtime": [
+        "Dockerfile",
+        "docker-compose.yml",
+        "app.py"
+      ],
+      "ci": [
+        ".github/workflows/tests.yml",
+        ".github/workflows/deploy.yml"
+      ],
+      "quality": [
+        "pytest.ini",
+        "tests/conftest.py",
+        "tests/README.md",
+        ".gitignore",
+        ".dockerignore"
+      ],
+      "infra": [
+        "docker-compose.yml"
+      ],
+      "secrets_examples": [
+        ".env.example"
+      ]
+    }
+  },
+  "signals": [
+    {
+      "area": "docs",
+      "status_score": 4,
+      "findings": [
+        {
+          "claim": "README.md present with setup, Docker, shortcuts",
+          "evidence": [{"path": "README.md", "lines": "L1-150"}],
+          "type": "fact",
+          "confidence": 1.0
+        },
+        {
+          "claim": "PRD.md has comprehensive product requirements",
+          "evidence": [{"path": "PRD.md", "lines": "L1-300"}],
+          "type": "fact",
+          "confidence": 1.0
+        },
+        {
+          "claim": "Missing CHANGELOG.md for release tracking",
+          "evidence": [{"path": "project_knowledge_search", "lines": "N/A"}],
+          "type": "fact",
+          "confidence": 1.0
+        }
+      ]
+    },
+    {
+      "area": "build",
+      "status_score": 5,
+      "findings": [
+        {
+          "claim": "requirements.lock provides reproducible builds",
+          "evidence": [{"path": "requirements.lock", "lines": "L1-500"}],
+          "type": "fact",
+          "confidence": 1.0
+        },
+        {
+          "claim": "Dockerfile uses non-root user and health checks",
+          "evidence": [{"path": "Dockerfile", "lines": "L12-14"}],
+          "type": "fact",
+          "confidence": 1.0
+        }
+      ]
+    },
+    {
+      "area": "tests",
+      "status_score": 4,
+      "findings": [
+        {
+          "claim": "pytest.ini configured with async mode and coverage",
+          "evidence": [{"path": "pytest.ini", "lines": "L1-17"}],
+          "type": "fact",
+          "confidence": 1.0
+        },
+        {
+          "claim": "Test infrastructure mature but implementation incomplete",
+          "evidence": [
+            {"path": "TDD-chain.md", "lines": "L1-400"},
+            {"path": "tests/unit/test_models.py", "lines": "L11"}
+          ],
+          "type": "inference",
+          "confidence": 0.80
+        }
+      ]
+    },
+    {
+      "area": "ci",
+      "status_score": 4,
+      "findings": [
+        {
+          "claim": "GitHub Actions tests workflow with multi-Python matrix",
+          "evidence": [{"path": ".github/workflows/tests.yml", "lines": "L1-100"}],
+          "type": "fact",
+          "confidence": 1.0
+        },
+        {
+          "claim": "Deployment workflow uses manual triggers only",
+          "evidence": [{"path": ".github/workflows/deploy.yml", "lines": "L6-19"}],
+          "type": "fact",
+          "confidence": 1.0
+        }
+      ]
+    },
+    {
+      "area": "security",
+      "status_score": 3,
+      "findings": [
+        {
+          "claim": "API keys never logged, .env.example present",
+          "evidence": [
+            {"path": "app.py", "lines": "L130-135"},
+            {"path": "agents/runtime.py", "lines": "L47-49"}
+          ],
+          "type": "fact",
+          "confidence": 1.0
+        },
+        {
+          "claim": "No security scanning in CI pipeline",
+          "evidence": [{"path": ".github/workflows/tests.yml", "lines": "L1-100"}],
+          "type": "fact",
+          "confidence": 1.0
+        }
+      ]
+    },
+    {
+      "area": "observability",
+      "status_score": 2,
+      "findings": [
+        {
+          "claim": "Basic logging with loguru and health check endpoint",
+          "evidence": [
+            {"path": "app.py", "lines": "L30-60"},
+            {"path": "app.py", "lines": "L120-125"}
+          ],
+          "type": "fact",
+          "confidence": 1.0
+        },
+        {
+          "claim": "No metrics, tracing, or alerting infrastructure",
+          "evidence": [{"path": "project_knowledge_search", "lines": "N/A"}],
+          "type": "fact",
+          "confidence": 1.0
+        }
+      ]
+    },
+    {
+      "area": "operations",
+      "status_score": 3,
+      "findings": [
+        {
+          "claim": "Docker deployment ready with health checks",
+          "evidence": [
+            {"path": "Dockerfile", "lines": "L1-28"},
+            {"path": "docker-compose.yml", "lines": "L17-20"}
+          ],
+          "type": "fact",
+          "confidence": 1.0
+        },
+        {
+          "claim": "No Kubernetes or Terraform infrastructure code",
+          "evidence": [{"path": "project_knowledge_search", "lines": "N/A"}],
+          "type": "fact",
+          "confidence": 1.0
+        }
+      ]
+    },
+    {
+      "area": "product",
+      "status_score": 5,
+      "findings": [
+        {
+          "claim": "Exceptional spec clarity with PRD, TRD, user personas",
+          "evidence": [
+            {"path": "PRD.md", "lines": "L1-300"},
+            {"path": "TRD.md", "lines": "L1-200"}
+          ],
+          "type": "fact",
+          "confidence": 1.0
+        },
+        {
+          "claim": "Data models use Pydantic with stable CSV schema",
+          "evidence": [
+            {"path": "agents/models.py", "lines": "L1-80"},
+            {"path": "services/persist.py", "lines": "L20-40"}
+          ],
+          "type": "fact",
+          "confidence": 1.0
+        }
+      ]
+    }
+  ],
+  "project_state": {
+    "phase": "beta",
+    "confidence": 0.85,
+    "rationale": "Complete core functionality, comprehensive docs, working CI/CD, Docker deployment, test infrastructure established. Lacks complete test coverage, CHANGELOG, production evidence, security scanning, full observability. Integration report indicates validation completed. Beta phase suggested by feature completeness but ongoing test implementation per TDD-chain.md.",
+    "workstreams": [
+      {
+        "name": "Core Agent Runtime",
+        "status": "done",
+        "evidence": [
+          {"path": "agents/runtime.py", "lines": "L1-200"},
+          {"path": "agents/models.py", "lines": "L1-80"}
+        ]
+      },
+      {
+        "name": "UI/Gradio Interface",
+        "status": "done",
+        "evidence": [
+          {"path": "app.py", "lines": "L1-700"},
+          {"path": "integration-report.md", "lines": "L1-100"}
+        ]
+      },
+      {
+        "name": "Persistence Layer",
+        "status": "done",
+        "evidence": [
+          {"path": "services/persist.py", "lines": "L1-200"}
+        ]
+      },
+      {
+        "name": "Model Catalog Service",
+        "status": "done",
+        "evidence": [
+          {"path": "services/catalog.py", "lines": "L1-200"}
+        ]
+      },
+      {
+        "name": "Testing Infrastructure",
+        "status": "stabilizing",
+        "evidence": [
+          {"path": "TDD-chain.md", "lines": "L1-400"},
+          {"path": "tests/unit/test_models.py", "lines": "L11"}
+        ]
+      },
+      {
+        "name": "CI/CD Pipeline",
+        "status": "review",
+        "evidence": [
+          {"path": ".github/workflows/tests.yml", "lines": "L1-100"},
+          {"path": ".github/workflows/deploy.yml", "lines": "L6-19"}
+        ]
+      },
+      {
+        "name": "Web Fetch Tool",
+        "status": "blocked",
+        "evidence": [
+          {"path": "agents/tools.py", "lines": "L44"},
+          {"path": "agents/runtime.py", "lines": "L77-80"}
+        ]
+      },
+      {
+        "name": "Cost Optimizer Feature",
+        "status": "done",
+        "evidence": [
+          {"path": "README.md", "lines": "L15-21"},
+          {"path": "integration-report.md", "lines": "L1-100"}
+        ]
+      }
+    ],
+    "risks": [
+      {
+        "id": "R-001",
+        "title": "Incomplete Test Coverage",
+        "likelihood": "high",
+        "impact": "high",
+        "mitigation": "Complete TDD implementation following TDD-chain.md roadmap",
+        "evidence": [
+          {"path": "TDD-chain.md", "lines": "L1-400"},
+          {"path": "tests/unit/test_models.py", "lines": "L11"}
+        ]
+      },
+      {
+        "id": "R-002",
+        "title": "Missing Web Fetch Tool",
+        "likelihood": "high",
+        "impact": "medium",
+        "mitigation": "Implement fetch_url tool with allow-list enforcement",
+        "evidence": [
+          {"path": "agents/runtime.py", "lines": "L77-80"},
+          {"path": "PRD.md", "lines": "L60"}
+        ]
+      },
+      {
+        "id": "R-003",
+        "title": "No Security Scanning",
+        "likelihood": "medium",
+        "impact": "high",
+        "mitigation": "Add SAST tools (bandit, safety, semgrep) to CI",
+        "evidence": [
+          {"path": ".github/workflows/tests.yml", "lines": "L1-100"}
+        ]
+      },
+      {
+        "id": "R-004",
+        "title": "Observability Gaps",
+        "likelihood": "medium",
+        "impact": "medium",
+        "mitigation": "Add metrics, tracing, alerting infrastructure",
+        "evidence": [
+          {"path": "app.py", "lines": "L30-60"}
+        ]
+      },
+      {
+        "id": "R-005",
+        "title": "Manual Deployment Process",
+        "likelihood": "low",
+        "impact": "medium",
+        "mitigation": "Enable automated deployment triggers",
+        "evidence": [
+          {"path": ".github/workflows/deploy.yml", "lines": "L6-19"}
+        ]
+      },
+      {
+        "id": "R-006",
+        "title": "Missing Release Management",
+        "likelihood": "medium",
+        "impact": "low",
+        "mitigation": "Create CHANGELOG, establish semver, add git tags",
+        "evidence": [
+          {"path": "app.py", "lines": "L54"}
+        ]
+      },
+      {
+        "id": "R-007",
+        "title": "Dependency Vulnerabilities",
+        "likelihood": "low",
+        "impact": "medium",
+        "mitigation": "Add automated dependency scanning",
+        "evidence": [
+          {"path": "pip-audit-report.json", "lines": "L1"}
+        ]
+      }
+    ]
+  },
+  "actions": [
+    {
+      "id": "A-001",
+      "title": "Complete Test Implementation",
+      "effort": "L",
+      "expected_lift": {"area": "tests", "delta": 3},
+      "acceptance_checks": [
+        "All placeholder tests replaced",
+        "Coverage >90% for agents/ and services/",
+        "All tests passing in CI",
+        "pytest --cov reports no gaps"
+      ],
+      "touch_files": [
+        "tests/unit/test_models.py",
+        "tests/unit/test_persist.py",
+        "tests/unit/test_catalog.py",
+        "tests/integration/test_streaming.py",
+        "tests/integration/test_catalog_workflow.py",
+        "tests/integration/test_persistence_roundtrip.py"
+      ]
+    },
+    {
+      "id": "A-002",
+      "title": "Implement Web Fetch Tool",
+      "effort": "M",
+      "expected_lift": {"area": "operations", "delta": 1},
+      "acceptance_checks": [
+        "agents/tools.py includes fetch_url",
+        "Allow-list enforcement implemented",
+        "Unit tests with mocked HTTP",
+        "Integration test validates domain blocking"
+      ],
+      "touch_files": [
+        "agents/tools.py",
+        "tests/unit/test_tools.py",
+        "tests/integration/test_web_tool.py"
+      ]
+    },
+    {
+      "id": "A-003",
+      "title": "Add Security Scanning to CI",
+      "effort": "S",
+      "expected_lift": {"area": "security", "delta": 2},
+      "acceptance_checks": [
+        "bandit configured in CI",
+        "safety checks dependencies",
+        "CI fails on HIGH severity",
+        "Security scan results logged"
+      ],
+      "touch_files": [
+        ".github/workflows/tests.yml",
+        ".github/workflows/security.yml",
+        ".bandit.yml"
+      ]
+    },
+    {
+      "id": "A-004",
+      "title": "Create CHANGELOG and Release Process",
+      "effort": "S",
+      "expected_lift": {"area": "docs", "delta": 1},
+      "acceptance_checks": [
+        "CHANGELOG.md created",
+        "Semantic versioning documented",
+        "app.py version populated",
+        "Git tagging process documented"
+      ],
+      "touch_files": [
+        "CHANGELOG.md",
+        "CONTRIBUTING.md",
+        "app.py",
+        ".github/workflows/release.yml"
+      ]
+    },
+    {
+      "id": "A-005",
+      "title": "Add SECURITY.md",
+      "effort": "S",
+      "expected_lift": {"area": "security", "delta": 1},
+      "acceptance_checks": [
+        "SECURITY.md created",
+        "Vulnerability reporting process defined",
+        "Security policy in README"
+      ],
+      "touch_files": [
+        "SECURITY.md",
+        "README.md"
+      ]
+    },
+    {
+      "id": "A-006",
+      "title": "Enhance Observability",
+      "effort": "M",
+      "expected_lift": {"area": "observability", "delta": 3},
+      "acceptance_checks": [
+        "Prometheus metrics endpoint",
+        "Key metrics instrumented",
+        "Health check includes dependencies",
+        "Logging includes correlation IDs"
+      ],
+      "touch_files": [
+        "app.py",
+        "agents/runtime.py",
+        "services/persist.py",
+        "requirements.txt",
+        "docs/observability.md"
+      ]
+    },
+    {
+      "id": "A-007",
+      "title": "Enable Automated Deployment",
+      "effort": "S",
+      "expected_lift": {"area": "ci", "delta": 1},
+      "acceptance_checks": [
+        "Deploy triggers on push to main",
+        "Staging validated before production",
+        "Rollback procedure tested",
+        "Deployment notifications configured"
+      ],
+      "touch_files": [
+        ".github/workflows/deploy.yml",
+        "backup-strategy.md",
+        "README.md"
+      ]
+    },
+    {
+      "id": "A-008",
+      "title": "Add Dependency Scanning",
+      "effort": "S",
+      "expected_lift": {"area": "security", "delta": 1},
+      "acceptance_checks": [
+        "Dependabot enabled",
+        "pip-audit runs in CI",
+        "Vulnerability alerts configured"
+      ],
+      "touch_files": [
+        ".github/dependabot.yml",
+        ".github/workflows/tests.yml"
+      ]
+    }
+  ],
+  "coverage_gaps": [
+    "Cannot verify actual test execution results - no pytest logs available",
+    "Cannot measure code coverage percentage - requires running pytest",
+    "Cannot verify production deployment history - no access to deployment logs",
+    "Cannot access git commit history for timestamps and author frequency",
+    "Cannot verify file modification timestamps - no filesystem metadata",
+    "Cannot verify current dependency vulnerability status - pip-audit-report.json may be stale",
+    "Cannot verify runtime performance metrics - no production telemetry data",
+    "Cannot verify user adoption or usage - no analytics data accessible"
+  ]
+}

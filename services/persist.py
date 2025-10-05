@@ -10,6 +10,7 @@ from __future__ import annotations
 import csv
 import sys
 from datetime import datetime
+from loguru import logger
 from pathlib import Path
 from typing import Any
 
@@ -60,8 +61,10 @@ def init_csv() -> None:
         raise RuntimeError(f"Failed to initialize CSV at {CSV_PATH}: {exc}") from exc
 
 
-def append_run(record: RunRecord) -> None:
+def append_run(record: RunRecord, correlation_id: str | None = None) -> None:
     """Append a run record to the CSV file"""
+
+    logger_bound = logger.bind(correlation_id=correlation_id) if correlation_id else logger
 
     init_csv()
     row = record.model_dump()
@@ -73,7 +76,9 @@ def append_run(record: RunRecord) -> None:
         with CSV_PATH.open("a", newline="", encoding="utf-8") as file:
             writer = csv.DictWriter(file, fieldnames=CSV_HEADERS)
             writer.writerow(serialised_row)
+        logger_bound.info("Run record appended to CSV", extra={"record_id": str(record.ts)})
     except OSError as exc:  # pragma: no cover - filesystem failure paths
+        logger_bound.error("Failed to append run record", extra={"error": str(exc)})
         raise RuntimeError(f"Failed to append run record: {exc}") from exc
 
 

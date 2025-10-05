@@ -1,0 +1,76 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  bandit:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.12"
+
+    - name: Install bandit
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit
+
+    - name: Run bandit security scan
+      run: |
+        bandit -c .bandit.yml -r . --severity-level HIGH --format json --output bandit-results.json
+        # Check if any HIGH severity issues found
+        if jq -e '.results | length > 0' bandit-results.json > /dev/null; then
+          echo "HIGH severity security issues found:"
+          jq '.results[] | {filename, issue_severity, issue_text}' bandit-results.json
+          exit 1
+        else
+          echo "No HIGH severity security issues found."
+        fi
+
+    - name: Upload bandit results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: bandit-results
+        path: bandit-results.json
+
+  safety:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.12"
+
+    - name: Install safety
+      run: |
+        python -m pip install --upgrade pip
+        pip install safety
+
+    - name: Run safety dependency scan
+      run: |
+        safety check --file requirements.txt --output json --save-json safety-results.json
+        # Safety exits 1 if vulnerabilities found
+        if [ $? -ne 0 ]; then
+          echo "Security vulnerabilities found in dependencies:"
+          jq '.vulnerabilities[] | {package, vulnerability, severity}' safety-results.json 2>/dev/null || cat safety-results.json
+          exit 1
+        else
+          echo "No security vulnerabilities found in dependencies."
+        fi
+
+    - name: Upload safety results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: safety-results
+        path: safety-results.json

@@ -386,54 +386,79 @@ jobs:
 
 #### Rollback Procedures
 
-##### Automatic Rollback
+##### Automated Deployment Rollback
+The CI/CD pipeline includes automatic rollback capabilities triggered on deployment failures:
+
 ```yaml
-# .github/workflows/rollback.yml
-name: Rollback
+# Automatic rollback in .github/workflows/deploy.yml
+rollback:
+  needs: deploy_production
+  if: failure() && (needs.deploy_production.result == 'failure')
+  runs-on: ubuntu-latest
+  environment: production
+
+  steps:
+  - name: Trigger rollback
+    run: |
+      echo "❌ Production deployment failed, initiating rollback..."
+
+      # Execute automated rollback to previous stable version
+      # Includes traffic switching, validation, and notifications
+```
+
+##### Manual Rollback Workflow
+For intentional rollbacks or complex scenarios, use the dedicated rollback workflow:
+
+```yaml
+# .github/workflows/rollback.yml - Manual Rollback
+name: Manual Rollback
 
 on:
   workflow_dispatch:
     inputs:
-      reason:
+      target_environment:
+        description: 'Environment to rollback'
+        options: [staging, production]
+      rollback_reason:
         description: 'Reason for rollback'
         required: true
-
-jobs:
-  rollback:
-    runs-on: ubuntu-latest
-    environment: production
-
-    steps:
-    - name: Log rollback reason
-      run: |
-        echo "Rolling back due to: ${{ github.event.inputs.reason }}"
-        echo "$(date): Rollback initiated - ${{ github.event.inputs.reason }}" >> rollback.log
-
-    - name: Switch to previous deployment
-      run: |
-        # Blue-green rollback: switch traffic back to previous version
-        # Implementation depends on your hosting platform
-
-    - name: Validate rollback
-      run: |
-        # Health checks
-        curl -f https://agent-lab.your-domain.com/health
-
-        # Functional tests
-        # Verify core features work
-
-    - name: Notify team
-      run: |
-        # Send notification about rollback
-        echo "Rollback completed successfully"
+      target_version:
+        description: 'Specific version/commit to rollback to'
 ```
 
-##### Manual Rollback Steps
-1. **Identify Issue**: Review deployment logs and error reports
-2. **Trigger Rollback**: Use GitHub Actions workflow dispatch
-3. **Monitor Recovery**: Watch application logs and metrics
-4. **Validate Functionality**: Run manual tests on critical features
-5. **Communicate**: Notify stakeholders about rollback and expected resolution time
+**Manual Rollback Steps:**
+1. **Access Rollback Workflow**: Go to GitHub Actions → Manual Rollback
+2. **Specify Parameters**:
+   - Target environment (staging/production)
+   - Reason for rollback (required)
+   - Target version/commit (optional, defaults to previous)
+3. **Initiate Rollback**: Click "Run workflow"
+4. **Monitor Progress**: Watch workflow execution and notifications
+5. **Validate Success**: Check application health and functionality
+
+##### Emergency Rollback Procedures
+For critical production incidents requiring immediate action:
+
+1. **Immediate Assessment**: Determine if rollback is appropriate
+2. **Trigger Emergency Rollback**:
+   ```bash
+   # Via GitHub CLI or web interface
+   gh workflow run rollback.yml \
+     -f target_environment=production \
+     -f rollback_reason="Critical security vulnerability"
+   ```
+3. **Monitor Rollback**: Watch real-time status via Slack notifications
+4. **Validate Recovery**: Confirm application stability within 5 minutes
+5. **Post-Incident Review**: Document lessons learned
+
+##### Rollback Validation Checklist
+- [ ] Application health endpoint responds
+- [ ] Core functionality tests pass
+- [ ] Data integrity verified
+- [ ] Performance metrics within acceptable ranges
+- [ ] User access restored
+- [ ] Monitoring alerts cleared
+- [ ] Team notified of successful rollback
 
 ### Pipeline Validation
 
@@ -701,6 +726,55 @@ jobs:
         # Run application tests
         # Verify functionality
 ```
+
+#### Rollback Testing Procedures
+Regular testing of rollback capabilities ensures reliability:
+
+```yaml
+# .github/workflows/test-rollback.yml
+name: Test Rollback Procedures
+
+on:
+  schedule:
+    - cron: '0 2 1 * *'  # Monthly on the 1st
+  workflow_dispatch:
+    inputs:
+      test_environment:
+        options: [staging, production]
+      full_simulation:
+        description: 'Run full rollback simulation'
+
+jobs:
+  prepare_test_environment:
+    name: 'Prepare Test Environment'
+    outputs:
+      test_commit: ${{ steps.prepare.outputs.test_commit }}
+
+  execute_test_rollback:
+    name: 'Execute Test Rollback'
+    needs: prepare_test_environment
+
+  validate_test_rollback:
+    name: 'Validate Test Rollback'
+    needs: execute_test_rollback
+
+  generate_test_report:
+    name: 'Generate Test Report'
+    needs: [prepare_test_environment, execute_test_rollback, validate_test_rollback]
+```
+
+**Rollback Test Scenarios:**
+- **Basic Rollback Test**: Rollback to previous commit in staging
+- **Production Simulation**: Full deployment + failure simulation + rollback
+- **Data Integrity Test**: Verify data consistency after rollback
+- **Performance Validation**: Ensure rollback doesn't impact performance
+
+**Test Execution Steps:**
+1. **Schedule**: Monthly automated tests or manual trigger
+2. **Environment**: Staging (default) or production (with caution)
+3. **Simulation**: Optional full deployment simulation
+4. **Validation**: Health checks, functionality tests, data integrity
+5. **Reporting**: Automated test reports and notifications
 
 ## Maintenance & Review
 
