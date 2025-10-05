@@ -282,7 +282,7 @@ python-jose==3.5.0
 python-multipart==0.0.20
 pytz==2025.2
 pyunormalize==16.0.0
-pywin32==310
+pywin32==310 ; sys_platform == "win32"
 PyYAML==6.0.2
 pyyaml_env_tag==1.1
 ragas==0.3.3
