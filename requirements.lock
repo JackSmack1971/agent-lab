@@ -1,4 +1,3 @@
-WARNING: Ignoring invalid distribution ~equests (C:\Users\click\AppData\Roaming\Python\Python313\site-packages)
 absl-py==2.3.1
 ag-ui-protocol==0.1.9
 aiofiles==24.1.0
