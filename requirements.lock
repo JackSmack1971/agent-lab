@@ -197,7 +197,7 @@ openai==1.109.1
 opencv-python==4.12.0.88
 opentelemetry-api==1.37.0
 opentelemetry-exporter-otlp-proto-common==1.37.0
-opentelemetry-exporter-otlp-proto-grpc==1.36.0
+opentelemetry-exporter-otlp-proto-grpc==1.37.0
 opentelemetry-exporter-otlp-proto-http==1.37.0
 opentelemetry-instrumentation==0.58b0
 opentelemetry-instrumentation-httpx==0.58b0
