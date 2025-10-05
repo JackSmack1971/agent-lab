@@ -195,7 +195,7 @@ class ShortcutContext(BaseModel):
     modal_open: bool = False
     input_active: bool = False
     streaming_active: bool = False
-    available_actions: Optional[List[str]] = None
+    available_actions: List[str] = Field(default_factory=list)
 
 
 class ShortcutEvent(BaseModel):
