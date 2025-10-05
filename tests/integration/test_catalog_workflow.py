@@ -1,19 +1,14 @@
 """Integration tests for model catalog refresh workflow."""
 
-import pytest
-from unittest.mock import Mock, patch
-from datetime import datetime, timedelta, timezone
 import time
+from datetime import datetime, timedelta, timezone
+from unittest.mock import Mock, patch
 
-from services.catalog import (
-    fetch_models,
-    get_models,
-    get_model_choices,
-    get_pricing,
-    ModelInfo,
-    FALLBACK_MODELS,
-    CACHE_TTL,
-)
+import pytest
+
+from services.catalog import (CACHE_TTL, FALLBACK_MODELS, ModelInfo,
+                              fetch_models, get_model_choices, get_models,
+                              get_pricing)
 
 
 @pytest.mark.integration

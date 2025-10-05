@@ -2,22 +2,18 @@
 
 from __future__ import annotations
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, Mock, patch
 
-from src.models.recommendation import (
-    ModelRecommendation,
-    RecommendationResponse,
-    SuggestedConfig,
-)
-from src.components.model_matchmaker import (
-    validate_use_case_description,
-    validate_max_cost,
-    validate_min_speed,
-    validate_context_length,
-    format_recommendation_card,
-    get_recommendations_async,
-)
+import pytest
+
+from src.components.model_matchmaker import (format_recommendation_card,
+                                             get_recommendations_async,
+                                             validate_context_length,
+                                             validate_max_cost,
+                                             validate_min_speed,
+                                             validate_use_case_description)
+from src.models.recommendation import (ModelRecommendation,
+                                       RecommendationResponse, SuggestedConfig)
 
 
 class TestModelMatchmakerValidation:

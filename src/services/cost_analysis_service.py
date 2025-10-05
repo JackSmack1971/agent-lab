@@ -10,15 +10,9 @@ from typing import Dict, List, Optional
 
 from agents.models import RunRecord
 from services.persist import CSV_PATH, load_recent_runs
-from src.models.cost_analysis import (
-    AlertSeverity,
-    AlertType,
-    CostAlert,
-    CostAnalysis,
-    CostTrend,
-    OptimizationSuggestion,
-    SuggestionType,
-)
+from src.models.cost_analysis import (AlertSeverity, AlertType, CostAlert,
+                                      CostAnalysis, CostTrend,
+                                      OptimizationSuggestion, SuggestionType)
 
 logger = logging.getLogger(__name__)
 

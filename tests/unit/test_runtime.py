@@ -1,13 +1,15 @@
 """Unit tests for runtime module."""
 
-import pytest
-from unittest.mock import Mock, patch, AsyncMock, MagicMock
-from threading import Event
 import asyncio
+from threading import Event
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
-from agents.runtime import build_agent, run_agent, run_agent_stream, StreamResult
+import pytest
+
 from agents.models import AgentConfig
+from agents.runtime import (StreamResult, build_agent, run_agent,
+                            run_agent_stream)
 
 
 @pytest.fixture

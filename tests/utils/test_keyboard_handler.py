@@ -6,26 +6,20 @@ functionality. Tests cover cross-platform behavior, context awareness, conflict
 detection, and rate limiting.
 """
 
-import pytest
 import time
-from unittest.mock import Mock, patch, MagicMock
 from typing import Dict, List
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
 from pydantic import ValidationError
 from pydantic_core import ValidationError as CoreValidationError
 
-from src.utils.keyboard_handler import (
-    KeyboardShortcut,
-    ShortcutContext,
-    ShortcutEvent,
-    PlatformDetector,
-    ContextManager,
-    KeyboardHandler,
-    PLATFORM_MAPPINGS,
-    BROWSER_RESERVED,
-    DEFAULT_SHORTCUTS,
-    MAX_EVENTS_PER_SECOND,
-    RATE_LIMIT_WINDOW,
-)
+from src.utils.keyboard_handler import (BROWSER_RESERVED, DEFAULT_SHORTCUTS,
+                                        MAX_EVENTS_PER_SECOND,
+                                        PLATFORM_MAPPINGS, RATE_LIMIT_WINDOW,
+                                        ContextManager, KeyboardHandler,
+                                        KeyboardShortcut, PlatformDetector,
+                                        ShortcutContext, ShortcutEvent)
 
 
 class TestKeyboardShortcut:

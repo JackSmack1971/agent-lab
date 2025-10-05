@@ -1,15 +1,16 @@
 """Integration tests for complete agent lifecycle: build → run → persist workflow."""
 
-import pytest
-from unittest.mock import Mock, patch, AsyncMock
+import os
+import tempfile
 from datetime import datetime
 from pathlib import Path
-import tempfile
-import os
+from unittest.mock import AsyncMock, Mock, patch
 
-from agents.runtime import build_agent, run_agent_stream, StreamResult
+import pytest
+
 from agents.models import AgentConfig, RunRecord
-from services.persist import append_run, load_recent_runs, init_csv
+from agents.runtime import StreamResult, build_agent, run_agent_stream
+from services.persist import append_run, init_csv, load_recent_runs
 
 
 @pytest.mark.integration

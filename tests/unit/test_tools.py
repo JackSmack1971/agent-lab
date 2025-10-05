@@ -1,11 +1,13 @@
 """Unit tests for tools module."""
 
-import pytest
 from unittest.mock import Mock
-from hypothesis import given, strategies as st
 
-from agents.tools import add_numbers, utc_now, AddInput, NowInput
+import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 from pydantic_ai import RunContext
+
+from agents.tools import AddInput, NowInput, add_numbers, utc_now
 
 
 class TestTools:

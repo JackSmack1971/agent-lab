@@ -1,25 +1,18 @@
 """Integration tests for CSV persistence roundtrip validation."""
 
-import pytest
-from pathlib import Path
-from datetime import datetime
 import csv
-import tempfile
 import os
+import tempfile
+from datetime import datetime
+from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from agents.models import RunRecord
-from services.persist import (
-    append_run,
-    load_recent_runs,
-    init_csv,
-    CSV_PATH,
-    CSV_HEADERS,
-    _parse_row,
-    _coerce_int,
-    _coerce_float,
-    _coerce_bool,
-)
+from services.persist import (CSV_HEADERS, CSV_PATH, _coerce_bool,
+                              _coerce_float, _coerce_int, _parse_row,
+                              append_run, init_csv, load_recent_runs)
 
 
 @pytest.mark.integration

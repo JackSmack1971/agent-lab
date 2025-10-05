@@ -7,11 +7,8 @@ from typing import Any, Callable, Optional
 
 import gradio as gr
 
-from src.models.recommendation import (
-    ModelRecommendation,
-    RecommendationResponse,
-    UseCaseInput,
-)
+from src.models.recommendation import (ModelRecommendation,
+                                       RecommendationResponse, UseCaseInput)
 from src.services.recommendation_service import analyze_use_case
 
 

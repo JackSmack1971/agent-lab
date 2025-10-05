@@ -4,14 +4,12 @@ This module provides Gradio UI components for displaying keyboard shortcuts,
 help panels, visual indicators, and accessibility features.
 """
 
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
+
 import gradio as gr
-from src.utils.keyboard_handler import (
-    KeyboardHandler,
-    KeyboardShortcut,
-    ShortcutContext,
-    ContextManager,
-)
+
+from src.utils.keyboard_handler import (ContextManager, KeyboardHandler,
+                                        KeyboardShortcut, ShortcutContext)
 
 
 def create_keyboard_shortcuts_ui(

@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import gradio as gr
-from src.components.cost_optimizer import (
-    create_cost_optimizer_tab,
-    apply_optimization_suggestion,
-)
+import pytest
+
+from src.components.cost_optimizer import (apply_optimization_suggestion,
+                                           create_cost_optimizer_tab)
 
 
 class TestCostOptimizerUI:

@@ -1,7 +1,8 @@
 """Integration tests for streaming functionality."""
 
-import pytest
 from typing import Any
+
+import pytest
 
 
 @pytest.mark.integration

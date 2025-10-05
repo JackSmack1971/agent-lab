@@ -1,19 +1,14 @@
 """Tests for UX improvements: inline validation, keyboard shortcuts, loading states."""
 
-import pytest
-from unittest.mock import Mock, patch
 from datetime import datetime, timezone
+from unittest.mock import Mock, patch
 
-from app import (
-    validate_agent_name,
-    validate_system_prompt,
-    validate_temperature,
-    validate_top_p,
-    validate_model_selection,
-    validate_form_field,
-    handle_keyboard_shortcut,
-    LoadingStateManager,
-)
+import pytest
+
+from app import (LoadingStateManager, handle_keyboard_shortcut,
+                 validate_agent_name, validate_form_field,
+                 validate_model_selection, validate_system_prompt,
+                 validate_temperature, validate_top_p)
 
 
 class TestInlineValidation:

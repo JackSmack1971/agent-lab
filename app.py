@@ -14,23 +14,19 @@ ROOT_DIR = Path(__file__).resolve().parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
+from datetime import datetime, timezone
+from pathlib import Path
+from uuid import uuid4
+
 import gradio as gr
 from dotenv import load_dotenv
 from loguru import logger
 
 from agents.models import AgentConfig, RunRecord, Session
 from agents.runtime import build_agent, run_agent_stream
-from services.persist import (
-    append_run,
-    init_csv,
-    list_sessions,
-    save_session,
-    load_session,
-)
 from services.catalog import get_model_choices, get_models
-from uuid import uuid4
-from datetime import datetime, timezone
-from pathlib import Path
+from services.persist import (append_run, init_csv, list_sessions,
+                              load_session, save_session)
 
 ComponentUpdate = dict[str, Any]
 

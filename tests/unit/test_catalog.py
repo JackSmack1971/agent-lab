@@ -1,22 +1,15 @@
 """Unit tests for catalog module."""
 
-import pytest
-from unittest.mock import Mock, patch
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
+from unittest.mock import Mock, patch
 
-from services.catalog import (
-    ModelInfo,
-    FALLBACK_MODELS,
-    _parse_price,
-    fetch_models,
-    get_models,
-    get_model_choices,
-    get_pricing,
-    _cached_models,
-    _cache_timestamp,
-    _cache_source,
-)
+import pytest
+
+from services.catalog import (FALLBACK_MODELS, ModelInfo, _cache_source,
+                              _cache_timestamp, _cached_models, _parse_price,
+                              fetch_models, get_model_choices, get_models,
+                              get_pricing)
 
 
 class TestParsePrice:

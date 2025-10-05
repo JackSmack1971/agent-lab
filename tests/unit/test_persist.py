@@ -1,23 +1,18 @@
 """Unit tests for persist module."""
 
-import pytest
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import patch
-from hypothesis import given, strategies as st
 from typing import Any
+from unittest.mock import patch
+
+import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from agents.models import RunRecord
-from services.persist import (
-    init_csv,
-    append_run,
-    load_recent_runs,
-    _coerce_bool,
-    _coerce_int,
-    _coerce_float,
-    _parse_row,
-    CSV_HEADERS,
-)
+from services.persist import (CSV_HEADERS, _coerce_bool, _coerce_float,
+                              _coerce_int, _parse_row, append_run, init_csv,
+                              load_recent_runs)
 
 
 class TestPersist:

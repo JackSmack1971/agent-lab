@@ -4,9 +4,10 @@ This module provides the settings tab with configuration options
 including keyboard shortcuts toggle and other application preferences.
 """
 
-from typing import Optional, Dict, Any
-import gradio as gr
 import logging
+from typing import Any, Dict, Optional
+
+import gradio as gr
 
 logger = logging.getLogger(__name__)
 

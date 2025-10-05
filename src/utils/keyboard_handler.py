@@ -4,12 +4,13 @@ This module provides cross-platform keyboard shortcut management with context aw
 conflict detection, and rate limiting for security.
 """
 
-from typing import Dict, List, Optional, Set
-from pydantic import BaseModel, Field, ValidationError
+import logging
 import platform
 import time
 from collections import defaultdict
-import logging
+from typing import Dict, List, Optional, Set
+
+from pydantic import BaseModel, Field, ValidationError
 
 # Constants for platform mappings
 PLATFORM_MAPPINGS = {

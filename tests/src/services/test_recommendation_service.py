@@ -3,22 +3,17 @@
 from __future__ import annotations
 
 import json
-import pytest
-from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime, timezone
+from unittest.mock import MagicMock, Mock, patch
 
-from src.models.recommendation import (
-    UseCaseInput,
-    ModelRecommendation,
-    RecommendationResponse,
-    SuggestedConfig,
-)
+import pytest
+
+from src.models.recommendation import (ModelRecommendation,
+                                       RecommendationResponse, SuggestedConfig,
+                                       UseCaseInput)
 from src.services.recommendation_service import (
-    analyze_use_case,
-    _get_fallback_recommendations,
-    _build_system_prompt,
-    _call_gpt4_for_recommendations,
-)
+    _build_system_prompt, _call_gpt4_for_recommendations,
+    _get_fallback_recommendations, analyze_use_case)
 
 
 class TestRecommendationService:

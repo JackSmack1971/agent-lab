@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 from pathlib import Path
-from typing import Dict, Callable, Tuple, Optional, List
-import logging
+from typing import Callable, Dict, List, Optional, Tuple
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
@@ -15,23 +15,16 @@ import gradio as gr
 
 # Import existing app functionality
 from app import create_ui as create_agent_lab_ui
-
-# Import model matchmaker component
-from src.components.model_matchmaker import create_model_matchmaker_tab
-from src.models.recommendation import ModelRecommendation
-
 # Import cost optimizer component
 from src.components.cost_optimizer import create_cost_optimizer_tab
-
-# Import keyboard shortcuts components
-from src.utils.keyboard_handler import (
-    KeyboardHandler,
-    ContextManager,
-    KeyboardShortcut,
-    ShortcutContext,
-)
 from src.components.keyboard_shortcuts import create_keyboard_shortcuts_ui
+# Import model matchmaker component
+from src.components.model_matchmaker import create_model_matchmaker_tab
 from src.components.settings import create_settings_tab
+from src.models.recommendation import ModelRecommendation
+# Import keyboard shortcuts components
+from src.utils.keyboard_handler import (ContextManager, KeyboardHandler,
+                                        KeyboardShortcut, ShortcutContext)
 
 logger = logging.getLogger(__name__)
 
@@ -58,9 +51,9 @@ def create_main_ui() -> gr.Blocks:
     """Create the main tabbed interface with keyboard shortcuts integration."""
 
     # Import keyboard components
-    from src.utils.keyboard_handler import KeyboardHandler, ContextManager
     from src.components.keyboard_shortcuts import create_keyboard_shortcuts_ui
     from src.components.settings import create_settings_tab
+    from src.utils.keyboard_handler import ContextManager, KeyboardHandler
 
     # Initialize keyboard services
     global keyboard_handler, context_manager
@@ -436,7 +429,8 @@ def render_shortcut_indicators_html(available_shortcuts: List[KeyboardShortcut])
     Returns:
         HTML string with shortcut badges
     """
-    from src.components.keyboard_shortcuts import render_shortcut_indicators_html
+    from src.components.keyboard_shortcuts import \
+        render_shortcut_indicators_html
 
     return render_shortcut_indicators_html(available_shortcuts)
 

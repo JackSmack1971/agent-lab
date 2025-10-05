@@ -1,7 +1,8 @@
 """Unit tests for models module."""
 
-import pytest
 from typing import Any
+
+import pytest
 
 
 class TestModels:
