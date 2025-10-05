@@ -202,8 +202,6 @@ def fetch_models() -> tuple[list[ModelInfo], Literal["dynamic", "fallback"], dat
 def get_models(force_refresh: bool = False) -> tuple[list[ModelInfo], Literal["dynamic", "fallback"], datetime]:
     """Return cached models when fresh, otherwise refresh from OpenRouter."""
 
-    global _cached_models, _cache_timestamp, _cache_source
-
     if not force_refresh and _cached_models is not None and _cache_timestamp is not None:
         age = datetime.now(timezone.utc) - _cache_timestamp
         if age < CACHE_TTL:
