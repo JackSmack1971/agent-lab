@@ -16,6 +16,7 @@ if str(ROOT_DIR) not in sys.path:
 
 import gradio as gr
 from dotenv import load_dotenv
+from loguru import logger
 
 from agents.models import AgentConfig, RunRecord, Session
 from agents.runtime import build_agent, run_agent_stream
@@ -23,8 +24,40 @@ from services.persist import append_run, init_csv, list_sessions, save_session, 
 from services.catalog import get_model_choices, get_models
 from uuid import uuid4
 from datetime import datetime, timezone
+from pathlib import Path
 
 ComponentUpdate = dict[str, Any]
+
+
+def health_check() -> dict[str, Any]:
+    """Perform health checks and return status information."""
+    timestamp = datetime.now(timezone.utc).isoformat()
+
+    # Check API key presence
+    api_key_present = bool(getenv("OPENROUTER_API_KEY"))
+
+    # Check database connectivity (data directory and CSV file)
+    data_dir = Path("data")
+    csv_file = data_dir / "runs.csv"
+    database_ok = data_dir.exists() and csv_file.exists()
+
+    # Determine overall status
+    if api_key_present and database_ok:
+        status = "healthy"
+    elif api_key_present or database_ok:
+        status = "degraded"
+    else:
+        status = "unhealthy"
+
+    return {
+        "status": status,
+        "version": "1.0.0",  # TODO: Read from package metadata
+        "timestamp": timestamp,
+        "dependencies": {
+            "api_key": api_key_present,
+            "database": database_ok,
+        },
+    }
 
 
 def load_initial_models() -> tuple[
@@ -39,7 +72,7 @@ def load_initial_models() -> tuple[
         models, source_enum, timestamp = get_models()
     except Exception:  # pragma: no cover - defensive guard
         # Security: avoid leaking internal errors to the UI or console logs.
-        print("Warning: failed to load models, using fallback catalog.")
+        logger.warning("Failed to load models, using fallback catalog.")
         models, source_enum, timestamp = get_models()
 
     # Create display labels: "Display Name (provider)" -> model_id
@@ -54,9 +87,13 @@ def load_initial_models() -> tuple[
     else:
         source_label = "Fallback"
 
-    print(
-        "Model catalog loaded: "
-        f"{len(display_choices)} options from {source_enum} ({source_label})."
+    logger.info(
+        "Model catalog loaded",
+        extra={
+            "model_count": len(display_choices),
+            "source": source_enum,
+            "source_label": source_label,
+        }
     )
 
     return display_choices, source_label, models, source_enum
@@ -76,10 +113,18 @@ INITIAL_DROPDOWN_VALUES = [choice[0] for choice in INITIAL_MODEL_CHOICES]
 
 load_dotenv()
 
+# Configure loguru for structured logging
+logger.remove()  # Remove default handler
+logger.add(
+    sys.stdout,
+    level="INFO",
+    serialize=True,  # JSON format for production
+)
+
 # Security: never print the API key; warn the operator so they can add it securely.
 if not getenv("OPENROUTER_API_KEY"):
-    print(
-        "Warning: OPENROUTER_API_KEY is not set. The UI will run in limited mode until a key is provided."
+    logger.warning(
+        "OPENROUTER_API_KEY is not set. The UI will run in limited mode until a key is provided."
     )
 
 DEFAULT_AGENT_CONFIG = AgentConfig(
@@ -323,7 +368,7 @@ def refresh_models_handler(
         message = f"✅ Model catalog refreshed: {len(choices)} options from {source_enum}."
     except Exception:  # pragma: no cover - defensive guard
         # Security: revert to fallback data without exposing sensitive error details.
-        print("Warning: model refresh failed; falling back to cached list.")
+        logger.warning("Model refresh failed; falling back to cached list.")
         choices = list(existing_choices or INITIAL_MODEL_CHOICES)
         if not choices:
             choices = [(DEFAULT_MODEL_ID, DEFAULT_MODEL_ID)]
@@ -949,6 +994,14 @@ def create_ui() -> gr.Blocks:
 
 if __name__ == "__main__":
     init_csv()
+
+    # Add health check endpoint
+    app = create_ui()
+    app.app.add_api_route("/health", health_check, methods=["GET"])
+
+    # Security: Configurable server host binding with secure default
+    server_host = getenv("GRADIO_SERVER_HOST", "127.0.0.1")
+    app.launch(server_name=server_host, server_port=7860)
     print("Telemetry CSV initialized.")
     app = create_ui()
     # Security: Configurable server host binding with secure default

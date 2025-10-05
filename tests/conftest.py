@@ -5,10 +5,10 @@ from unittest.mock import Mock
 import os
 from pydantic import BaseModel
 import httpx
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Import required models (following AGENTS.md patterns)
-from agents.models import AgentConfig
+from agents.models import AgentConfig, RunRecord
 
 @pytest.fixture
 def tmp_csv(tmp_path: Path) -> Path:
@@ -96,3 +96,39 @@ async def async_client() -> AsyncGenerator[httpx.AsyncClient, None]:
         follow_redirects=True
     ) as client:
         yield client
+
+@pytest.fixture
+def sample_run_records() -> list[RunRecord]:
+    """Create sample run records for testing."""
+    return [
+        RunRecord(
+            ts=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+            agent_name="TestAgent",
+            model="openai/gpt-4",
+            prompt_tokens=100,
+            completion_tokens=50,
+            total_tokens=150,
+            latency_ms=2000,
+            cost_usd=0.03,
+            experiment_id="session_123",
+            task_label="chat",
+            run_notes="Hello world",
+            streaming=True,
+            model_list_source="dynamic",
+        ),
+        RunRecord(
+            ts=datetime(2024, 1, 1, 12, 1, 0, tzinfo=timezone.utc),
+            agent_name="TestAgent",
+            model="openai/gpt-4",
+            prompt_tokens=80,
+            completion_tokens=40,
+            total_tokens=120,
+            latency_ms=1800,
+            cost_usd=0.025,
+            experiment_id="session_123",
+            task_label="chat",
+            run_notes="How are you?",
+            streaming=True,
+            model_list_source="dynamic",
+        ),
+    ]

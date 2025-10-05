@@ -29,9 +29,18 @@ source .venv/bin/activate
 ```
 
 ### 2. Install dependencies
+
+For reproducible builds, install from the lockfile:
+```bash
+pip install -r requirements.lock
+```
+
+For development with flexible version ranges:
 ```bash
 pip install -r requirements.txt
 ```
+
+**Note:** The `requirements.lock` file contains exact versions for consistent CI builds. Update it by installing dependencies and running `pip freeze > requirements.lock`.
 
 ### 3. Configure environment variables
 Copy the example file and set your credentials:
@@ -43,10 +52,39 @@ Edit `.env` and replace the placeholder with your actual OpenRouter API key.
 
 ## Running the Application
 
+### Local Development (Python)
 Launch the development server with:
 ```bash
 python app.py
 ```
+
+### Docker Development
+For containerized development with Docker:
+
+1. **Build and run with Docker Compose** (recommended):
+   ```bash
+   # Set your OpenRouter API key
+   export OPENROUTER_API_KEY="your-api-key-here"
+
+   # Build and start the container
+   docker-compose up --build
+   ```
+
+2. **Or build and run manually**:
+   ```bash
+   # Build the image
+   docker build -t agent-lab .
+
+   # Run the container
+   docker run -p 7860:7860 \
+     -e OPENROUTER_API_KEY="your-api-key-here" \
+     -v $(pwd)/data:/app/data \
+     agent-lab
+   ```
+
+The application will be available at `http://localhost:7860`.
+
+**Note:** Data persistence is handled through volume mounts to the `./data` directory.
 
 ## Keyboard Shortcuts
 

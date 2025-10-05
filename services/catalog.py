@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-import logging
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Literal, Optional
 
 import httpx
+from loguru import logger
 from pydantic import BaseModel, ValidationError
-
-# Logger configured at module level to avoid leaking sensitive data.
-logger = logging.getLogger(__name__)
 
 
 class ModelInfo(BaseModel):
@@ -90,11 +87,28 @@ def fetch_models() -> tuple[list[ModelInfo], Literal["dynamic", "fallback"], dat
         # Authorization header is optional but improves access to private/paid models.
         headers["Authorization"] = f"Bearer {api_key}"
 
+    logger.info(
+        "Fetching models from OpenRouter API",
+        extra={
+            "url": OPENROUTER_MODELS_URL,
+            "timeout": REQUEST_TIMEOUT,
+            "has_api_key": api_key is not None,
+        }
+    )
+
     try:
         with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
             response = client.get(OPENROUTER_MODELS_URL, headers=headers)
             response.raise_for_status()
             payload = response.json()
+
+        logger.info(
+            "Successfully fetched models from OpenRouter",
+            extra={
+                "response_size": len(str(payload)),
+                "models_count": len(payload.get("data", [])),
+            }
+        )
 
         data = payload.get("data")
         if not isinstance(data, list):
@@ -141,17 +155,47 @@ def fetch_models() -> tuple[list[ModelInfo], Literal["dynamic", "fallback"], dat
         _cached_models = models
         _cache_timestamp = timestamp
         _cache_source = "dynamic"
+
+        logger.info(
+            "Cached dynamic models",
+            extra={
+                "models_count": len(models),
+                "cache_timestamp": timestamp.isoformat(),
+            }
+        )
+
         return models, "dynamic", timestamp
 
     except (httpx.HTTPError, ValueError) as exc:
-        logger.warning("Failed to fetch models from OpenRouter, using fallback: %s", exc)
+        logger.warning(
+            "Failed to fetch models from OpenRouter, using fallback",
+            extra={
+                "error": str(exc),
+                "error_type": type(exc).__name__,
+            }
+        )
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Unexpected error fetching models from OpenRouter: %s", exc)
+        logger.warning(
+            "Unexpected error fetching models from OpenRouter",
+            extra={
+                "error": str(exc),
+                "error_type": type(exc).__name__,
+            }
+        )
 
     timestamp = datetime.now(timezone.utc)
     _cached_models = list(FALLBACK_MODELS)
     _cache_timestamp = timestamp
     _cache_source = "fallback"
+
+    logger.info(
+        "Using fallback models",
+        extra={
+            "fallback_models_count": len(FALLBACK_MODELS),
+            "cache_timestamp": timestamp.isoformat(),
+        }
+    )
+
     return _cached_models, "fallback", timestamp
 
 
@@ -163,7 +207,23 @@ def get_models(force_refresh: bool = False) -> tuple[list[ModelInfo], Literal["d
     if not force_refresh and _cached_models is not None and _cache_timestamp is not None:
         age = datetime.now(timezone.utc) - _cache_timestamp
         if age < CACHE_TTL:
+            logger.debug(
+                "Cache hit for models",
+                extra={
+                    "cache_age_seconds": age.total_seconds(),
+                    "cache_source": _cache_source,
+                    "models_count": len(_cached_models),
+                }
+            )
             return _cached_models, _cache_source, _cache_timestamp
+
+    logger.info(
+        "Cache miss or forced refresh, fetching models",
+        extra={
+            "force_refresh": force_refresh,
+            "cache_age_seconds": age.total_seconds() if 'age' in locals() else None,
+        }
+    )
 
     return fetch_models()
 
@@ -189,13 +249,39 @@ def get_pricing(model_id: str) -> Optional[tuple[float, float]]:
 
 if __name__ == "__main__":
     fetched_models, source, fetched_ts = fetch_models()
-    print(f"Fetched {len(fetched_models)} models (source={source}) at {fetched_ts.isoformat()}")
+    logger.info(
+        "Test fetch completed",
+        extra={
+            "models_count": len(fetched_models),
+            "source": source,
+            "timestamp": fetched_ts.isoformat(),
+        }
+    )
     for info in fetched_models[:5]:
-        print(f" - {info.display_name} [{info.id}] provider={info.provider}")
+        logger.info(
+            "Sample model",
+            extra={
+                "display_name": info.display_name,
+                "id": info.id,
+                "provider": info.provider,
+            }
+        )
 
     sample_id = fetched_models[0].id if fetched_models else FALLBACK_MODELS[0].id
     pricing = get_pricing(sample_id)
     if pricing:
-        print(f"Pricing for {sample_id}: prompt={pricing[0]} / completion={pricing[1]}")
+        logger.info(
+            "Pricing found",
+            extra={
+                "model_id": sample_id,
+                "prompt_price": pricing[0],
+                "completion_price": pricing[1],
+            }
+        )
     else:
-        print(f"Pricing unavailable for {sample_id}")
+        logger.info(
+            "Pricing unavailable",
+            extra={
+                "model_id": sample_id,
+            }
+        )

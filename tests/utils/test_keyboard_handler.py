@@ -11,6 +11,7 @@ import time
 from unittest.mock import Mock, patch, MagicMock
 from typing import Dict, List
 from pydantic import ValidationError
+from pydantic_core import ValidationError as CoreValidationError
 
 from src.utils.keyboard_handler import (
     KeyboardShortcut,
@@ -37,10 +38,10 @@ class TestKeyboardShortcut:
             'id': 'test_shortcut',
             'name': 'Test Shortcut',
             'description': 'A test keyboard shortcut',
-            'key_combination': ['ctrl', 't'],
+            'key_combination': ['ctrl', 's'],
             'action': 'test_action',
             'context': ['global'],
-            'platform_overrides': {'mac': ['meta', 't']},
+            'platform_overrides': {'mac': ['meta', 's']},
             'enabled': True,
         }
 
@@ -49,10 +50,10 @@ class TestKeyboardShortcut:
         shortcut = KeyboardShortcut(**valid_shortcut_data)
         assert shortcut.id == 'test_shortcut'
         assert shortcut.name == 'Test Shortcut'
-        assert shortcut.key_combination == ['ctrl', 't']
+        assert shortcut.key_combination == ['ctrl', 's']
         assert shortcut.action == 'test_action'
         assert shortcut.context == ['global']
-        assert shortcut.platform_overrides == {'mac': ['meta', 't']}
+        assert shortcut.platform_overrides == {'mac': ['meta', 's']}
         assert shortcut.enabled is True
 
     def test_invalid_creation_empty_id(self):
@@ -111,9 +112,9 @@ class TestKeyboardShortcut:
             )
 
     @pytest.mark.parametrize('platform,expected', [
-        ('windows', ['ctrl', 't']),
-        ('mac', ['meta', 't']),
-        ('linux', ['ctrl', 't']),
+        ('windows', ['ctrl', 's']),
+        ('mac', ['meta', 's']),
+        ('linux', ['ctrl', 's']),
     ])
     def test_get_normalized_combination_with_overrides(self, valid_shortcut_data, platform, expected):
         """Test platform-specific combination retrieval with overrides."""
@@ -381,7 +382,7 @@ class TestKeyboardHandler:
         """Mock platform detector for testing."""
         mock = Mock(spec=PlatformDetector)
         mock.get_platform.return_value = 'windows'
-        mock.normalize_combination.return_value = ['ctrl', 't']
+        mock.normalize_combination.return_value = ['ctrl', 's']
         return mock
 
     @pytest.fixture
@@ -435,17 +436,17 @@ class TestKeyboardHandler:
             id='test_shortcut',
             name='Test Shortcut',
             description='Test description',
-            key_combination=['ctrl', 't'],
+            key_combination=['ctrl', 's'],
             action='test_action'
         )
 
-        mock_platform_detector.normalize_combination.return_value = ['ctrl', 't']
+        mock_platform_detector.normalize_combination.return_value = ['ctrl', 's']
 
         keyboard_handler.register_shortcut(shortcut)
 
         assert 'test_shortcut' in keyboard_handler._shortcuts
         assert keyboard_handler._shortcuts['test_shortcut'] == shortcut
-        assert shortcut.key_combination == ['ctrl', 't']
+        assert shortcut.key_combination == ['ctrl', 's']
 
     def test_register_shortcut_duplicate_id(self, keyboard_handler):
         """Test rejection of duplicate shortcut ID."""
@@ -472,7 +473,13 @@ class TestKeyboardHandler:
     def test_register_shortcut_validation_error(self, keyboard_handler):
         """Test handling of validation errors during registration."""
         from src.utils.keyboard_handler import KeyboardShortcut
-        with patch.object(KeyboardShortcut, '__init__', side_effect=ValidationError([{'loc': ('id',), 'msg': 'test', 'type': 'value_error'}], KeyboardShortcut)):
+        # Create a real ValidationError by triggering validation
+        try:
+            KeyboardShortcut(id='', name='test', description='test', key_combination=['a'], action='test')
+        except CoreValidationError as e:
+            validation_error = e
+
+        with patch.object(KeyboardShortcut, '__init__', side_effect=validation_error):
 
             with pytest.raises(ValueError, match='Invalid shortcut data'):
                 keyboard_handler.register_shortcut(Mock())
@@ -608,7 +615,13 @@ class TestKeyboardHandler:
     def test_process_event_validation_error(self, keyboard_handler):
         """Test handling of validation errors in event processing."""
         from src.utils.keyboard_handler import ShortcutEvent
-        with patch.object(ShortcutEvent, '__init__', side_effect=ValidationError([{'loc': ('key',), 'msg': 'test', 'type': 'value_error'}], ShortcutEvent)):
+        # Create a real ValidationError by triggering validation
+        try:
+            ShortcutEvent(key='', ctrl_key=True)
+        except CoreValidationError as e:
+            validation_error = e
+
+        with patch.object(ShortcutEvent, '__init__', side_effect=validation_error):
 
             event = Mock()
             with pytest.raises(ValueError, match='Invalid keyboard event'):
@@ -747,6 +760,7 @@ class TestIntegration:
         with patch('src.utils.keyboard_handler.PlatformDetector') as mock_pd_class:
             mock_pd = Mock()
             mock_pd.get_platform.return_value = 'windows'
+            mock_pd.normalize_combination.return_value = ['ctrl', 's']
             mock_pd.normalize_combination.side_effect = lambda combo, plat: combo
             mock_pd_class.return_value = mock_pd
 
@@ -856,6 +870,7 @@ class TestIntegration:
 
             handler.register_shortcut(shortcut)
 
+            assert PLATFORM_MAPPINGS['mac'] == {'ctrl': 'meta', 'alt': 'option'}
             # Verify macOS override is used
             assert shortcut.key_combination == ['meta', 't']
 

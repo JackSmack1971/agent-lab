@@ -8,6 +8,7 @@ from dataclasses import dataclass, asdict
 from threading import Event
 from typing import Any, Callable, Dict, Tuple
 
+from loguru import logger
 from openai import OpenAI
 from pydantic_ai import Agent
 
@@ -47,6 +48,16 @@ def build_agent(cfg: AgentConfig, include_web: bool = False) -> Agent:
     api_key = os.getenv("OPENROUTER_API_KEY")
     if api_key is None:
         raise ValueError("OPENROUTER_API_KEY not set in environment")
+
+    logger.info(
+        "Building agent",
+        extra={
+            "model": cfg.model,
+            "temperature": cfg.temperature,
+            "top_p": cfg.top_p,
+            "include_web": include_web,
+        }
+    )
 
     client = OpenAI(base_url=OPENROUTER_BASE_URL, api_key=api_key)
 
@@ -105,9 +116,29 @@ async def run_agent(agent: Agent, user_message: str) -> Tuple[str, Dict[str, Any
         If the agent execution fails for any reason.
     """
 
+    logger.info(
+        "Starting agent execution",
+        extra={
+            "message_length": len(user_message),
+            "agent_model": getattr(agent, 'model', 'unknown'),
+        }
+    )
+
     try:
         result = await agent.run(user_message)
+        logger.info(
+            "Agent execution completed successfully",
+            extra={
+                "response_length": len(result.data),
+            }
+        )
     except Exception as exc:  # pragma: no cover - runtime guard
+        logger.error(
+            "Agent execution failed",
+            extra={
+                "error": str(exc),
+            }
+        )
         raise RuntimeError(f"Agent execution failed: {exc}") from exc
 
     return result.data, {}
@@ -130,6 +161,14 @@ async def run_agent_stream(
     so callers may surface a partial response. Usage metadata is returned when the
     provider includes it; otherwise the ``usage`` field will be ``None``.
     """
+
+    logger.info(
+        "Starting agent streaming",
+        extra={
+            "message_length": len(user_message),
+            "agent_model": getattr(agent, 'model', 'unknown'),
+        }
+    )
 
     loop = asyncio.get_running_loop()
     start_ts = loop.time()
@@ -202,6 +241,17 @@ async def run_agent_stream(
                 usage = _usage_to_dict(stream_response.usage())
 
     latency_ms = int((loop.time() - start_ts) * 1000)
+
+    logger.info(
+        "Agent streaming completed",
+        extra={
+            "response_length": len(text_parts),
+            "latency_ms": latency_ms,
+            "aborted": aborted,
+            "usage_available": usage is not None,
+        }
+    )
+
     return StreamResult("".join(text_parts), usage, latency_ms, aborted)
 
 
@@ -218,10 +268,10 @@ if __name__ == "__main__":
         try:
             agent = build_agent(cfg)
             response, usage = await run_agent(agent, "What is 42 + 58?")
-            print(f"Response: {response}")
-            print(f"Usage: {usage}")
+            logger.info(f"Test response: {response}")
+            logger.info(f"Test usage: {usage}")
         except ValueError as error:
-            print(f"⚠️ {error}")
-            print("Set OPENROUTER_API_KEY in .env to test")
+            logger.warning(f"Test failed: {error}")
+            logger.info("Set OPENROUTER_API_KEY in .env to test")
 
     asyncio.run(test_agent())

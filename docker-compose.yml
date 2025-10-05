@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  agent-lab:
+    build: .
+    ports:
+      - "7860:7860"
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - GRADIO_SERVER_HOST=0.0.0.0
+    volumes:
+      # Mount data directory for persistence
+      - ./data:/app/data
+      # Mount .env file if it exists (optional, for development)
+      - ./.env:/app/.env:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7860/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

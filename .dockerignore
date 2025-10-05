@@ -1,0 +1,70 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov/
+*.egg-info
+
+# Virtual environments
+.venv
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Tests
+tests/
+
+# CI/CD
+.github/
+
+# Development files
+.env
+.envrc
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+
+# Build artifacts
+build/
+dist/
+wheels/
+
+# Node modules (if any)
+node_modules/
+
+# Approval tests temp
+.approval_tests_temp/
+
+# Memory bank (development artifact)
+memory-bank/
+
+# Security reports
+*_report.json

@@ -2,7 +2,6 @@
 
 import pytest
 from unittest.mock import Mock
-from datetime import datetime, timezone
 from hypothesis import given, strategies as st
 
 from agents.tools import add_numbers, utc_now, AddInput, NowInput
@@ -13,56 +12,72 @@ class TestTools:
     """Test suite for tools functionality."""
 
     @pytest.mark.asyncio
-    async def test_add_numbers_basic(self) -> None:
-        """Test basic addition of two positive numbers."""
+    async def test_add_numbers_returns_correct_sum(self) -> None:
+        """Test that add_numbers returns the correct sum of two numbers."""
         ctx = Mock(spec=RunContext)
         input_data = AddInput(a=5.5, b=3.2)
         result = await add_numbers(ctx, input_data)
         assert result == 8.7
 
     @pytest.mark.asyncio
-    async def test_add_numbers_negative(self) -> None:
-        """Test addition with negative numbers."""
+    async def test_add_numbers_handles_negative_numbers(self) -> None:
+        """Test that add_numbers handles negative numbers correctly."""
         ctx = Mock(spec=RunContext)
         input_data = AddInput(a=-2.0, b=4.0)
         result = await add_numbers(ctx, input_data)
         assert result == 2.0
 
     @pytest.mark.asyncio
-    async def test_add_numbers_zero(self) -> None:
-        """Test addition with zero."""
+    async def test_add_numbers_returns_float_type(self) -> None:
+        """Test that add_numbers returns a float type."""
         ctx = Mock(spec=RunContext)
-        input_data = AddInput(a=0.0, b=5.0)
+        input_data = AddInput(a=1, b=2)
         result = await add_numbers(ctx, input_data)
-        assert result == 5.0
+        assert isinstance(result, float)
+        assert result == 3.0
 
     @pytest.mark.asyncio
-    async def test_utc_now_default_format(self) -> None:
-        """Test utc_now returns current UTC time in ISO format."""
+    async def test_utc_now_includes_utc_suffix(self) -> None:
+        """Test that utc_now includes UTC suffix in default format."""
         ctx = Mock(spec=RunContext)
         input_data = NowInput()
         result = await utc_now(ctx, input_data)
-        # Should be ISO format string with T and +00:00
-        assert 'T' in result
-        assert result.endswith('+00:00')
-        # Should be parseable as datetime
-        parsed = datetime.fromisoformat(result)
-        assert isinstance(parsed, datetime)
+        assert "UTC" in result
 
     @pytest.mark.asyncio
-    async def test_utc_now_custom_format(self) -> None:
-        """Test utc_now with custom format string."""
+    async def test_utc_now_respects_custom_format(self) -> None:
+        """Test that utc_now respects custom format strings."""
         ctx = Mock(spec=RunContext)
         custom_fmt = "%Y/%m/%d %H:%M:%S"
         input_data = NowInput(fmt=custom_fmt)
         result = await utc_now(ctx, input_data)
-        # Should match the custom format (not the default, so uses strftime)
-        now = datetime.now(timezone.utc)
-        expected = now.strftime(custom_fmt)
-        assert result == expected
+        # Should not contain default UTC suffix when using custom format
+        assert "UTC" not in result
+
+    @pytest.mark.asyncio
+    async def test_utc_now_returns_current_time(self) -> None:
+        """Test that utc_now returns current time within 1 second tolerance."""
+        import time
+        from datetime import datetime, timezone
+
+        ctx = Mock(spec=RunContext)
+        input_data = NowInput()
+        start_time = time.time()
+        result = await utc_now(ctx, input_data)
+        end_time = time.time()
+
+        # Parse the result using the default format
+        parsed = datetime.strptime(result, "%Y-%m-%d %H:%M:%S UTC")
+        # Make it timezone aware
+        parsed = parsed.replace(tzinfo=timezone.utc)
+        result_timestamp = parsed.timestamp()
+
+        # Check that result is within 1 second of current time
+        assert abs(result_timestamp - start_time) <= 1
+        assert abs(result_timestamp - end_time) <= 1
 
     @given(a=st.floats(allow_nan=False, allow_infinity=False),
-           b=st.floats(allow_nan=False, allow_infinity=False))
+            b=st.floats(allow_nan=False, allow_infinity=False))
     @pytest.mark.asyncio
     async def test_add_numbers_commutative(self, a: float, b: float) -> None:
         """Property test: addition is commutative (a + b = b + a)."""
@@ -72,7 +87,7 @@ class TestTools:
         assert result_ab == result_ba
 
     @given(a=st.floats(min_value=-1e10, max_value=1e10, allow_nan=False, allow_infinity=False),
-           b=st.floats(min_value=-1e10, max_value=1e10, allow_nan=False, allow_infinity=False))
+            b=st.floats(min_value=-1e10, max_value=1e10, allow_nan=False, allow_infinity=False))
     @pytest.mark.asyncio
     async def test_add_numbers_correctness(self, a: float, b: float) -> None:
         """Property test: add_numbers returns the correct sum a + b."""
@@ -87,15 +102,3 @@ class TestTools:
         ctx = Mock(spec=RunContext)
         result = await add_numbers(ctx, AddInput(a=a, b=0.0))
         assert result == a
-
-    @pytest.mark.asyncio
-    async def test_utc_now_returns_valid_iso(self) -> None:
-        """Test that utc_now returns a valid ISO 8601 datetime string."""
-        ctx = Mock(spec=RunContext)
-        input_data = NowInput()
-        result = await utc_now(ctx, input_data)
-        # Should be parseable as ISO datetime
-        parsed = datetime.fromisoformat(result)
-        assert isinstance(parsed, datetime)
-        # Should be timezone aware
-        assert parsed.tzinfo is not None

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import csv
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -183,7 +183,7 @@ def generate_cost_alerts(
     if average_cost > 0 and current_cost > average_cost * 5:
         alerts.append(CostAlert(
             alert_type=AlertType.HIGH_COST,
-            message=f"🚨 Current session cost (${current_cost:.2f}) is 5x higher than your average (${average_cost:.2f})",
+            message=f"🚨 Current session cost (${current_cost:.2f}) is {current_cost/average_cost:.1f}x higher than your average (${average_cost:.2f})",
             severity=AlertSeverity.HIGH,
             estimated_savings=current_cost - average_cost
         ))
@@ -260,7 +260,7 @@ def should_suggest_context_summarization(
     current_cost: float
 ) -> bool:
     """Determine if context summarization should be suggested."""
-    return (context_stats.get('max_context_length', 0) > 20000 and
+    return (context_stats.get('max_context_length', 0) > 15000 and
             current_cost > 1.0)
 
 
@@ -270,13 +270,13 @@ def calculate_context_savings(context_stats: Dict) -> tuple[float, float]:
     estimated_reduction = min(current_length * 0.4, 15000)  # Estimate 40% reduction
     savings_pct = min(estimated_reduction / current_length, 0.5)
     savings_dollars = context_stats.get('current_cost', 0) * savings_pct
-    return savings_pct, savings_dollars
+    return round(savings_pct, 4), round(savings_dollars, 4)
 
 
 def calculate_context_confidence(context_stats: Dict) -> float:
     """Calculate confidence score for context summarization."""
     length_ratio = min(context_stats.get('max_context_length', 0) / 40000, 1.0)
-    return 0.6 + (length_ratio * 0.3)  # 0.6 to 0.9 confidence
+    return round(0.6 + (length_ratio * 0.3), 4)  # 0.6 to 0.9 confidence
 
 
 def should_suggest_model_switch(
@@ -285,9 +285,9 @@ def should_suggest_model_switch(
 ) -> bool:
     """Determine if model switching should be suggested."""
     # Check if using expensive model with low utilization
-    expensive_models = ['gpt-4', 'claude-3-opus']
-    return any(record.model in expensive_models and record.cost_usd > 0.10
-               for record in telemetry_data if hasattr(record, 'model'))
+    expensive_models = ['openai/gpt-4', 'claude-3-opus']
+    return any(record.model in expensive_models and record.cost_usd > 0.01
+                for record in telemetry_data if hasattr(record, 'model'))
 
 
 def analyze_model_switch_opportunity(
@@ -299,8 +299,8 @@ def analyze_model_switch_opportunity(
     if current_cost_per_message > 0.10:
         # Assume switching to GPT-3.5 saves 80%
         savings_pct = 0.80
-        savings_dollars = sum(r.cost_usd for r in telemetry_data) * savings_pct
-        return savings_pct, savings_dollars, "GPT-3.5-Turbo"
+        savings_dollars = round(sum(r.cost_usd for r in telemetry_data) * savings_pct, 4)
+        return savings_pct, round(savings_dollars, 4), "GPT-3.5-Turbo"
     return 0.0, 0.0, ""
 
 
@@ -370,32 +370,25 @@ def get_user_cost_history(user_id: str) -> List[float]:
     Returns:
         List of conversation costs (floats)
     """
-    # Load all runs and group by some user identifier
-    # For now, return some sample historical costs
-    all_runs = load_recent_runs(limit=100)
+    # Load all runs and group by conversation/session ID (experiment_id)
+    all_runs = load_recent_runs(limit=1000)
 
-    # Group runs into "conversations" (simplified: runs within 5 minutes of each other)
-    conversations = []
-    current_conversation = []
+    # Group runs by experiment_id (conversation/session ID)
+    conversations = {}
 
-    for run in sorted(all_runs, key=lambda x: x.ts):
-        if not current_conversation:
-            current_conversation.append(run)
-        else:
-            time_diff = (run.ts - current_conversation[-1].ts).total_seconds()
-            if time_diff < 300:  # 5 minutes
-                current_conversation.append(run)
-            else:
-                if current_conversation:
-                    conv_cost = sum(r.cost_usd for r in current_conversation)
-                    conversations.append(conv_cost)
-                current_conversation = [run]
+    for run in all_runs:
+        if run.experiment_id not in conversations:
+            conversations[run.experiment_id] = []
+        conversations[run.experiment_id].append(run)
 
-    if current_conversation:
-        conv_cost = sum(r.cost_usd for r in current_conversation)
-        conversations.append(conv_cost)
+    # Calculate total cost for each conversation
+    conversation_costs = []
+    for conversation_runs in conversations.values():
+        conv_cost = sum(r.cost_usd for r in conversation_runs if hasattr(r, 'cost_usd') and r.cost_usd is not None)
+        if conv_cost > 0:  # Only include conversations with costs
+            conversation_costs.append(round(conv_cost, 4))
 
-    return conversations[-20:]  # Last 20 conversations
+    return sorted(conversation_costs, reverse=True)[:20]  # Top 20 most expensive conversations
 
 
 def get_user_budget() -> Optional[float]:
@@ -501,7 +494,7 @@ def aggregate_costs_by_period(historical_data: Dict, timeframe: str) -> Dict:
     """
     aggregated = {}
     for period, costs in historical_data.items():
-        aggregated[period] = sum(costs)
+        aggregated[period] = round(sum(costs), 4)
 
     return dict(sorted(aggregated.items()))
 
@@ -529,7 +522,13 @@ def calculate_cost_forecast(aggregated_costs: Dict) -> Dict:
     periods = list(aggregated_costs.keys())
     last_period = periods[-1]
 
-    # Simple next period calculation (would be more sophisticated in real implementation)
-    next_period = f"{last_period}_forecast"
+    # Calculate next period date (would be more sophisticated in real implementation)
+    try:
+        last_date = datetime.fromisoformat(last_period)
+        next_date = last_date + timedelta(days=1)
+        next_period = next_date.date().isoformat()
+    except ValueError:
+        # Fallback for non-date periods (like monthly "YYYY-MM")
+        next_period = f"{last_period}_forecast"
 
     return {next_period: forecast_value}

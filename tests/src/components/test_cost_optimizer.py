@@ -18,10 +18,10 @@ class TestCostOptimizerUI:
     def test_apply_optimization_suggestion(self):
         """Test optimization suggestion application."""
         result = apply_optimization_suggestion("switch_model", "session_123")
-        assert "Applied switch_model optimization" in result
+        assert "✅ Applied switch model optimization" in result
 
         result = apply_optimization_suggestion("reduce_context", "session_456")
-        assert "Applied reduce_context optimization" in result
+        assert "✅ Applied reduce context optimization" in result
 
     def test_create_cost_optimizer_tab(self):
         """Test cost optimizer tab creation."""

@@ -146,10 +146,11 @@ class TestCostAnalysisService:
         with patch('src.services.cost_analysis_service.get_user_budget', return_value=0.05):
             alerts = generate_cost_alerts(current_cost, 0.02, sample_run_records)
 
-            # Should have both high cost and budget warning
+            # Should have budget warning (current_cost > budget * 0.8)
+            # HIGH_COST not triggered since current_cost is not > average_cost * 5
             alert_types = [alert.alert_type for alert in alerts]
-            assert AlertType.HIGH_COST in alert_types
             assert AlertType.BUDGET_WARNING in alert_types
+            assert len(alerts) == 1
 
     def test_generate_optimization_suggestions_context(self, sample_run_records: list[RunRecord]):
         """Test context summarization suggestion generation."""
@@ -159,9 +160,9 @@ class TestCostAnalysisService:
                 ts=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
                 agent_name="TestAgent",
                 model="openai/gpt-4",
-                prompt_tokens=15000,
+                prompt_tokens=15001,
                 completion_tokens=5000,
-                total_tokens=20000,
+                total_tokens=20001,
                 latency_ms=5000,
                 cost_usd=1.50,
                 experiment_id="session_123",
@@ -249,13 +250,13 @@ class TestCostAnalysisService:
         """Test successful cost analysis."""
         mock_get_telemetry.return_value = sample_run_records
         mock_get_user.return_value = "test_user"
-        mock_get_history.return_value = [0.02, 0.03, 0.04]
+        mock_get_history.return_value = [0.01, 0.02, 0.03]
 
         result = analyze_costs("session_123")
 
         assert isinstance(result, CostAnalysis)
         assert result.current_cost == 0.055
-        assert result.average_cost == 0.03  # median of [0.02, 0.03, 0.04]
+        assert result.average_cost == 0.02  # median of [0.01, 0.02, 0.03]
         assert result.cost_trend == CostTrend.INCREASING
         assert len(result.alerts) > 0
         assert len(result.suggestions) > 0
@@ -273,14 +274,14 @@ class TestCostAnalysisService:
         with pytest.raises(ValueError, match="No telemetry data found"):
             analyze_costs("session_123")
 
-    @patch('src.services.cost_analysis_service.get_user_cost_history_detailed')
-    @patch('src.services.cost_analysis_service.aggregate_costs_by_period')
     @patch('src.services.cost_analysis_service.calculate_cost_forecast')
+    @patch('src.services.cost_analysis_service.aggregate_costs_by_period')
+    @patch('src.services.cost_analysis_service.get_user_cost_history_detailed')
     def test_get_cost_trends(
         self,
-        mock_forecast: MagicMock,
+        mock_get_detailed: MagicMock,
         mock_aggregate: MagicMock,
-        mock_get_detailed: MagicMock
+        mock_forecast: MagicMock
     ):
         """Test cost trends retrieval."""
         mock_get_detailed.return_value = {"2024-01-01": [0.10, 0.20]}

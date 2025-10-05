@@ -195,7 +195,7 @@ class ShortcutContext(BaseModel):
     modal_open: bool = False
     input_active: bool = False
     streaming_active: bool = False
-    available_actions: List[str] = Field(default_factory=list)
+    available_actions: Optional[List[str]] = None
 
 
 class ShortcutEvent(BaseModel):
@@ -221,12 +221,10 @@ class ShortcutEvent(BaseModel):
     timestamp: float = Field(default_factory=time.time)
 
     def to_combination(self) -> List[str]:
-        """Convert event to key combination list.
-
-        Returns:
-            List of keys representing the combination.
-        """
+        """Convert event to key combination with SORTED modifiers."""
         combination = []
+        
+        # Add modifiers in SORTED order: ctrl, meta, alt, shift
         if self.ctrl_key:
             combination.append('ctrl')
         if self.meta_key:
@@ -235,7 +233,10 @@ class ShortcutEvent(BaseModel):
             combination.append('alt')
         if self.shift_key:
             combination.append('shift')
+        
+        # Add main key (lowercase)
         combination.append(self.key.lower())
+        
         return combination
 
 
@@ -262,6 +263,9 @@ class PlatformDetector:
                 return 'linux'
             else:
                 raise ValueError(f"Unsupported platform: {system}")
+        except ValidationError as e:
+            logger.error(f"Shortcut validation failed: {e}")
+            raise ValueError("Invalid shortcut data") from e
         except Exception as e:
             logger.error(f"Platform detection failed: {e}")
             raise ValueError("Unable to detect platform") from e
@@ -321,14 +325,14 @@ class ContextManager:
         Args:
             **kwargs: Context attributes to update.
         """
-        try:
-            for key, value in kwargs.items():
-                if hasattr(self._current_context, key):
+        for key, value in kwargs.items():
+            if hasattr(self._current_context, key):
+                try:
                     setattr(self._current_context, key, value)
-                else:
-                    logger.warning(f"Unknown context attribute: {key}")
-        except Exception as e:
-            logger.error(f"Context update failed: {e}")
+                except Exception as e:
+                    logger.error(f"Failed to set context attribute {key}: {e}")
+            else:
+                logger.warning(f"Unknown context attribute: {key}")
 
     def is_shortcut_available(self, shortcut: KeyboardShortcut, context: ShortcutContext) -> bool:
         """Check if shortcut is available in context.
@@ -340,40 +344,37 @@ class ContextManager:
         Returns:
             True if shortcut is available, False otherwise.
         """
-        try:
-            # Action availability check (only if actions are specified)
-            if context.available_actions and shortcut.action not in context.available_actions:
-                return False
-
-            # Modal dialog blocks all shortcuts except those explicitly allowed
-            if context.modal_open:
-                return False
-
-            # Input field restrictions
-            if context.input_active and 'input_safe' not in shortcut.context:
-                return False
-
-            # Streaming restrictions
-            if context.streaming_active and 'streaming_safe' not in shortcut.context:
-                return False
-
-            # Global shortcuts
-            if 'global' in shortcut.context:
-                return True
-
-            # Tab-specific shortcuts
-            if context.active_tab and context.active_tab in shortcut.context:
-                return True
-
-            # Shortcuts with special contexts (input_safe, streaming_safe, etc.)
-            if shortcut.context:
-                return True
-
-            # Default to not available
+        # Modal blocks ALL shortcuts (no exceptions)
+        if context.modal_open:
             return False
-        except Exception as e:
-            logger.error(f"Shortcut availability check failed: {e}")
+
+        # Input restrictions check for 'input_safe' flag
+        if context.input_active and 'input_safe' not in shortcut.context:
             return False
+
+        # Streaming restrictions check for 'streaming_safe' flag
+        if context.streaming_active and 'streaming_safe' not in shortcut.context:
+            return False
+
+        # Available actions check: if list is non-empty, action must be in it
+        if context.available_actions is not None and shortcut.action not in context.available_actions:
+            return False
+
+        # Global shortcuts
+        if 'global' in shortcut.context:
+            return True
+
+        # Tab-specific shortcuts
+        if context.active_tab and context.active_tab in shortcut.context:
+            return True
+
+        # Context flags (input_safe, streaming_safe, etc.)
+        context_flags = {'input_safe', 'streaming_safe'}
+        if shortcut.context and any(flag in context_flags for flag in shortcut.context):
+            return True
+
+        # Empty context = not available by default
+        return False
 
 
 class KeyboardHandler:
@@ -425,6 +426,13 @@ class KeyboardHandler:
             normalized = shortcut.get_normalized_combination(self._platform)
             shortcut.key_combination = normalized
 
+            # Re-validate shortcut after normalization
+            try:
+                KeyboardShortcut.model_validate(shortcut.model_dump())
+            except ValidationError as e:
+                logger.error(f"Shortcut re-validation failed: {e}")
+                raise ValueError("Invalid shortcut after normalization") from e
+
             self._shortcuts[shortcut.id] = shortcut
             logger.info(f"Registered shortcut: {shortcut.id}")
 
@@ -451,6 +459,9 @@ class KeyboardHandler:
             del self._shortcuts[shortcut_id]
             logger.info(f"Unregistered shortcut: {shortcut_id}")
 
+        except ValidationError as e:
+            logger.error(f"Shortcut validation failed: {e}")
+            raise ValueError("Invalid shortcut data") from e
         except Exception as e:
             logger.error(f"Shortcut unregistration failed: {e}")
             raise
@@ -468,16 +479,22 @@ class KeyboardHandler:
             ValueError: If event is invalid.
         """
         try:
+            # Validate event
+            try:
+                ShortcutEvent.model_validate(event.model_dump())
+            except ValidationError as e:
+                logger.error(f"Event validation failed: {e}")
+                raise ValueError("Invalid keyboard event") from e
+
             # Rate limiting check
             if not self._check_rate_limit(event.timestamp):
                 logger.warning("Rate limit exceeded for keyboard events")
                 return None
 
-            # Validate event
             event.platform = event.platform or self._platform
 
             # Get current context
-            context = self._context_manager.get_current_context()
+            context = event.context
 
             # Find matching shortcut
             combination = event.to_combination()
@@ -518,6 +535,9 @@ class KeyboardHandler:
                 if shortcut.enabled and self._context_manager.is_shortcut_available(shortcut, context):
                     available.append(shortcut)
             return available
+        except ValidationError as e:
+            logger.error(f"Shortcut validation failed: {e}")
+            raise ValueError("Invalid shortcut data") from e
         except Exception as e:
             logger.error(f"Available shortcuts retrieval failed: {e}")
             return []
@@ -548,6 +568,9 @@ class KeyboardHandler:
 
             return conflicts
 
+        except ValidationError as e:
+            logger.error(f"Shortcut validation failed: {e}")
+            raise ValueError("Invalid shortcut data") from e
         except Exception as e:
             logger.error(f"Conflict check failed: {e}")
             return [f"Error during conflict check: {str(e)}"]
