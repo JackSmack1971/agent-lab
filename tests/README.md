@@ -40,7 +40,8 @@ This test suite provides comprehensive coverage for the agent-lab project, follo
 - **pytest**: Primary testing framework with asyncio support
 - **pytest-asyncio**: Automatic async test detection and execution
 - **pytest-mock**: Mocking support for API calls and external dependencies
-- **pytest-cov**: Coverage reporting for `agents/` and `services/` directories
+- **pytest-cov**: Coverage reporting for `agents/`, `services/`, and `app.py` directories
+- **Playwright**: E2E testing for UI interactions and tab navigation
 
 ### Key Design Principles
 - **Type Safety**: All test functions use type hints following AGENTS.md conventions
@@ -57,12 +58,33 @@ This test suite provides comprehensive coverage for the agent-lab project, follo
 - CSV header initialization and field validation
 - Web tool refusal text exact matching
 - Model catalog success/failure scenarios
+- UI validation functions (agent name, system prompt, temperature, etc.)
+- Loading state management
+- Keyboard shortcut handling
+- Utility functions (badge HTML, source display)
 
 ### Integration Tests (`pytest -m integration`)
 - Streaming E2E with cooperative cancellation (<500ms halt time)
 - Session persistence save/load with exact config preservation
 - Badge state transitions (OFF → ON → OK/BLOCKED)
 - CSV telemetry logging with all required fields
+- UI handler functions (build agent, refresh models, save/load sessions)
+- Tab navigation and state management
+- Form validation across UI components
+
+### Accessibility Tests (`pytest -m accessibility`)
+- WCAG 2.1 AA compliance validation
+- Keyboard navigation support
+- Screen reader compatibility
+- Color contrast verification
+- Form element labeling
+
+### E2E Tests (Playwright)
+- Tabbed UI navigation and functionality
+- Keyboard shortcuts across tabs
+- Session management workflows
+- Configuration validation
+- Responsive layout testing
 
 ### Slow Tests (`pytest -m slow`)
 - Real API calls (when API key available)
@@ -143,9 +165,10 @@ async def test_api_call(async_client: httpx.AsyncClient, mock_openrouter_respons
 - Test-specific variables set via `mock_env_vars` fixture
 
 ## Coverage Requirements
-- **Target**: >90% coverage for `agents/` and `services/` directories
+- **Target**: >90% coverage for `agents/`, `services/`, and `app.py` UI functions
 - **Reporting**: Terminal output with missing lines
 - **CI Integration**: XML reports for coverage tracking
+- **UI Coverage**: Include validation functions, handlers, and utility functions
 
 ## Debugging and Troubleshooting
 

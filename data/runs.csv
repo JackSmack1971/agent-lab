@@ -1,1 +1,11 @@
 ts,agent_name,model,prompt_tokens,completion_tokens,total_tokens,latency_ms,cost_usd,experiment_id,task_label,run_notes,streaming,model_list_source,tool_web_enabled,web_status,aborted
+2025-10-05T23:39:40.174475+00:00,Test,test,0,0,0,100,0.0,exp1,reasoning,notes,True,dynamic,False,off,False
+2025-10-05T23:51:16.631218+00:00,Test,test,0,0,0,100,0.0,exp1,reasoning,notes,True,dynamic,False,off,False
+2025-10-06T00:07:32.474295+00:00,Test,test,0,0,0,100,0.0,exp1,reasoning,notes,True,dynamic,False,off,False
+2025-10-06T00:24:35.107938+00:00,Test,test,0,0,0,100,0.0,exp1,reasoning,notes,True,dynamic,False,off,False
+2025-10-06T00:37:12.927815+00:00,Test,test,0,0,0,100,0.0,exp1,reasoning,notes,True,dynamic,False,off,False
+2025-10-06T00:49:55.674843+00:00,Test,test,0,0,0,100,0.0,exp1,reasoning,notes,True,dynamic,False,off,False
+2025-10-06T00:53:53.128997+00:00,Test,test,0,0,0,100,0.0,exp1,reasoning,notes,True,dynamic,False,off,False
+2025-10-06T01:05:06.919138+00:00,Test,test,0,0,0,100,0.0,exp1,reasoning,notes,True,dynamic,False,off,False
+2025-10-06T01:11:14.746604+00:00,Test,test,0,0,0,100,0.0,exp1,reasoning,notes,True,dynamic,False,off,False
+2025-10-06T01:19:45.392953+00:00,Test,test,0,0,0,100,0.0,exp1,reasoning,notes,True,dynamic,False,off,False

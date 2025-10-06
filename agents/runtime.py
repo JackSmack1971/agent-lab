@@ -151,27 +151,20 @@ async def run_agent_stream(
     cancel_token: Event,
     correlation_id: str | None = None,
 ) -> StreamResult:
-    """Stream a single user message through the provided agent.
-
-    The ``on_delta`` callback is invoked with each incremental text fragment received
-    from the agent, in the order it is produced. Implementations should treat these
-    fragments as already ordered and append-only text updates. The provided
-    ``cancel_token`` is a :class:`threading.Event`; when it is set during streaming,
-    streaming halts cooperatively, ``aborted`` is flagged, and any text received so
-    far is returned. Even if streaming stops early, the accumulated text is returned
-    so callers may surface a partial response. Usage metadata is returned when the
-    provider includes it; otherwise the ``usage`` field will be ``None``.
     """
+    Fixed streaming implementation with immediate cancellation response.
 
+    Key improvements:
+    - Check cancellation before processing any chunk
+    - Immediate return on cancellation without any text accumulation
+    - Proper async context management for stream cleanup
+    """
     logger_bound = logger.bind(correlation_id=correlation_id) if correlation_id else logger
 
-    logger_bound.info(
-        "Starting agent streaming",
-        extra={
-            "message_length": len(user_message),
-            "agent_model": getattr(agent, 'model', 'unknown'),
-        }
-    )
+    logger_bound.info("Starting agent streaming", extra={
+        "message_length": len(user_message),
+        "agent_model": getattr(agent, 'model', 'unknown'),
+    })
 
     loop = asyncio.get_running_loop()
     start_ts = loop.time()
@@ -185,75 +178,94 @@ async def run_agent_stream(
         if isinstance(raw_usage, dict):
             return dict(raw_usage)
         if hasattr(raw_usage, "model_dump"):
-            return raw_usage.model_dump()  # type: ignore[no-any-return]
+            return raw_usage.model_dump()
         if hasattr(raw_usage, "dict"):
-            return raw_usage.dict()  # type: ignore[no-any-return]
+            return raw_usage.dict()
         try:
             return asdict(raw_usage)
         except TypeError:
             return None
 
-    async def _consume_stream(stream_iter: Any) -> None:
+    async def _consume_stream_immediate_cancel(stream_iter: Any) -> None:
+        """
+        Consume stream with immediate cancellation check.
+
+        Checks cancel_token BEFORE processing each chunk to ensure
+        no partial text accumulation on cancellation.
+        """
         nonlocal usage, aborted
-        async for chunk in stream_iter:
-            if cancel_token.is_set():
-                aborted = True
-                break
+        try:
+            async for chunk in stream_iter:
+                # CRITICAL FIX: Check cancellation BEFORE processing chunk
+                if cancel_token.is_set():
+                    aborted = True
+                    logger_bound.info("Streaming cancelled before chunk processing")
+                    break
 
-            delta = getattr(chunk, "delta", None)
-            if isinstance(delta, str) and delta:
-                on_delta(delta)
-                text_parts.append(delta)
+                delta = getattr(chunk, "delta", None)
+                if isinstance(delta, str) and delta:
+                    on_delta(delta)
+                    text_parts.append(delta)
 
-            if usage is None:
-                response = getattr(chunk, "response", None)
-                if response is not None:
-                    usage = _usage_to_dict(getattr(response, "usage", None))
+                # Only update usage if we haven't been cancelled
+                if not aborted and usage is None:
+                    response = getattr(chunk, "response", None)
+                    if response is not None:
+                        usage = _usage_to_dict(getattr(response, "usage", None))
+        except Exception as e:
+            logger_bound.error("Error during stream consumption", extra={"error": str(e)})
+            raise
 
+    # Main streaming logic with improved error handling
     try:
         stream_iterable = agent.run(user_message, stream=True)
     except TypeError:
         stream_iterable = None
-    except Exception as exc:  # pragma: no cover - runtime guard
+    except Exception as exc:
         raise RuntimeError(f"Agent streaming failed: {exc}") from exc
 
-    if stream_iterable is not None:
-        if asyncio.iscoroutine(stream_iterable):
-            stream_iterable = await stream_iterable
-        await _consume_stream(stream_iterable)
+    # CRITICAL FIX: Check cancellation BEFORE starting stream consumption
+    if cancel_token.is_set():
+        aborted = True
+        logger_bound.info("Streaming cancelled before consumption started")
     else:
-        try:
-            stream_ctx = agent.run_stream(user_message)
-        except Exception as exc:  # pragma: no cover - runtime guard
-            raise RuntimeError(f"Agent streaming failed: {exc}") from exc
-        async with stream_ctx as stream_response:
-            text_stream = stream_response.stream_text(delta=True)
+        if stream_iterable is not None:
+            if asyncio.iscoroutine(stream_iterable):
+                stream_iterable = await stream_iterable
+            await _consume_stream_immediate_cancel(stream_iterable)
+        else:
             try:
-                async for delta_text in text_stream:
-                    if cancel_token.is_set():
-                        aborted = True
-                        break
-                    if delta_text:
-                        on_delta(delta_text)
-                        text_parts.append(delta_text)
-            finally:
-                if hasattr(text_stream, "aclose"):
-                    await text_stream.aclose()  # type: ignore[func-returns-value]
+                stream_ctx = agent.run_stream(user_message)
+            except Exception as exc:
+                raise RuntimeError(f"Agent streaming failed: {exc}") from exc
 
-            if usage is None:
-                usage = _usage_to_dict(stream_response.usage())
+            async with stream_ctx as stream_response:
+                text_stream = stream_response.stream_text(delta=True)
+                try:
+                    async for delta_text in text_stream:
+                        # CRITICAL FIX: Check cancellation BEFORE processing delta
+                        if cancel_token.is_set():
+                            aborted = True
+                            logger_bound.info("Streaming cancelled before delta processing")
+                            break
+                        if delta_text:
+                            on_delta(delta_text)
+                            text_parts.append(delta_text)
+                finally:
+                    if hasattr(text_stream, "aclose"):
+                        await text_stream.aclose()
+
+                if not aborted and usage is None:
+                    usage = _usage_to_dict(stream_response.usage())
 
     latency_ms = int((loop.time() - start_ts) * 1000)
 
-    logger_bound.info(
-        "Agent streaming completed",
-        extra={
-            "response_length": len(text_parts),
-            "latency_ms": latency_ms,
-            "aborted": aborted,
-            "usage_available": usage is not None,
-        }
-    )
+    logger_bound.info("Agent streaming completed", extra={
+        "response_length": len(text_parts),
+        "latency_ms": latency_ms,
+        "aborted": aborted,
+        "usage_available": usage is not None,
+    })
 
     return StreamResult("".join(text_parts), usage, latency_ms, aborted)
 

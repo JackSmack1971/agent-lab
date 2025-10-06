@@ -32,6 +32,7 @@ class TestWebToolIntegration:
         mock_response = Mock()
         mock_response.text = "Example API response data"
         mock_response.raise_for_status = Mock()
+        mock_response.headers = {"content-type": "text/plain"}
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
@@ -39,11 +40,12 @@ class TestWebToolIntegration:
             result = await fetch_url(ctx, input_data)
 
             assert result == "Example API response data"
-            mock_client.assert_called_once_with(timeout=10.0, follow_redirects=True)
+            mock_client.assert_called_once_with(timeout=10.0, follow_redirects=True, headers={'User-Agent': 'Agent-Lab/1.0'})
 
     @pytest.mark.asyncio
-    async def test_agent_build_with_web_tools_registers_fetch_url(self):
+    async def test_agent_build_with_web_tools_registers_fetch_url(self, monkeypatch):
         """Test that building agent with web tools registers the fetch_url tool."""
+        monkeypatch.setenv("OPENROUTER_API_KEY", "test_key")
         config = AgentConfig(
             name="Test Agent",
             model="openai/gpt-3.5-turbo",
@@ -63,7 +65,7 @@ class TestWebToolIntegration:
 
     @pytest.mark.asyncio
     async def test_fetch_url_truncates_long_content(self):
-        """Test that fetch_url truncates content to 4096 characters."""
+        """Test that fetch_url truncates content to 4096 characters with truncation message."""
         ctx = Mock(spec=RunContext)
         input_data = FetchInput(url="https://api.github.com/repos/octocat/Hello-World")
 
@@ -71,11 +73,12 @@ class TestWebToolIntegration:
         mock_response = Mock()
         mock_response.text = long_content
         mock_response.raise_for_status = Mock()
+        mock_response.headers = {"content-type": "text/plain"}
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
 
             result = await fetch_url(ctx, input_data)
 
-            assert len(result) == 4096
-            assert result == "A" * 4096
+            assert len(result) == 4096 + len("\n\n[Content truncated to 4096 characters]")
+            assert result == "A" * 4096 + "\n\n[Content truncated to 4096 characters]"

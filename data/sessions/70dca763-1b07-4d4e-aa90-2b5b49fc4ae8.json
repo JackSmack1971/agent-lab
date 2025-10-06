@@ -1,0 +1,27 @@
+{
+  "id": "70dca763-1b07-4d4e-aa90-2b5b49fc4ae8",
+  "created_at": "2025-10-06 00:37:12.943944+00:00",
+  "agent_config": {
+    "name": "Test",
+    "model": "test",
+    "system_prompt": "test",
+    "temperature": 0.7,
+    "top_p": 1.0,
+    "tools": [],
+    "extras": {}
+  },
+  "transcript": [
+    {
+      "role": "user",
+      "content": "Hello",
+      "ts": "2025-10-06T00:37:12.943951+00:00"
+    },
+    {
+      "role": "assistant",
+      "content": "Hi",
+      "ts": "2025-10-06T00:37:12.943967+00:00"
+    }
+  ],
+  "model_id": "test",
+  "notes": "Test Session"
+}

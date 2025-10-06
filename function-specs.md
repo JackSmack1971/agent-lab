@@ -1,405 +1,442 @@
-# Function Specifications for Keyboard Shortcuts Integration
+# Function Specifications for Agent-Lab Test Fixes
 
-## Overview
+## 1. Streaming Cancellation Fixes
 
-This document specifies the functions required for integrating keyboard shortcuts into the main UI. All functions follow Agent Lab's coding standards with type hints, Google-style docstrings, and comprehensive error handling.
+### Function: `run_agent_stream_fixed`
+**Location**: `agents/runtime.py`
 
-## Core Integration Functions
+**Signature**:
+```python
+async def run_agent_stream_fixed(
+    agent: Agent,
+    user_message: str,
+    on_delta: Callable[[str], None],
+    cancel_token: Event,
+    correlation_id: str | None = None,
+) -> StreamResult
+```
 
-### `create_main_ui() -> gr.Blocks`
-**Location**: `src/main.py` (modified)
-
-**Purpose**: Creates the main tabbed interface with keyboard shortcuts integration.
-
-**Parameters**: None
+**Parameters**:
+- `agent`: Configured pydantic-ai Agent instance
+- `user_message`: User input string to stream through agent
+- `on_delta`: Callback function called with each text delta
+- `cancel_token`: Threading.Event for cancellation signaling
+- `correlation_id`: Optional UUID for request tracing
 
 **Returns**:
-- `gr.Blocks`: Main Gradio interface with shortcuts integration
+- `StreamResult`: Dataclass containing text, usage, latency, and abort status
 
-**Modifications**:
-- Adds imports for keyboard components
-- Initializes `KeyboardHandler` and `ContextManager`
-- Adds shortcut indicators to header
-- Includes settings toggle for shortcuts
-- Embeds keyboard shortcuts UI components
-- Calls `setup_keyboard_integration()` for event handling
+**Behavior**:
+- Checks cancellation token BEFORE processing each chunk/delta
+- Accumulates text only when not cancelled
+- Provides immediate abortion without partial text accumulation
+- Handles both `agent.run(stream=True)` and `agent.run_stream()` patterns
+- Includes comprehensive error handling and logging
 
-**Error Handling**: Catches initialization errors and logs warnings
-
----
-
-### `setup_keyboard_integration(main_interface, keyboard_handler, context_manager, main_tabs, shortcuts_toggle, shortcuts_enabled, active_tab_state, shortcut_indicators) -> None`
-**Location**: `src/main.py` (new)
-
-**Purpose**: Sets up keyboard event handling and connects shortcut actions to UI components.
-
-**Parameters**:
-- `main_interface: gr.Blocks` - Main Gradio interface
-- `keyboard_handler: KeyboardHandler` - Keyboard shortcut service
-- `context_manager: ContextManager` - UI context manager
-- `main_tabs: gr.Tabs` - Main tabbed interface
-- `shortcuts_toggle: gr.Checkbox` - Shortcuts enable/disable toggle
-- `shortcuts_enabled: gr.State` - Shortcuts enabled state
-- `active_tab_state: gr.State` - Current active tab state
-- `shortcut_indicators: gr.HTML` - Shortcut indicators component
-
-**Returns**: None
-
-**Functionality**:
-- Registers tab-specific shortcuts
-- Attaches global keyboard event listener
-- Connects tab change events to context updates
-- Handles shortcuts toggle changes
-- Connects shortcut actions to UI handlers
-
-**Error Handling**: Logs setup failures without crashing interface
+**Error Handling**:
+- Raises `RuntimeError` for agent initialization failures
+- Logs errors but continues processing for non-critical issues
+- Ensures proper cleanup of async contexts
 
 ---
 
-### `register_tab_shortcuts(keyboard_handler) -> None`
-**Location**: `src/main.py` (new)
+### Function: `RealisticDelayedStream`
+**Location**: `tests/integration/test_streaming_cancellation.py`
 
-**Purpose**: Registers keyboard shortcuts for tab navigation and common actions.
+**Signature**:
+```python
+class RealisticDelayedStream:
+    def __init__(self, chunks: list[str], delay_between_chunks: float = 0.01)
+    async def __anext__(self) -> Mock
+```
 
 **Parameters**:
-- `keyboard_handler: KeyboardHandler` - Shortcut registration service
+- `chunks`: List of text chunks to yield
+- `delay_between_chunks`: Delay between yielding chunks
 
-**Returns**: None
-
-**Functionality**:
-- Creates `KeyboardShortcut` instances for tab switching
-- Registers shortcuts with conflict detection
-- Includes platform-specific key combinations
-
-**Error Handling**: Logs registration failures and continues with available shortcuts
+**Behavior**:
+- Yields mock chunks with realistic async delays
+- Allows cancellation testing with proper timing
+- Simulates network/streaming latency
 
 ---
 
-### `connect_shortcut_actions(keyboard_handler, main_tabs, context_manager, shortcuts_enabled) -> Dict[str, Callable]`
-**Location**: `src/main.py` (new)
+## 2. UI Integration Fixes
 
-**Purpose**: Creates mapping of shortcut actions to UI handler functions.
+### Function: `send_message_streaming_fixed`
+**Location**: `app.py`
+
+**Signature**:
+```python
+async def send_message_streaming_fixed(
+    message: str,
+    history: list[list[str]] | None,
+    config_state: AgentConfig,
+    model_source_enum: str,
+    agent_state: Any,
+    cancel_event_state: Event | None,
+    is_generating_state: bool,
+    experiment_id: str,
+    task_label: str,
+    run_notes: str,
+    id_mapping: dict
+) -> AsyncGenerator[tuple, None]
+```
 
 **Parameters**:
-- `keyboard_handler: KeyboardHandler` - Shortcut service
-- `main_tabs: gr.Tabs` - Main tabs component
-- `context_manager: ContextManager` - Context manager
-- `shortcuts_enabled: gr.State` - Enabled state
+- `message`: User input message
+- `history`: Chat history as list of [user, assistant] pairs
+- `config_state`: AgentConfig with model settings
+- `model_source_enum`: Source of model list ("dynamic"|"fallback")
+- `agent_state`: Cached agent instance
+- `cancel_event_state`: Cancellation event
+- `is_generating_state`: Current generation flag
+- `experiment_id`: Experiment identifier
+- `task_label`: Task categorization label
+- `run_notes`: Additional run notes
+- `id_mapping`: Model ID to display name mapping
+
+**Yields**:
+- Tuple of UI state updates for Gradio components
+
+**Behavior**:
+- Validates input before processing
+- Checks cancellation token before streaming starts
+- Manages UI state transitions properly
+- Handles errors gracefully with user-friendly messages
+- Persists run data asynchronously
+- Provides detailed status updates throughout process
+
+---
+
+### Function: `ThreadSafeLoadingStateManager`
+**Location**: `app.py`
+
+**Signature**:
+```python
+class ThreadSafeLoadingStateManager:
+    async def start_loading(self, operation_id: str, component: str) -> dict
+    async def complete_loading(self, operation_id: str) -> dict
+    async def cancel_loading(self, operation_id: str) -> dict
+```
+
+**Methods**:
+- `start_loading`: Begin loading state for operation
+- `complete_loading`: End loading state successfully
+- `cancel_loading`: End loading state due to cancellation
+
+**Behavior**:
+- Uses asyncio.Lock for thread-safe state management
+- Prevents race conditions in concurrent UI operations
+- Tracks operation state with timestamps
+- Returns appropriate UI state dictionaries
+
+---
+
+## 3. Security Validation Fixes
+
+### Function: `validate_agent_name_comprehensive`
+**Location**: `app.py`
+
+**Signature**:
+```python
+def validate_agent_name_comprehensive(name: str) -> dict
+```
+
+**Parameters**:
+- `name`: Agent name string to validate
 
 **Returns**:
-- `Dict[str, Callable]`: Mapping of action names to handler functions
+- Dict with "is_valid" boolean and "message" string
 
-**Functionality**:
-- Defines action handlers for all shortcut types
-- Returns handler dictionary for Gradio event connections
-
-**Error Handling**: None (pure mapping function)
-
----
-
-## Action Handler Functions
-
-### `switch_to_tab(main_tabs, tab_id) -> None`
-**Location**: `src/main.py` (new)
-
-**Purpose**: Switches to specified tab and updates context.
-
-**Parameters**:
-- `main_tabs: gr.Tabs` - Main tabs component
-- `tab_id: str` - Target tab identifier
-
-**Returns**: None
-
-**Functionality**:
-- Triggers tab change in Gradio interface
-- Updates context manager with new active tab
-- Logs successful switches
-
-**Error Handling**: Logs failures and shows user feedback
+**Validation Rules**:
+- Unicode normalization (NFKC)
+- Length limits (1-100 characters)
+- No control characters
+- XSS pattern detection (expanded set)
+- SQL injection pattern detection
+- Path traversal prevention
+- Allowed character set validation
 
 ---
 
-### `update_active_tab_context(current_tab) -> Tuple[str, str]`
-**Location**: `src/main.py` (new)
+### Function: `validate_system_prompt_comprehensive`
+**Location**: `app.py`
 
-**Purpose**: Updates UI context when active tab changes.
+**Signature**:
+```python
+def validate_system_prompt_comprehensive(prompt: str) -> dict
+```
 
 **Parameters**:
-- `current_tab: str` - Currently active tab ID
+- `prompt`: System prompt string to validate
 
 **Returns**:
-- `Tuple[str, str]`: (updated_tab_state, updated_indicators_html)
+- Dict with validation result
 
-**Functionality**:
-- Updates context manager
-- Retrieves available shortcuts for new context
-- Generates updated indicator bar HTML
-
-**Error Handling**: Returns safe defaults on failure
+**Validation Rules**:
+- Length limit (10,000 characters)
+- Prompt injection pattern detection
+- Code execution pattern detection
+- Override instruction detection
 
 ---
 
-### `toggle_shortcuts_enabled(enabled) -> bool`
-**Location**: `src/main.py` (new)
+### Function: `validate_temperature_robust`
+**Location**: `app.py`
 
-**Purpose**: Toggles keyboard shortcuts enabled/disabled state.
+**Signature**:
+```python
+def validate_temperature_robust(value: Any) -> dict
+```
 
 **Parameters**:
-- `enabled: bool` - New enabled state
+- `value`: Temperature value (string, int, float, or None)
 
 **Returns**:
-- `bool`: Confirmed enabled state
+- Dict with validation result
 
-**Functionality**:
-- Updates keyboard handler enabled state
-- Updates context manager
-- Saves preference to persistent storage
-
-**Error Handling**: Reverts state on save failure
-
----
-
-### `focus_search_input() -> None`
-**Location**: `src/main.py` (new)
-
-**Purpose**: Focuses on search input in active tab.
-
-**Parameters**: None
-
-**Returns**: None
-
-**Functionality**:
-- Determines active tab from context
-- Focuses appropriate search input field
-
-**Error Handling**: Logs failures without user disruption
+**Validation Rules**:
+- Type coercion with error handling
+- Range validation (0.0 to 2.0)
+- Precision limits
+- String parsing for numeric input
 
 ---
 
-### `start_new_conversation() -> None`
-**Location**: `src/main.py` (new)
+## 4. Session Handling Fixes
 
-**Purpose**: Starts new conversation in Agent Testing tab.
+### Function: `_coerce_int_robust`
+**Location**: `services/persist.py`
 
-**Parameters**: None
-
-**Returns**: None
-
-**Functionality**:
-- Clears conversation history
-- Resets chat interface state
-
-**Error Handling**: Logs failures
-
----
-
-### `save_current_session() -> None`
-**Location**: `src/main.py` (new)
-
-**Purpose**: Saves current session state.
-
-**Parameters**: None
-
-**Returns**: None
-
-**Functionality**:
-- Triggers session save operation
-
-**Error Handling**: Logs failures
-
----
-
-### `cancel_streaming_response() -> None`
-**Location**: `src/main.py` (new)
-
-**Purpose**: Cancels active streaming response.
-
-**Parameters**: None
-
-**Returns**: None
-
-**Functionality**:
-- Stops streaming operation
-- Resets UI state
-
-**Error Handling**: Logs failures
-
----
-
-### `send_message() -> None`
-**Location**: `src/main.py` (new)
-
-**Purpose**: Sends current message in chat interface.
-
-**Parameters**: None
-
-**Returns**: None
-
-**Functionality**:
-- Triggers message send action
-
-**Error Handling**: Logs failures
-
----
-
-### `navigate_message_history(direction) -> None`
-**Location**: `src/main.py` (new)
-
-**Purpose**: Navigates message history up or down.
+**Signature**:
+```python
+def _coerce_int_robust(value: str) -> int
+```
 
 **Parameters**:
-- `direction: str` - "up" or "down"
-
-**Returns**: None
-
-**Functionality**:
-- Updates message input with history item
-
-**Error Handling**: Logs failures
-
----
-
-### `toggle_battle_mode() -> None`
-**Location**: `src/main.py` (new)
-
-**Purpose**: Toggles battle mode state.
-
-**Parameters**: None
-
-**Returns**: None
-
-**Functionality**:
-- Toggles battle mode if available
-
-**Error Handling**: Logs failures
-
----
-
-### `export_conversation() -> None`
-**Location**: `src/main.py` (new)
-
-**Purpose**: Exports current conversation.
-
-**Parameters**: None
-
-**Returns**: None
-
-**Functionality**:
-- Triggers export operation
-
-**Error Handling**: Logs failures
-
----
-
-### `toggle_help_overlay() -> None`
-**Location**: `src/main.py` (new)
-
-**Purpose**: Toggles keyboard shortcuts help overlay.
-
-**Parameters**: None
-
-**Returns**: None
-
-**Functionality**:
-- Shows/hides help overlay component
-
-**Error Handling**: Logs failures
-
----
-
-## Utility Functions
-
-### `save_shortcuts_preference(enabled) -> None`
-**Location**: `src/main.py` (new)
-
-**Purpose**: Saves shortcuts enabled preference.
-
-**Parameters**:
-- `enabled: bool` - Preference value
-
-**Returns**: None
-
-**Functionality**:
-- Persists setting to user configuration
-
-**Error Handling**: Logs failures
-
----
-
-### `load_shortcuts_preference() -> bool`
-**Location**: `src/main.py` (new)
-
-**Purpose**: Loads shortcuts enabled preference.
-
-**Parameters**: None
+- `value`: String value to convert to integer
 
 **Returns**:
-- `bool`: Preference value (default True)
+- Integer value or 0 on failure
 
-**Functionality**:
-- Retrieves setting from persistent storage
-
-**Error Handling**: Returns default on failure
+**Behavior**:
+- Handles empty/whitespace strings
+- Converts float strings to integers
+- Graceful error handling with logging
 
 ---
 
-## JavaScript Integration Functions
+### Function: `_coerce_float_robust`
+**Location**: `services/persist.py`
 
-### `setup_global_keyboard_listener_js(keyboard_handler) -> str`
-**Location**: `src/main.py` (new)
-
-**Purpose**: Generates JavaScript for global keyboard event handling.
+**Signature**:
+```python
+def _coerce_float_robust(value: str) -> float
+```
 
 **Parameters**:
-- `keyboard_handler: KeyboardHandler` - Handler instance
+- `value`: String value to convert to float
 
 **Returns**:
-- `str`: JavaScript code as string
+- Float value or 0.0 on failure
 
-**Functionality**:
-- Creates event listener for keydown events
-- Processes shortcuts through keyboard handler
-- Dispatches actions to Gradio
-
-**Error Handling**: JavaScript error handling included
+**Behavior**:
+- Handles empty strings gracefully
+- Robust float parsing with error logging
 
 ---
 
-## Integration Requirements
+### Function: `_coerce_bool_robust`
+**Location**: `services/persist.py`
+
+**Signature**:
+```python
+def _coerce_bool_robust(value: str) -> bool
+```
+
+**Parameters**:
+- `value`: String value to convert to boolean
+
+**Returns**:
+- Boolean value
+
+**Behavior**:
+- Comprehensive truthy/falsy value recognition
+- Case-insensitive parsing
+- Defaults to False for unrecognized values
+
+---
+
+### Function: `_parse_row_robust`
+**Location**: `services/persist.py`
+
+**Signature**:
+```python
+def _parse_row_robust(row: dict[str, str]) -> RunRecord | None
+```
+
+**Parameters**:
+- `row`: Dictionary of CSV row data
+
+**Returns**:
+- RunRecord instance or None on failure
+
+**Behavior**:
+- Validates required fields
+- Robust type coercion for all fields
+- Comprehensive error handling
+- Returns None for invalid rows
+
+---
+
+### Function: `save_session_atomic`
+**Location**: `services/persist.py`
+
+**Signature**:
+```python
+async def save_session_atomic(
+    session_name: str,
+    config: AgentConfig,
+    history: list[list[str]],
+    session_dir: Path
+) -> Session
+```
+
+**Parameters**:
+- `session_name`: Name for the session
+- `config`: Agent configuration
+- `history`: Chat history
+- `session_dir`: Directory to save session
+
+**Returns**:
+- Created Session instance
+
+**Behavior**:
+- Validates input parameters
+- Creates session with proper transcript format
+- Atomic write using temporary files
+- Comprehensive error handling with cleanup
+
+---
+
+### Function: `load_session_atomic`
+**Location**: `services/persist.py`
+
+**Signature**:
+```python
+async def load_session_atomic(session_id: str, session_dir: Path) -> Session
+```
+
+**Parameters**:
+- `session_id`: Session identifier
+- `session_dir`: Directory containing sessions
+
+**Returns**:
+- Loaded Session instance
+
+**Behavior**:
+- Validates session file existence
+- Parses and validates JSON content
+- Ensures session integrity
+- Comprehensive error handling
+
+---
+
+## 5. Content Truncation Fixes
+
+### Function: `fetch_url_encoding_aware`
+**Location**: `agents/tools.py`
+
+**Signature**:
+```python
+async def fetch_url_encoding_aware(ctx: RunContext, input: FetchInput) -> str
+```
+
+**Parameters**:
+- `ctx`: Pydantic-ai run context
+- `input`: FetchInput with URL and timeout
+
+**Returns**:
+- Fetched content string or error message
+
+**Behavior**:
+- Domain allow-list validation
+- Encoding-aware content retrieval
+- Safe truncation at character boundaries
+- Proper error handling for encoding issues
+
+---
+
+### Function: `is_allowed_content_type`
+**Location**: `agents/tools.py`
+
+**Signature**:
+```python
+def is_allowed_content_type(content_type: str) -> bool
+```
+
+**Parameters**:
+- `content_type`: HTTP content-type header value
+
+**Returns**:
+- Boolean indicating if content type is allowed
+
+**Behavior**:
+- Validates content types suitable for text processing
+- Allows text/* and specific application types
+- Rejects binary content types
+
+---
+
+### Function: `fetch_url_with_content_validation`
+**Location**: `agents/tools.py`
+
+**Signature**:
+```python
+async def fetch_url_with_content_validation(ctx: RunContext, input: FetchInput) -> str
+```
+
+**Parameters**:
+- `ctx`: Pydantic-ai run context
+- `input`: FetchInput with URL and timeout
+
+**Returns**:
+- Fetched and validated content string
+
+**Behavior**:
+- Domain validation
+- Content-type validation
+- Encoding detection and validation
+- Size limits and truncation
+- Comprehensive error handling
+
+---
+
+## Integration Points
 
 ### Dependencies
-- `src.utils.keyboard_handler.KeyboardHandler`
-- `src.utils.keyboard_handler.ContextManager`
-- `src.components.keyboard_shortcuts.create_keyboard_shortcuts_ui`
-- `src.components.settings.create_settings_tab` (assumed)
-- `gradio` components
+- `httpx` for HTTP client functionality
+- `pydantic` for input validation
+- `pydantic_ai` for agent integration
+- `loguru` for structured logging
+- `asyncio` for async operations
+- `aiofiles` for async file operations
 
-### State Management
-- `shortcuts_enabled: gr.State` - Global shortcuts enabled state
-- `active_tab_state: gr.State` - Current active tab
-- Context maintained in `ContextManager` instance
+### Error Handling Strategy
+- Graceful degradation for non-critical errors
+- User-friendly error messages in UI functions
+- Structured logging for debugging
+- Atomic operations to prevent data corruption
 
-### Event Flow
-1. User presses key combination
-2. JavaScript captures event and prevents default if handled
-3. Event processed through `KeyboardHandler.process_event()`
-4. Action dispatched to appropriate handler function
-5. Handler updates UI components and context
-6. Indicators and help overlay update reactively
+### Testing Considerations
+- All functions include comprehensive error paths
+- Async functions designed for proper testing
+- Mock-friendly interfaces
+- Deterministic behavior for test validation
 
-### Platform Support
-- Automatic platform detection (Windows, macOS, Linux)
-- Key combination normalization for cross-platform compatibility
-- Browser conflict avoidance
-
-### Accessibility
-- Visual indicators for available shortcuts
-- Help overlay with comprehensive documentation
-- Keyboard-only navigation support
-- Screen reader compatible elements
-
-### Error Recovery
-- Graceful degradation when shortcuts fail
-- Logging for debugging and monitoring
-- User feedback for failed operations
-- State consistency maintenance
+### Performance Characteristics
+- Efficient string operations
+- Minimal memory overhead
+- Async I/O for scalability
+- Proper resource cleanup

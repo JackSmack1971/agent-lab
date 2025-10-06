@@ -264,23 +264,32 @@ class TestStreaming:
             # Make run(stream=True) fail
             mock_agent.run.side_effect = TypeError("stream parameter not supported")
 
-            # Mock the run_stream context manager
+            # Mock the stream_response object returned by the context manager
             mock_stream_response = Mock()
-            mock_text_stream = AsyncMock()
-            mock_text_stream.__aenter__ = AsyncMock(return_value=mock_text_stream)
-            mock_text_stream.__aexit__ = AsyncMock(return_value=None)
-
-            # Mock text stream yielding deltas
-            async def mock_text_iter():
-                yield "Hello"
-                yield " from"
-                yield " run_stream"
-
-            mock_text_stream.__aiter__ = lambda: mock_text_iter()
-            mock_stream_response.stream_text.return_value = mock_text_stream
             mock_stream_response.usage.return_value = {"tokens": 15}
 
-            mock_agent.run_stream.return_value = mock_stream_response
+            # Mock the text stream
+            class MockTextStream:
+                def __init__(self, items):
+                    self.items = items[:]
+
+                def __aiter__(self):
+                    return self
+
+                async def __anext__(self):
+                    if not self.items:
+                        raise StopAsyncIteration
+                    return self.items.pop(0)
+
+            mock_text_stream = MockTextStream(["Hello", " from", " run_stream"])
+            mock_stream_response.stream_text.return_value = mock_text_stream
+
+            # Mock the context manager returned by run_stream
+            mock_context_manager = AsyncMock()
+            mock_context_manager.__aenter__ = AsyncMock(return_value=mock_stream_response)
+            mock_context_manager.__aexit__ = AsyncMock(return_value=None)
+
+            mock_agent.run_stream.return_value = mock_context_manager
 
             agent = build_agent(mock_agent_config)
 

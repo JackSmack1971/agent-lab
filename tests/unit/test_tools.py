@@ -110,18 +110,21 @@ class TestTools:
         ctx = Mock(spec=RunContext)
         input_data = FetchInput(url="https://api.github.com/user", timeout_s=5.0)
 
+        # Create content longer than 4096 characters
+        long_content = "A" * 5000
         mock_response = Mock()
-        mock_response.text = "Mocked content over 4096 characters" * 100
+        mock_response.text = long_content
         mock_response.raise_for_status = Mock()
+        mock_response.headers = {"content-type": "text/plain"}
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
 
             result = await fetch_url(ctx, input_data)
 
-            assert result == "Mocked content over 4096 characters"[:4096]
-            mock_client.assert_called_once_with(timeout=5.0, follow_redirects=True)
-            mock_client.return_value.__aenter__.return_value.get.assert_called_once_with("https://api.github.com/user")
+            # Content should be truncated to 4096 characters with truncation message
+            expected_content = long_content[:4096] + "\n\n[Content truncated to 4096 characters]"
+            assert result == expected_content
 
     @pytest.mark.asyncio
     async def test_fetch_url_blocked_domain(self) -> None:

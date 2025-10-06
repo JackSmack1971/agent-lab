@@ -12,7 +12,7 @@ import sys
 from datetime import datetime
 from loguru import logger
 from pathlib import Path
-from typing import Any
+from typing import Any, cast, Literal
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -82,15 +82,74 @@ def append_run(record: RunRecord, correlation_id: str | None = None) -> None:
         raise RuntimeError(f"Failed to append run record: {exc}") from exc
 
 
+def _coerce_int_robust(value: str) -> int:
+    """
+    Robust integer coercion with proper error handling.
+    """
+    if not value or value.strip() == "":
+        return 0
+
+    try:
+        # Strip whitespace
+        cleaned = value.strip()
+        # Handle potential float strings
+        if '.' in cleaned:
+            return int(float(cleaned))
+        return int(cleaned)
+    except (ValueError, OverflowError):
+        logger.warning(f"Failed to coerce '{value}' to int, defaulting to 0")
+        return 0
+
+
+def _coerce_float_robust(value: str) -> float:
+    """
+    Robust float coercion with proper error handling.
+    """
+    if not value or value.strip() == "":
+        return 0.0
+
+    try:
+        cleaned = value.strip()
+        return float(cleaned)
+    except (ValueError, OverflowError):
+        logger.warning(f"Failed to coerce '{value}' to float, defaulting to 0.0")
+        return 0.0
+
+
+def _coerce_bool_robust(value: str) -> bool:
+    """
+    Robust boolean coercion with comprehensive truthy/falsy handling.
+    """
+    if not value:
+        return False
+
+    cleaned = value.strip().lower()
+
+    # Truthy values
+    if cleaned in ('1', 'true', 'yes', 'y'):
+        return True
+
+    # Falsy values
+    if cleaned in ('false', '0', 'no', 'off', 'disabled', '', 'n', 'f'):
+        return False
+
+    # Default to False for unrecognized values
+    logger.warning(f"Unrecognized boolean value '{value}', defaulting to False")
+    return False
+
+
+# Backward compatibility aliases
 def _coerce_bool(value: str | bool | None) -> bool:
     if isinstance(value, bool):
         return value
-    if value is None:
-        return False
-    return str(value).strip().lower() in {"1", "true", "yes", "y"}
+    if isinstance(value, str):
+        return _coerce_bool_robust(value)
+    return False
 
 
 def _coerce_int(value: Any) -> int:
+    if isinstance(value, str):
+        return _coerce_int_robust(value)
     if value in ("", None):
         return 0
     try:
@@ -100,6 +159,8 @@ def _coerce_int(value: Any) -> int:
 
 
 def _coerce_float(value: Any) -> float:
+    if isinstance(value, str):
+        return _coerce_float_robust(value)
     if value in ("", None):
         return 0.0
     try:
@@ -109,7 +170,7 @@ def _coerce_float(value: Any) -> float:
 
 
 def load_recent_runs(limit: int = 10) -> list[RunRecord]:
-    """Load the N most recent runs from CSV"""
+    """Load the N most recent runs from CSV with robust parsing"""
 
     if not CSV_PATH.exists():
         return []
@@ -119,19 +180,82 @@ def load_recent_runs(limit: int = 10) -> list[RunRecord]:
         with CSV_PATH.open("r", newline="", encoding="utf-8") as file:
             reader = csv.DictReader(file)
             for row in reader:
-                try:
-                    parsed = _parse_row(row)
-                except ValueError:
-                    # Skip rows that cannot be parsed into a valid RunRecord
-                    continue
-                records.append(RunRecord(**parsed))
+                # Use robust parsing that handles errors gracefully
+                record = _parse_row_robust(row)
+                if record is not None:
+                    records.append(record)
     except OSError as exc:  # pragma: no cover - filesystem failure paths
         raise RuntimeError(f"Failed to read CSV at {CSV_PATH}: {exc}") from exc
 
     return records[-limit:]
 
 
+def _parse_row_robust(row: dict[str, str]) -> RunRecord | None:
+    """
+    Robust row parsing with comprehensive error handling.
+    """
+    try:
+        # Required fields validation
+        ts_str = row.get('ts', '').strip()
+        if not ts_str:
+            logger.warning("Missing timestamp in row, skipping")
+            return None
+
+        try:
+            ts = datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
+        except ValueError:
+            logger.warning(f"Invalid timestamp format '{ts_str}', skipping")
+            return None
+
+        # Extract and coerce all fields
+        agent_name = row.get('agent_name', '').strip()
+        model = row.get('model', '').strip()
+
+        # All numeric fields with robust coercion
+        prompt_tokens = _coerce_int_robust(row.get('prompt_tokens', '0'))
+        completion_tokens = _coerce_int_robust(row.get('completion_tokens', '0'))
+        total_tokens = _coerce_int_robust(row.get('total_tokens', '0'))
+        latency_ms = _coerce_int_robust(row.get('latency_ms', '0'))
+        cost_usd = _coerce_float_robust(row.get('cost_usd', '0.0'))
+
+        # String fields with defaults
+        experiment_id = row.get('experiment_id', '').strip()
+        task_label = row.get('task_label', '').strip()
+        run_notes = row.get('run_notes', '').strip()
+        model_list_source = row.get('model_list_source', 'unknown').strip()
+        web_status = row.get('web_status', 'off').strip()
+
+        # Boolean fields
+        streaming = _coerce_bool_robust(row.get('streaming', 'false'))
+        tool_web_enabled = _coerce_bool_robust(row.get('tool_web_enabled', 'false'))
+        aborted = _coerce_bool_robust(row.get('aborted', 'false'))
+
+        return RunRecord(
+            ts=ts,
+            agent_name=agent_name,
+            model=model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+            latency_ms=latency_ms,
+            cost_usd=cost_usd,
+            experiment_id=experiment_id,
+            task_label=task_label,
+            run_notes=run_notes,
+            streaming=streaming,
+            model_list_source=cast(Literal["dynamic", "fallback"], model_list_source if model_list_source in ["dynamic", "fallback"] else "fallback"),
+            tool_web_enabled=tool_web_enabled,
+            web_status=cast(Literal["off", "ok", "blocked"], web_status if web_status in ["off", "ok", "blocked"] else "off"),
+            aborted=aborted
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to parse row: {e}", extra={"row": row})
+        return None
+
+
 def _parse_row(row: dict[str, Any]) -> dict[str, Any]:
+    """Legacy _parse_row for backward compatibility."""
     parsed: dict[str, Any] = {key: row.get(key, "") for key in CSV_HEADERS}
 
     ts_value = parsed.get("ts", "")
@@ -173,8 +297,10 @@ def save_session(session: Session) -> Path:
     return session_path
 
 
-def load_session(session_path: Path) -> Session:
+def load_session(session_path: Path | str) -> Session:
     """Load a session from disk by path."""
+    if isinstance(session_path, str):
+        session_path = Path(session_path)
     try:
         with session_path.open("r", encoding="utf-8") as file:
             import json

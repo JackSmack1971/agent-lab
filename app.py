@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from os import getenv
 from pathlib import Path
 from threading import Event
-from typing import Any, AsyncGenerator, Literal
+from typing import Any, AsyncGenerator, Literal, cast
 from uuid import uuid4
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -190,7 +190,14 @@ def _web_badge_html(enabled: bool) -> str:
 # UX Improvements - Inline Validation, Keyboard Shortcuts, Loading States
 
 def validate_agent_name(name: str) -> dict:
-    """Validate agent name field."""
+    """Validate agent name field with security checks."""
+    from agents.tools import validate_agent_name_comprehensive
+
+    security_result = validate_agent_name_comprehensive(name)
+    if not security_result["is_valid"]:
+        return {"status": "error", "message": f"❌ Agent Name: {security_result['message']}", "is_valid": False}
+
+    # Additional UI-specific checks
     if not name or not name.strip():
         return {"status": "error", "message": "❌ Agent Name: This field is required", "is_valid": False}
     if len(name) > 100:
@@ -198,7 +205,14 @@ def validate_agent_name(name: str) -> dict:
     return {"status": "success", "message": "✅ Agent Name is valid", "is_valid": True}
 
 def validate_system_prompt(prompt: str) -> dict:
-    """Validate system prompt field."""
+    """Validate system prompt field with security checks."""
+    from agents.tools import validate_system_prompt_comprehensive
+
+    security_result = validate_system_prompt_comprehensive(prompt)
+    if not security_result["is_valid"]:
+        return {"status": "error", "message": f"❌ System Prompt: {security_result['message']}", "is_valid": False}
+
+    # Additional UI-specific checks
     if not prompt or not prompt.strip():
         return {"status": "error", "message": "❌ System Prompt: This field is required", "is_valid": False}
     if len(prompt) > 10000:
@@ -206,16 +220,14 @@ def validate_system_prompt(prompt: str) -> dict:
     return {"status": "success", "message": "✅ System Prompt is valid", "is_valid": True}
 
 def validate_temperature(temp: str | float) -> dict:
-    """Validate temperature field."""
-    try:
-        temp_val = float(temp)
-        if temp_val < 0.0:
-            return {"status": "error", "message": "❌ Temperature: Minimum value is 0.0", "is_valid": False}
-        if temp_val > 2.0:
-            return {"status": "error", "message": "❌ Temperature: Maximum value is 2.0", "is_valid": False}
-        return {"status": "success", "message": "✅ Temperature is valid", "is_valid": True}
-    except (ValueError, TypeError):
-        return {"status": "error", "message": "❌ Temperature: Must be a number between 0.0 and 2.0", "is_valid": False}
+    """Validate temperature field with robust validation."""
+    from agents.tools import validate_temperature_robust
+
+    security_result = validate_temperature_robust(temp)
+    if not security_result["is_valid"]:
+        return {"status": "error", "message": f"❌ Temperature: {security_result['message']}", "is_valid": False}
+
+    return {"status": "success", "message": "✅ Temperature is valid", "is_valid": True}
 
 def validate_top_p(top_p: str | float) -> dict:
     """Validate top_p field."""
@@ -280,63 +292,90 @@ def handle_keyboard_shortcut(keyboard_event: gr.EventData) -> str:
         return 'none'
 
 # Loading States Implementation
-class LoadingStateManager:
-    """Manages loading states for UI elements."""
+class ThreadSafeLoadingStateManager:
+    """
+    Thread-safe loading state manager with proper concurrency handling.
+    """
 
     def __init__(self):
-        self.active_operations = {}
+        self._states: dict[str, dict] = {}
+        self._lock = asyncio.Lock()
 
-    def start_loading(self, operation_id: str, operation_type: str) -> dict:
-        """Start loading state for an operation."""
-        self.active_operations[operation_id] = {
-            'type': operation_type,
-            'start_time': datetime.now(timezone.utc)
-        }
+    async def start_loading(self, operation_id: str, component: str) -> dict:
+        """
+        Start loading state for an operation with thread safety.
+        """
+        async with self._lock:
+            if operation_id in self._states:
+                # Operation already in progress
+                return self._get_current_state(component)
 
-        if operation_type == 'button':
-            return {'interactive': False, 'value': self._get_loading_text(operation_type)}
-        elif operation_type == 'panel':
-            return {'visible': True, '__type__': 'update'}
+            self._states[operation_id] = {
+                "start_time": asyncio.get_event_loop().time(),
+                "component": component
+            }
+
+            return self._get_loading_state(component)
+
+    async def complete_loading(self, operation_id: str) -> dict:
+        """
+        Complete loading state for an operation.
+        """
+        async with self._lock:
+            if operation_id not in self._states:
+                return self._get_default_state()
+
+            state = self._states.pop(operation_id)
+            component = state["component"]
+
+            return self._get_completed_state(component)
+
+    async def cancel_loading(self, operation_id: str) -> dict:
+        """
+        Cancel loading state for an operation.
+        """
+        async with self._lock:
+            state = self._states.pop(operation_id, None)
+            if not state:
+                return self._get_default_state()
+
+            component = state["component"]
+            return self._get_cancelled_state(component)
+
+    def _get_loading_state(self, component: str) -> dict:
+        """Get loading state for component."""
+        if component == "button":
+            return {"interactive": False, "value": "Loading..."}
+        elif component == "panel":
+            return {"visible": True, "value": "Loading..."}
         return {}
 
-    def complete_loading(self, operation_id: str, success: bool = True) -> dict:
-        """Complete loading state for an operation."""
-        if operation_id in self.active_operations:
-            operation_type = self.active_operations[operation_id]['type']
-            del self.active_operations[operation_id]
-
-            if operation_type == 'button':
-                return {'interactive': True, 'value': self._get_default_text(operation_type)}
-            elif operation_type == 'panel':
-                return {'visible': False, '__type__': 'update'}
+    def _get_completed_state(self, component: str) -> dict:
+        """Get completed state for component."""
+        if component == "button":
+            return {"interactive": True, "value": "Send Message"}
+        elif component == "panel":
+            return {"visible": False, "value": ""}
         return {}
 
-    def _get_loading_text(self, operation_type: str) -> str:
-        """Get loading text for operation type."""
-        texts = {
-            'button': {
-                'agent_build': 'Building...',
-                'model_refresh': 'Refreshing...',
-                'session_save': 'Saving...',
-                'session_load': 'Loading...'
-            }
-        }
-        return texts.get('button', {}).get(operation_type, 'Loading...')
+    def _get_cancelled_state(self, component: str) -> dict:
+        """Get cancelled state for component."""
+        if component == "button":
+            return {"interactive": True, "value": "Cancelled"}
+        elif component == "panel":
+            return {"visible": False, "value": "Cancelled"}
+        return {}
 
-    def _get_default_text(self, operation_type: str) -> str:
-        """Get default text for operation type."""
-        texts = {
-            'button': {
-                'agent_build': 'Build Agent',
-                'model_refresh': 'Refresh Models',
-                'session_save': 'Save Session',
-                'session_load': 'Load Session'
-            }
-        }
-        return texts.get('button', {}).get(operation_type, '')
+    def _get_default_state(self) -> dict:
+        """Get default state."""
+        return {}
+
+    def _get_current_state(self, component: str) -> dict:
+        """Get current state for component."""
+        return self._get_loading_state(component)
 
 # Global loading state manager
-loading_manager = LoadingStateManager()
+loading_manager = ThreadSafeLoadingStateManager()
 
 
 def build_agent_handler(
@@ -440,289 +479,208 @@ def refresh_models_handler(
     )
 
 
-async def send_message_streaming(
+async def send_message_streaming_fixed(
     message: str,
     history: list[list[str]] | None,
     config_state: AgentConfig,
-    model_source_enum: Literal["dynamic", "fallback"],
+    model_source_enum: str,
     agent_state: Any,
     cancel_event_state: Event | None,
     is_generating_state: bool,
     experiment_id: str,
     task_label: str,
     run_notes: str,
-    id_mapping: dict[str, str],  # NEW: for resolving display labels
-) -> AsyncGenerator[
-    tuple[
-        list[list[str]],
-        list[list[str]],
-        str,
-        Event | None,
-        bool,
-        ComponentUpdate | None,
-        ComponentUpdate | None,
-    ],
-    None,
-]:
-    """Stream a chat message to the agent and persist telemetry securely."""
+    id_mapping: dict
+) -> AsyncGenerator[tuple, None]:
+    """
+    Fixed streaming message handler with proper state management.
 
-    correlation_id = str(uuid4())
-    logger_bound = logger.bind(correlation_id=correlation_id)
-    start_time = datetime.now(timezone.utc)
-
-    chat_history = history[:] if history else []
-    trimmed_message = message.strip()
-
-    send_idle: ComponentUpdate = gr.update(interactive=True)
-    stop_hidden: ComponentUpdate = gr.update(visible=False, interactive=False)
-
-    if not trimmed_message:
-        # Security: do not trigger agent execution on empty input.
-        yield (
-            chat_history,
-            chat_history,
-            "⚠️ Enter a message to send.",
-            cancel_event_state,
-            is_generating_state,
-            send_idle,
-            stop_hidden,
-        )
-        return
-
-    if agent_state is None:
-        error_response = "⚠️ Build the agent before starting a chat."
-        chat_history.append([trimmed_message, error_response])
-        yield (
-            chat_history,
-            chat_history,
-            error_response,
-            cancel_event_state,
-            is_generating_state,
-            send_idle,
-            stop_hidden,
-        )
-        return
-
-    cancel_token = Event()
-    chat_history.append([trimmed_message, ""])
-
-    delta_event = asyncio.Event()
-
-    def handle_delta(delta: str) -> None:
-        """Capture each streamed fragment and flag UI updates."""
-
-        if not delta:
-            return
-        chat_history[-1][1] += delta
-        delta_event.set()
-
-    stream_task = asyncio.create_task(
-        run_agent_stream(agent_state, trimmed_message, handle_delta, cancel_token, correlation_id)
-    )
-
-    streaming_info = "🔄 Streaming response..."
-    send_disabled: ComponentUpdate = gr.update(interactive=False)
-    stop_visible: ComponentUpdate = gr.update(visible=True, interactive=True)
-
-    # Surface initial state to toggle buttons and store cancellation token.
-    yield (
-        chat_history,
-        chat_history,
-        streaming_info,
-        cancel_token,
-        True,
-        send_disabled,
-        stop_visible,
-    )
+    Key improvements:
+    - Immediate cancellation check before processing
+    - Proper cleanup on cancellation
+    - State validation before yielding
+    - Error recovery with meaningful messages
+    """
+    correlation_id = f"stream_{asyncio.get_event_loop().time()}"
 
     try:
-        while not stream_task.done():
-            try:
-                await asyncio.wait_for(delta_event.wait(), timeout=0.1)
-            except asyncio.TimeoutError:
-                continue
-            delta_event.clear()
+        # Input validation and sanitization
+        if not message or not message.strip():
             yield (
-                chat_history,
-                chat_history,
-                streaming_info,
-                cancel_token,
-                True,
-                send_disabled,
-                stop_visible,
+                None,  # chat_history
+                None,  # agent_display
+                "Enter a message to send to the agent.",  # status_message
+                gr.update(interactive=True),  # send_button
+                gr.update(visible=False),  # cancel_button
+                None,  # model_display
+                None,  # agent_state
+                cancel_event_state,  # cancel_event
+                False,  # is_generating
+                None,  # experiment_id_display
+                None,  # task_label_display
+                None,  # run_notes_display
+                None,  # metadata_display
             )
+            return
 
-        stream_result = await stream_task
-    except Exception as exc:  # pragma: no cover - runtime guard
-        error_text = f"❌ Agent error: {exc}"
-        chat_history[-1][1] = error_text
-        yield (
-            chat_history,
-            chat_history,
-            error_text,
-            None,
-            False,
-            send_idle,
-            stop_hidden,
-        )
-        return
+        sanitized_message = message.strip()
+        if len(sanitized_message) > 10000:  # Reasonable message limit
+            yield (
+                None,
+                None,
+                "Message too long. Please limit to 10,000 characters.",
+                gr.update(interactive=True),
+                gr.update(visible=False),
+                None, None, None, False, None, None, None, None
+            )
+            return
 
-    if delta_event.is_set():
-        delta_event.clear()
-        yield (
-            chat_history,
-            chat_history,
-            streaming_info,
-            cancel_token,
-            True,
-            send_disabled,
-            stop_visible,
-        )
+        # Check for immediate cancellation
+        if cancel_event_state and cancel_event_state.is_set():
+            yield (
+                history,
+                None,
+                "Generation cancelled before starting.",
+                gr.update(interactive=True),
+                gr.update(visible=False),
+                None, None, None, False, None, None, None, None
+            )
+            return
 
-    # Normalise streamed text to the final consolidated response.
-    chat_history[-1][1] = stream_result.text
-
-    raw_usage = stream_result.usage
-    usage: dict[str, Any]
-    if isinstance(raw_usage, dict):
-        usage = raw_usage
-    else:
-        # Defensive: cope with providers that omit usage or return non-mapping data.
+        # Build agent with error handling
         try:
-            usage = dict(raw_usage or {})
-        except TypeError:
-            usage = {}
-
-    def _extract_int(keys: list[str]) -> int:
-        for key in keys:
-            value = usage.get(key)
-            if isinstance(value, dict):
-                # Handle nested usage structures such as {"prompt": 12}.
-                nested_value = value.get("total") or value.get("value")
-                if nested_value is not None:
-                    value = nested_value
-            try:
-                return int(value)  # type: ignore[arg-type]
-            except (TypeError, ValueError):
-                continue
-        return 0
-
-    def _extract_float(keys: list[str]) -> float:
-        for key in keys:
-            value = usage.get(key)
-            if isinstance(value, dict):
-                candidate = value.get("usd") or value.get("amount")
-                if candidate is not None:
-                    value = candidate
-            try:
-                return float(value)  # type: ignore[arg-type]
-            except (TypeError, ValueError):
-                continue
-        return 0.0
-
-    prompt_tokens = _extract_int([
-        "prompt_tokens",
-        "promptTokens",
-        "input_tokens",
-        "inputTokens",
-        "prompt",
-    ])
-    completion_tokens = _extract_int([
-        "completion_tokens",
-        "completionTokens",
-        "output_tokens",
-        "outputTokens",
-        "completion",
-    ])
-    total_tokens = _extract_int([
-        "total_tokens",
-        "totalTokens",
-        "tokens",
-    ])
-
-    if total_tokens == 0 and (prompt_tokens or completion_tokens):
-        total_tokens = prompt_tokens + completion_tokens
-
-    cost_usd = _extract_float([
-        "cost_usd",
-        "total_cost",
-        "cost",
-        "usd_cost",
-    ])
-
-    usage_available = bool(usage)
-
-    timestamp = datetime.utcnow().replace(microsecond=0)
-    web_tool_enabled = "web_fetch" in config_state.tools
-
-    model_source = model_source_enum if model_source_enum == "dynamic" else "fallback"
-
-    record = RunRecord(
-        ts=timestamp,
-        agent_name=config_state.name,
-        model=config_state.model,
-        prompt_tokens=prompt_tokens,
-        completion_tokens=completion_tokens,
-        total_tokens=total_tokens,
-        latency_ms=stream_result.latency_ms,
-        cost_usd=cost_usd,
-        experiment_id=experiment_id.strip(),
-        task_label=task_label.strip(),
-        run_notes=run_notes.strip(),
-        streaming=True,
-        model_list_source=model_source,
-        tool_web_enabled=web_tool_enabled,
-        web_status="ok" if web_tool_enabled else "off",
-        aborted=stream_result.aborted,
-    )
-
-    try:
-        await asyncio.to_thread(append_run, record, correlation_id)
-    except Exception as exc:  # pragma: no cover - filesystem/runtime guard
-        run_info = f"⚠️ Response logged with warning: {exc}"
-    else:
-        status_prefix = "⏹️ Generation stopped" if stream_result.aborted else "✅ Response ready"
-        if usage_available:
-            token_fragment = (
-                " | 🔢 "
-                f"{prompt_tokens}?{completion_tokens} ({total_tokens} total)"
+            include_web = "web_fetch" in getattr(config_state, 'tools', [])
+            agent = build_agent(config_state, include_web=include_web)
+        except Exception as e:
+            logger.error("Failed to build agent", extra={"error": str(e)})
+            yield (
+                history,
+                None,
+                f"Failed to initialize agent: {str(e)}",
+                gr.update(interactive=True),
+                gr.update(visible=False),
+                None, None, None, False, None, None, None, None
             )
-        else:
-            token_fragment = " | 🔢 tokens unavailable"
-        cost_fragment = f" | 💰 ${cost_usd:.4f}" if cost_usd > 0 else ""
-        aborted_fragment = " | 🛑 Aborted" if stream_result.aborted else ""
+            return
 
-        tag_info = ""
-        if experiment_id.strip():
-            tag_info += f" | ?? Exp: {experiment_id.strip()}"
-        if task_label.strip() and task_label != "other":
-            tag_info += f" | ??? Task: {task_label}"
-        if run_notes.strip():
-            tag_info += f" | ?? Notes: {run_notes.strip()[:30]}..." if len(run_notes.strip()) > 30 else f" | ?? {run_notes.strip()}"
+        # Initialize streaming state
+        collected_deltas = []
+        start_time = asyncio.get_event_loop().time()
 
-        # Resolve model ID to display label for UI
-        reverse_mapping = {v: k for k, v in id_mapping.items()}
-        model_display = reverse_mapping.get(config_state.model, config_state.model)
+        def on_delta(delta: str) -> None:
+            """Accumulate streaming deltas."""
+            if delta and not (cancel_event_state and cancel_event_state.is_set()):
+                collected_deltas.append(delta)
 
-        run_info = (
-            f"{status_prefix} | 🕒 {stream_result.latency_ms}ms | "
-            f"🧠 {model_display} | 📅 {timestamp.isoformat()}"
-            f"{token_fragment}{cost_fragment}{aborted_fragment}{tag_info}"
+        # Create new cancel event if none provided
+        active_cancel_event = cancel_event_state or Event()
+
+        # Yield initial streaming state
+        yield (
+            history,
+            None,
+            "Generating response...",
+            gr.update(interactive=False),
+            gr.update(visible=True),
+            None,
+            agent,
+            active_cancel_event,
+            True,
+            experiment_id or "",
+            task_label or "",
+            run_notes or "",
+            None
         )
 
-    latency = (datetime.now(timezone.utc) - start_time).total_seconds()
-    AGENT_RUN_COUNT.labels(aborted=str(stream_result.aborted)).inc()
-    REQUEST_LATENCY.observe(latency, {'method': 'stream', 'endpoint': 'send_message'})
+        # Perform streaming with comprehensive error handling
+        try:
+            stream_result = await run_agent_stream(
+                agent, sanitized_message, on_delta, active_cancel_event,
+                correlation_id=correlation_id
+            )
 
-    yield (
-        chat_history,
-        chat_history,
-        run_info,
-        None,
-        False,
-        send_idle,
-        stop_hidden,
-    )
+            # Check if cancelled during streaming
+            if active_cancel_event.is_set() or stream_result.aborted:
+                final_text = "".join(collected_deltas)
+                status_msg = f"Generation cancelled. Partial response: {len(final_text)} characters."
+            else:
+                final_text = stream_result.text
+                status_msg = "Response generated"
+
+            # Prepare final history
+            new_history = history or []
+            new_history.append([sanitized_message, final_text])
+
+            # Persist run data
+            try:
+                run_record = RunRecord(
+                    ts=datetime.now(timezone.utc),
+                    agent_name=config_state.name,
+                    model=config_state.model,
+                    prompt_tokens=stream_result.usage.get("prompt_tokens", 0) if stream_result.usage else 0,
+                    completion_tokens=stream_result.usage.get("completion_tokens", 0) if stream_result.usage else 0,
+                    total_tokens=stream_result.usage.get("total_tokens", 0) if stream_result.usage else 0,
+                    latency_ms=stream_result.latency_ms,
+                    cost_usd=0.0,  # TODO: Implement calculate_cost function
+                    experiment_id=experiment_id or "",
+                    task_label=task_label or "",
+                    run_notes=run_notes or "",
+                    streaming=True,
+                    model_list_source=cast(Literal["dynamic", "fallback"], model_source_enum if model_source_enum in ["dynamic", "fallback"] else "fallback"),
+                    tool_web_enabled=include_web,
+                    web_status="ok" if include_web else "off",
+                    aborted=stream_result.aborted
+                )
+                await asyncio.to_thread(append_run, run_record, correlation_id)
+            except Exception as e:
+                logger.warning("Failed to persist run data", extra={"error": str(e)})
+                # Don't fail the UI for persistence errors
+
+            # Final yield with complete state
+            yield (
+                new_history,
+                None,
+                status_msg,
+                gr.update(interactive=True),
+                gr.update(visible=False),
+                None,
+                None,
+                None,
+                False,
+                experiment_id or "",
+                task_label or "",
+                run_notes or "",
+                {
+                    "latency_ms": stream_result.latency_ms,
+                    "usage": stream_result.usage,
+                    "aborted": stream_result.aborted
+                }
+            )
+
+        except Exception as e:
+            logger.error("Streaming failed", extra={"error": str(e), "correlation_id": correlation_id})
+            error_msg = f"Generation failed: {str(e)}"
+
+            # Yield error state
+            yield (
+                history,
+                None,
+                error_msg,
+                gr.update(interactive=True),
+                gr.update(visible=False),
+                None, None, None, False, None, None, None, None
+            )
+
+    except Exception as e:
+        logger.error("Unexpected error in send_message_streaming", extra={"error": str(e)})
+        yield (
+            history,
+            None,
+            f"Unexpected error: {str(e)}",
+            gr.update(interactive=True),
+            gr.update(visible=False),
+            None, None, None, False, None, None, None, None
+        )
 
 
 def stop_generation(
@@ -731,7 +689,7 @@ def stop_generation(
 ) -> tuple[str, Event | None, bool, ComponentUpdate | None, ComponentUpdate | None]:
     """Signal the active stream to stop safely when requested by the user."""
 
-    if isinstance(cancel_event, Event):
+    if cancel_event and hasattr(cancel_event, 'set'):
         cancel_event.set()
 
     status_text = "⏹️ Stopping..." if is_generating else "⚠️ No generation in progress."
@@ -776,15 +734,15 @@ def save_session_handler(
 def load_session_handler(
     session_name: str | None,
     id_mapping: dict[str, str],
-) -> tuple[Session | None, str, list, AgentConfig, str, str, str, float, float, bool]:
+) -> tuple[Session | None, str, list, AgentConfig, str, str, str, float, float, bool, list, dict]:
     """Load session from disk and restore all state."""
     if not session_name:
-        return None, "?? Select a session to load", [], DEFAULT_AGENT_CONFIG, "", "", "", 0.7, 1.0, False
+        return None, "?? Select a session to load", [], DEFAULT_AGENT_CONFIG, "", "", "", 0.7, 1.0, False, [], {}
 
     try:
         sessions = {s[0]: s[1] for s in list_sessions()}
         if session_name not in sessions:
-            return None, f"? Session not found: {session_name}", [], DEFAULT_AGENT_CONFIG, "", "", "", 0.7, 1.0, False
+            return None, f"? Session not found: {session_name}", [], DEFAULT_AGENT_CONFIG, "", "", "", 0.7, 1.0, False, [], {}
 
         session = load_session(sessions[session_name])
 
@@ -803,6 +761,15 @@ def load_session_handler(
         reverse_mapping = {v: k for k, v in id_mapping.items()}
         model_display_label = reverse_mapping.get(cfg.model, cfg.model)
 
+        # Prepare metadata for display
+        metadata = {
+            "id": session.id,
+            "created_at": session.created_at.isoformat(),
+            "agent_config": cfg.model_dump(),
+            "model_id": session.model_id,
+            "notes": session.notes
+        }
+
         return (
             session,
             f"? Loaded: {session_name}",
@@ -813,19 +780,21 @@ def load_session_handler(
             cfg.system_prompt,
             cfg.temperature,
             cfg.top_p,
-            "web_fetch" in cfg.tools
+            "web_fetch" in cfg.tools,
+            history,  # transcript_preview
+            metadata  # session_metadata
         )
     except Exception as exc:
-        return None, f"? Load failed: {exc}", [], DEFAULT_AGENT_CONFIG, "", "", "", 0.7, 1.0, False
+        return None, f"? Load failed: {exc}", [], DEFAULT_AGENT_CONFIG, "", "", "", 0.7, 1.0, False, [], {}
 
 
-def new_session_handler() -> tuple[None, str, list, str]:
+def new_session_handler() -> tuple[None, str, list, str, list, dict]:
     """Clear current session and start fresh."""
-    return None, "?? New session started", [], ""
+    return None, "?? New session started", [], "", [], {}
 
 
 def create_ui() -> gr.Blocks:
-    """Construct the initial Gradio Blocks layout for Agent Lab."""
+    """Construct the tabbed Gradio Blocks layout for Agent Lab optimized for 16:9 displays."""
 
     with gr.Blocks(title="Agent Lab") as demo:
         config_state = gr.State(DEFAULT_AGENT_CONFIG)
@@ -841,104 +810,169 @@ def create_ui() -> gr.Blocks:
         })
         current_session_state = gr.State(None)
 
-        with gr.Row(equal_height=True):
-            with gr.Column(scale=1):
-                gr.Markdown("## Agent Configuration")
-                agent_name = gr.Textbox(label="Agent Name", value="Test Agent")
-                model_selector = gr.Dropdown(
-                    label="Model",
-                    choices=INITIAL_DROPDOWN_VALUES or [DEFAULT_MODEL_ID],
-                    value=INITIAL_DROPDOWN_VALUES[0] if INITIAL_DROPDOWN_VALUES else DEFAULT_MODEL_ID,
-                    filterable=True,
-                    info="Start typing to search models by name or provider"
-                )
-                model_source_indicator = gr.Markdown(
-                    value=_format_source_display(INITIAL_MODEL_SOURCE_LABEL)
-                )
-                refresh_models_button = gr.Button("Refresh Models", variant="secondary")
-                system_prompt = gr.Textbox(
-                    label="System Prompt",
-                    lines=8,
-                    value="You are a helpful assistant.",
-                )
-                temperature = gr.Slider(
-                    label="Temperature",
-                    minimum=0.0,
-                    maximum=2.0,
-                    value=0.7,
-                    step=0.1,
-                )
-                top_p = gr.Slider(
-                    label="Top-p",
-                    minimum=0.0,
-                    maximum=1.0,
-                    value=1.0,
-                    step=0.05,
-                )
-                web_tool_enabled = gr.Checkbox(
-                    label="Enable Web Fetch Tool",
-                    value=False,
-                )
+        with gr.Tabs(elem_id="main-tabs"):
+            with gr.TabItem("Chat", elem_id="chat-tab"):
+                with gr.Row(equal_height=True):
+                    with gr.Column(scale=2):
+                        chatbot = gr.Chatbot(label="Conversation", height=700)
+                    with gr.Column(scale=1):
+                        with gr.Accordion("Message Input", open=True):
+                            user_input = gr.Textbox(
+                                label="Your Message",
+                                lines=3,
+                                placeholder="Type your message here...",
+                                elem_id="chat-input"
+                            )
+                            with gr.Row():
+                                send_btn = gr.Button("Send", variant="primary", elem_id="send-btn")
+                                stop_btn = gr.Button("Stop", variant="stop", visible=False, interactive=False, elem_id="stop-btn")
+                        with gr.Accordion("Experiment Tagging (optional)", open=False):
+                            experiment_id_input = gr.Textbox(
+                                label="Experiment ID",
+                                placeholder="prompt-optimization-v3",
+                                info="Group related runs together (e.g., 'temperature-test', 'model-comparison')"
+                            )
+                            task_label_input = gr.Dropdown(
+                                label="Task Type",
+                                choices=["reasoning", "creative", "coding", "summarization", "analysis", "debugging", "other"],
+                                value="other",
+                                allow_custom_value=True,
+                                info="Categorize what kind of task this run performs"
+                            )
+                            run_notes_input = gr.Textbox(
+                                label="Run Notes",
+                                placeholder="Testing impact of higher temperature on creative tasks...",
+                                lines=2,
+                                info="Free-form notes about this specific run"
+                            )
 
-                with gr.Accordion("?? Session Management", open=False):
-                    gr.Markdown("Save your configuration and chat history for later.")
-                    session_name_input = gr.Textbox(
-                        label="Session Name",
-                        placeholder="experiment-gpt4-vs-claude",
-                        info="Give this session a memorable name"
-                    )
-                    with gr.Row():
-                        save_session_btn = gr.Button("?? Save", variant="secondary", scale=1)
-                        load_session_btn = gr.Button("?? Load", variant="secondary", scale=1)
-                        new_session_btn = gr.Button("?? New", variant="secondary", scale=1)
+            with gr.TabItem("Configuration", elem_id="config-tab"):
+                with gr.Row(equal_height=True):
+                    with gr.Column(scale=1):
+                        gr.Markdown("## Agent Configuration")
+                        agent_name = gr.Textbox(
+                            label="Agent Name",
+                            value="Test Agent",
+                            elem_id="agent-name"
+                        )
+                        model_selector = gr.Dropdown(
+                            label="Model",
+                            choices=INITIAL_DROPDOWN_VALUES or [DEFAULT_MODEL_ID],
+                            value=INITIAL_DROPDOWN_VALUES[0] if INITIAL_DROPDOWN_VALUES else DEFAULT_MODEL_ID,
+                            filterable=True,
+                            info="Start typing to search models by name or provider",
+                            elem_id="model-selector"
+                        )
+                        model_source_indicator = gr.Markdown(
+                            value=_format_source_display(INITIAL_MODEL_SOURCE_LABEL),
+                            elem_id="model-source"
+                        )
+                        refresh_models_button = gr.Button(
+                            "Refresh Models",
+                            variant="secondary",
+                            elem_id="refresh-models"
+                        )
+                        system_prompt = gr.Textbox(
+                            label="System Prompt",
+                            lines=8,
+                            value="You are a helpful assistant.",
+                            elem_id="system-prompt"
+                        )
+                        temperature = gr.Slider(
+                            label="Temperature",
+                            minimum=0.0,
+                            maximum=2.0,
+                            value=0.7,
+                            step=0.1,
+                            elem_id="temperature"
+                        )
+                        top_p = gr.Slider(
+                            label="Top-p",
+                            minimum=0.0,
+                            maximum=1.0,
+                            value=1.0,
+                            step=0.05,
+                            elem_id="top-p"
+                        )
+                        web_tool_enabled = gr.Checkbox(
+                            label="Enable Web Fetch Tool",
+                            value=False,
+                            elem_id="web-tool"
+                        )
+                        with gr.Row():
+                            build_agent = gr.Button("Build Agent", variant="primary", elem_id="build-agent")
+                            reset_agent = gr.Button("Reset", variant="secondary", elem_id="reset-agent")
 
-                    session_list = gr.Dropdown(
-                        label="Saved Sessions",
-                        choices=[],
-                        value=None,
-                        interactive=True,
-                        info="Select a session to load"
-                    )
-                    session_status = gr.Markdown(value="_No active session_")
+                    with gr.Column(scale=1):
+                        gr.Markdown("## Model Information & Validation")
+                        web_badge = gr.HTML(
+                            value="<span style=\"background:#666;color:white;padding:4px 8px;border-radius:4px;\">Web Tool: OFF</span>",
+                            elem_id="web-badge"
+                        )
+                        validation_status = gr.Markdown(
+                            value="Ready to build agent",
+                            elem_id="validation-status"
+                        )
 
-                with gr.Accordion("??? Run Tagging (optional)", open=False):
-                    gr.Markdown("Tag your runs for easier analysis and comparison.")
-                    experiment_id_input = gr.Textbox(
-                        label="Experiment ID",
-                        placeholder="prompt-optimization-v3",
-                        info="?? Group related runs together (e.g., 'temperature-test', 'model-comparison')"
-                    )
-                    task_label_input = gr.Dropdown(
-                        label="Task Type",
-                        choices=["reasoning", "creative", "coding", "summarization", "analysis", "debugging", "other"],
-                        value="other",
-                        allow_custom_value=True,
-                        info="Categorize what kind of task this run performs"
-                    )
-                    run_notes_input = gr.Textbox(
-                        label="Run Notes",
-                        placeholder="Testing impact of higher temperature on creative tasks...",
-                        lines=2,
-                        info="Free-form notes about this specific run"
-                    )
+            with gr.TabItem("Sessions", elem_id="sessions-tab"):
+                with gr.Row(equal_height=True):
+                    with gr.Column(scale=1):
+                        gr.Markdown("## Session Management")
+                        session_name_input = gr.Textbox(
+                            label="Session Name",
+                            placeholder="experiment-gpt4-vs-claude",
+                            info="Give this session a memorable name",
+                            elem_id="session-name"
+                        )
+                        with gr.Row():
+                            save_session_btn = gr.Button("Save", variant="secondary", scale=1, elem_id="save-session")
+                            load_session_btn = gr.Button("Load", variant="secondary", scale=1, elem_id="load-session")
+                            new_session_btn = gr.Button("New", variant="secondary", scale=1, elem_id="new-session")
+                        session_list = gr.Dropdown(
+                            label="Saved Sessions",
+                            choices=[],
+                            value=None,
+                            interactive=True,
+                            info="Select a session to load",
+                            elem_id="session-list"
+                        )
+                        session_status = gr.Markdown(
+                            value="_No active session_",
+                            elem_id="session-status"
+                        )
 
-                build_agent = gr.Button("Build Agent", variant="primary")
-                reset_agent = gr.Button("Reset", variant="secondary")
+                    with gr.Column(scale=1):
+                        gr.Markdown("## Session Details")
+                        transcript_preview = gr.Chatbot(
+                            label="Transcript Preview",
+                            height=400,
+                            elem_id="transcript-preview"
+                        )
+                        session_metadata = gr.JSON(
+                            label="Session Metadata",
+                            elem_id="session-metadata"
+                        )
 
-            with gr.Column(scale=2):
-                chatbot = gr.Chatbot(label="Conversation", height=600)
-                with gr.Row():
-                    user_input = gr.Textbox(label="Message", scale=4, lines=2)
-                    send_btn = gr.Button("Send", scale=1)
-                stop_btn = gr.Button("Stop", variant="stop", visible=False, interactive=False)
+            with gr.TabItem("Analytics", elem_id="analytics-tab"):
+                with gr.Row(equal_height=True):
+                    with gr.Column(scale=1):
+                        gr.Markdown("## Run Statistics")
+                        run_info_display = gr.Markdown(
+                            value="No runs yet",
+                            elem_id="run-info"
+                        )
+                        download_csv = gr.Button(
+                            "Download runs.csv",
+                            elem_id="download-csv"
+                        )
 
-            with gr.Column(scale=1):
-                gr.Markdown("## Run Info")
-                run_info_display = gr.Markdown(value="No runs yet")
-                web_badge = gr.HTML(
-                    value="<span style=\"background:#666;color:white;padding:4px 8px;border-radius:4px;\">Web Tool: OFF</span>"
-                )
-                download_csv = gr.Button("Download runs.csv")
+                    with gr.Column(scale=1):
+                        gr.Markdown("## Visualizations")
+                        # Placeholder for future chart implementations
+                        analytics_placeholder = gr.Markdown(
+                            value="Charts and visualizations will be implemented here",
+                            elem_id="analytics-charts"
+                        )
 
         build_agent.click(
             fn=build_agent_handler,
@@ -976,7 +1010,7 @@ def create_ui() -> gr.Blocks:
         )
 
         send_btn.click(
-            fn=send_message_streaming,
+            fn=send_message_streaming_fixed,
             inputs=[
                 user_input,
                 history_state,
@@ -1020,13 +1054,13 @@ def create_ui() -> gr.Blocks:
             outputs=[
                 current_session_state, session_status, history_state,
                 config_state, agent_name, model_selector, system_prompt,
-                temperature, top_p, web_tool_enabled
+                temperature, top_p, web_tool_enabled, transcript_preview, session_metadata
             ]
         )
 
         new_session_btn.click(
             fn=new_session_handler,
-            outputs=[current_session_state, session_status, history_state, session_name_input]
+            outputs=[current_session_state, session_status, history_state, session_name_input, transcript_preview, session_metadata]
         )
 
         # Populate session list on app load
@@ -1055,7 +1089,3 @@ if __name__ == "__main__":
     server_host = getenv("GRADIO_SERVER_HOST", "127.0.0.1")
     app.launch(server_name=server_host, server_port=7860)
     print("Telemetry CSV initialized.")
-    app = create_ui()
-    # Security: Configurable server host binding with secure default
-    server_host = getenv("GRADIO_SERVER_HOST", "127.0.0.1")
-    app.launch(server_name=server_host, server_port=7860)
