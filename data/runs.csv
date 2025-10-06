@@ -9,3 +9,5 @@ ts,agent_name,model,prompt_tokens,completion_tokens,total_tokens,latency_ms,cost
 2025-10-06T01:05:06.919138+00:00,Test,test,0,0,0,100,0.0,exp1,reasoning,notes,True,dynamic,False,off,False
 2025-10-06T01:11:14.746604+00:00,Test,test,0,0,0,100,0.0,exp1,reasoning,notes,True,dynamic,False,off,False
 2025-10-06T01:19:45.392953+00:00,Test,test,0,0,0,100,0.0,exp1,reasoning,notes,True,dynamic,False,off,False
+2025-10-06T02:00:23.756592+00:00,Test,test,0,0,0,100,0.0,exp1,reasoning,notes,True,dynamic,False,off,False
+2025-10-06T02:03:56.176934+00:00,Test,test,0,0,0,100,0.0,exp1,reasoning,notes,True,dynamic,False,off,False

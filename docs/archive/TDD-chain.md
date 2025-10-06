@@ -8,7 +8,7 @@ Analyze the current test infrastructure in the agent-lab codebase and create a c
 CONTEXT:
 - Review tests/__init__.py (currently empty placeholder)
 - Review requirements.txt to confirm pytest>=7.4.0 is available
-- Review AGENTS.md testing guidelines (Section: "Testing Strategy")
+- Review docs/developer/AGENTS.md testing guidelines (Section: "Testing Strategy")
 - Examine agents/tools.py, agents/models.py, agents/runtime.py, services/persist.py, services/catalog.py
 
 TASKS:
@@ -23,14 +23,14 @@ TASKS:
 
 CONSTRAINTS:
 - Work on current branch (do not create new branches)
-- Follow code style from AGENTS.md (Section: "Code Style and Conventions")
+- Follow code style from docs/developer/AGENTS.md (Section: "Code Style and Conventions")
 - Use type hints for all fixtures and helper functions
 - After implementation, run: pytest --collect-only to verify test discovery
 - Commit changes with message: "test: Initialize pytest infrastructure and fixtures"
 - Ensure git status is clean after commit
 
 CITATIONS:
-- Cite relevant lines from AGENTS.md using F:AGENTS.md†L<line> format
+- Cite relevant lines from docs/developer/AGENTS.md using F:docs/developer/AGENTS.md†L<line> format
 - Cite the empty tests/__init__.py file: F:tests/__init__.py†L1-2
 - Cite pytest requirement: F:requirements.txt†L6
 
@@ -88,7 +88,7 @@ TASKS - REFACTOR PHASE:
 12. Commit with: "test(REFACTOR): Enhance tool tests with property-based testing"
 
 CONSTRAINTS:
-- Follow AGENTS.md "Testing Instructions" (F:AGENTS.md†L45-56)
+- Follow docs/developer/AGENTS.md "Testing Instructions" (F:docs/developer/AGENTS.md†L45-56)
 - Use Pydantic models for input validation (F:agents/tools.py†L17-20, L31-34)
 - All tests must be hermetic (no external dependencies)
 - Coverage target: 100% for agents/tools.py
@@ -96,7 +96,7 @@ CONSTRAINTS:
 
 CITATIONS:
 - Cite tool function implementations from agents/tools.py
-- Cite relevant AGENTS.md testing patterns
+- Cite relevant docs/developer/AGENTS.md testing patterns
 - Include terminal output citations for pytest runs (use chunk_id format)
 
 OUTPUT:
@@ -170,7 +170,7 @@ CONSTRAINTS:
 - Monkeypatch persist.CSV_PATH to tmp_path / "test_runs.csv" in tests
 - Target coverage: >95% for services/persist.py (exclude __main__ block)
 - After changes, run all checks: pytest tests/ -v --cov=agents --cov=services
-- Follow AGENTS.md "Critical Data Contracts" (F:AGENTS.md†L85-95)
+- Follow docs/developer/AGENTS.md "Critical Data Contracts" (F:docs/developer/AGENTS.md†L85-95)
 - Ensure clean git status after all commits
 
 CITATIONS:
@@ -246,7 +246,7 @@ CONSTRAINTS:
 - Mock OpenAI client to avoid actual API calls: monkeypatch.setattr(runtime, "OpenAI", MockClient)
 - Mock pydantic_ai.Agent class for tool registration tests
 - Test cancellation with threading.Event and asyncio patterns
-- Follow AGENTS.md "Security and Privacy" (F:AGENTS.md†L98-108)
+- Follow docs/developer/AGENTS.md "Security and Privacy" (F:docs/developer/AGENTS.md†L98-108)
 - Target coverage: >90% for agents/runtime.py (exclude __main__)
 - Ensure all tests are hermetic and deterministic
 - Check git status clean after commits
@@ -255,7 +255,7 @@ CITATIONS:
 - Cite build_agent function: F:agents/runtime.py†L30-74
 - Cite run_agent_stream function: F:agents/runtime.py†L119-184
 - Cite error handling: F:agents/runtime.py†L47-55, L108-115
-- Cite AGENTS.md security sections
+- Cite docs/developer/AGENTS.md security sections
 - Include terminal output showing coverage >90%
 
 OUTPUT:
@@ -330,7 +330,7 @@ CONSTRAINTS:
 - Use monkeypatch for httpx.Client: monkeypatch.setattr(catalog, "httpx.Client", MockClient)
 - Test cache behavior by manipulating _cache_timestamp
 - Verify fallback list contains at least 3 models (F:services/catalog.py†L30-47)
-- Follow AGENTS.md "Model Catalog" section (F:AGENTS.md†L73-83)
+- Follow docs/developer/AGENTS.md "Model Catalog" section (F:docs/developer/AGENTS.md†L73-83)
 - Target coverage: >90% for services/catalog.py
 - Ensure git status is clean after commits
 
@@ -432,7 +432,7 @@ CONSTRAINTS:
 - All integration tests use mocked external dependencies (no real API calls)
 - Use tmp_path for all file operations
 - Tests should complete in <5 seconds each
-- Follow AGENTS.md "Testing Strategy" (F:AGENTS.md†L110-123)
+- Follow docs/developer/AGENTS.md "Testing Strategy" (F:docs/developer/AGENTS.md†L110-123)
 - Create integration/ subdirectory in tests/
 - Add tests/integration/__init__.py
 - Run full test suite: pytest tests/ -v --cov=agents --cov=services
@@ -441,7 +441,7 @@ CONSTRAINTS:
 
 CITATIONS:
 - Cite relevant functions from all modules tested
-- Cite AGENTS.md integration testing guidance
+- Cite docs/developer/AGENTS.md integration testing guidance
 - Include terminal output showing integration tests passing
 - Show final coverage report with >90% overall coverage
 
@@ -496,7 +496,7 @@ DOCUMENTATION UPDATES:
    - Adding new tests guidelines
    - Mocking patterns and fixtures documentation
 
-5. Update AGENTS.md "Testing Strategy" section:
+5. Update docs/developer/AGENTS.md "Testing Strategy" section:
    - Add reference to tests/README.md
    - Document TDD workflow for future development
    - Add pytest command examples
@@ -539,22 +539,22 @@ FINAL VALIDATION:
 
 12. Final commit sequence:
     - git add tests/README.md tests/CONTRIBUTING.md
-    - git add AGENTS.md README.md (if updated)
+    - git add docs/developer/AGENTS.md README.md (if updated)
     - git add .github/workflows/tests.yml (if created)
     - git commit -m "docs: Add comprehensive testing documentation and guidelines"
     - git status (verify clean worktree)
 
 CONSTRAINTS:
-- Follow AGENTS.md "Git Workflow" conventions (F:AGENTS.md†L137-154)
+- Follow docs/developer/AGENTS.md "Git Workflow" conventions (F:docs/developer/AGENTS.md†L137-154)
 - Ensure all documentation is accurate and up-to-date
 - Verify all file paths and code examples in docs are correct
 - Test all pytest commands in documentation work correctly
-- Follow AGENTS.md "PR Instructions" format (F:AGENTS.md†L57-60)
+- Follow docs/developer/AGENTS.md "PR Instructions" format (F:docs/developer/AGENTS.md†L57-60)
 - Ensure final coverage report shows >90% for agents/ and services/
 - All commits should have clean git status after
 
 CITATIONS:
-- Cite updated AGENTS.md sections with line numbers
+- Cite updated docs/developer/AGENTS.md sections with line numbers
 - Cite coverage report showing >90% coverage
 - Include terminal output for final test runs
 - Show mutmut results if mutation testing performed
@@ -563,7 +563,7 @@ CITATIONS:
 OUTPUT:
 Provide updated tests/README.md with complete testing guide.
 Provide updated tests/CONTRIBUTING.md with TDD workflow.
-Provide updated AGENTS.md testing section.
+Provide updated docs/developer/AGENTS.md testing section.
 Provide updated root README.md with testing instructions.
 Show final coverage report (both terminal and HTML preview).
 Include terminal output for all validation commands.
@@ -598,7 +598,7 @@ This 7-prompt sequence implements the complete TDD strategy from Codebase Assess
 Each prompt:
 - ? References specific code with file paths and line numbers
 - ? Follows Git constraints (no new branches, commit changes, clean worktree)
-- ? Follows AGENTS.md conventions and testing guidelines
+- ? Follows docs/developer/AGENTS.md conventions and testing guidelines
 - ? Requires citations for all code references and outputs
 - ? Builds on context from previous prompts
 - ? Provides complete, actionable implementation steps

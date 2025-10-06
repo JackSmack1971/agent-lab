@@ -203,8 +203,8 @@ This document outlines the security architecture of Agent Lab, mapping security 
 ## Compliance Evidence
 
 ### Documentation Requirements
-- [x] Security policy (SECURITY.md)
-- [x] Threat model (threat-model.md)
+- [x] Security policy (docs/security/SECURITY.md)
+- [x] Threat model (docs/security/threat-model.md)
 - [x] Architecture documentation
 - [x] Incident response procedures
 - [ ] Security test results

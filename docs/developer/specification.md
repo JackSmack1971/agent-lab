@@ -16,7 +16,7 @@ The repository contains approximately 120+ files across multiple directories. Ke
 
 ### 1. Outdated Development Artifacts
 - **Pseudocode Files**: `pseudocode-conftest.md`, `pseudocode-implementation-flow.md`, `pseudocode-pytest-ini.md`, `pseudocode-readme.md`, `pseudocode-test-structure.md`, `pseudocode.md` - These appear to be from early development phases and may no longer reflect current implementation
-- **Intermediate Reports**: `integration-report.md`, `qa-validation-report.md`, `state_analysis.json`, `state_analysis.md` - Potentially outdated analysis artifacts
+- **Intermediate Reports**: `docs/reports/integration-report.md`, `docs/reports/qa-validation-report.md`, `state_analysis.json`, `docs/reports/state_analysis.md` - Potentially outdated analysis artifacts
 
 ### 2. Leftover Files from Previous Development Phases
 - **Test Outputs**: `pytest-collect-output.txt` - Temporary test collection output

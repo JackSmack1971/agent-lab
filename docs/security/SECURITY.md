@@ -168,7 +168,7 @@ The following activities are strictly prohibited:
 
 - **Security Issues**: security@agentlab.dev
 - **General Support**: support@agentlab.dev
-- **Documentation**: [Security Architecture](security-architecture.md)
+- **Documentation**: [Security Architecture](security-docs/developer/architecture.md)
 
 ## 📜 Security Updates
 

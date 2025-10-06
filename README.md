@@ -213,11 +213,11 @@ Before deploying, ensure:
 
 ## Keyboard Shortcuts
 
-Agent Lab includes comprehensive keyboard shortcut support for enhanced productivity. Press `Ctrl + /` (or `Cmd + /` on Mac) to view all available shortcuts, or see the [complete keyboard shortcuts documentation](docs/keyboard_shortcuts.md) for detailed reference.
+Agent Lab includes comprehensive keyboard shortcut support for enhanced productivity. Press `Ctrl + /` (or `Cmd + /` on Mac) to view all available shortcuts, or see the [complete keyboard shortcuts documentation](docs/docs/user/keyboard_shortcuts.md) for detailed reference.
 
 ## Security
 
-Agent Lab takes security seriously. Please review our [Security Policy](SECURITY.md) for information about:
+Agent Lab takes security seriously. Please review our [Security Policy](docs/security/SECURITY.md) for information about:
 
 - Reporting security vulnerabilities
 - Security best practices

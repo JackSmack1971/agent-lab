@@ -124,35 +124,35 @@ agent-lab/
 ├── .env.example                   # Environment template
 ├── .gitignore                     # Git ignore rules
 ├── .roomodes                      # Development config
-├── acceptance-criteria.md         # Scattered documentation
-├── AGENTS.md
+├── docs/acceptance/acceptance-criteria.md         # Scattered documentation
+├── docs/developer/AGENTS.md
 ├── app.py                         # Main application entry
-├── architecture.md
-├── backup-strategy.md
+├── docs/developer/architecture.md
+├── docs/operations/backup-strategy.md
 ├── bandit-report.json             # Audit reports
-├── CHANGELOG.md
+├── docs/developer/CHANGELOG.md
 ├── complexity-notes.md            # Development notes
-├── dashboards-alerting-rules.md
+├── docs/operations/dashboards-alerting-rules.md
 ├── data/                          # Runtime data
 ├── docs/                          # Partial documentation
-│   ├── keyboard_shortcuts.md
-│   ├── observability.md
-│   └── ux-strategy.md
-├── emergency-response.md
-├── error-budgets.md
+│   ├── docs/user/keyboard_shortcuts.md
+│   ├── docs/operations/observability.md
+│   └── docs/user/ux-strategy.md
+├── docs/operations/emergency-response.md
+├── docs/operations/error-budgets.md
 ├── fix_keyboard.py                # Utility script
-├── function-specs.md
-├── incident-playbooks.md
-├── integration-report.md
+├── docs/developer/function-specs.md
+├── docs/operations/incident-playbooks.md
+├── docs/reports/integration-report.md
 ├── LICENSE
 ├── memory-bank/                   # Internal docs
 │   ├── decisionLog.md
 │   ├── progress.md
 │   ├── qualityMetrics.md
 │   └── systemPatterns.md
-├── monitoring-alerting.md
+├── docs/operations/monitoring-alerting.md
 ├── pip-audit-report.json
-├── PRD.md
+├── docs/user/PRD.md
 ├── pseudocode-conftest.md         # Outdated artifacts
 ├── pseudocode-implementation-flow.md
 ├── pseudocode-pytest-ini.md
@@ -161,29 +161,29 @@ agent-lab/
 ├── pseudocode.md
 ├── pytest-collect-output.txt       # Temporary outputs
 ├── pytest.ini                     # Test configuration
-├── qa-acceptance-checklist.md
-├── qa-test-plan-tabbed-ui.md
-├── qa-validation-report.md
+├── docs/acceptance/qa-acceptance-checklist.md
+├── docs/acceptance/qa-test-plan-tabbed-ui.md
+├── docs/reports/qa-validation-report.md
 ├── README.md
 ├── repo_state.json                # Stale state files
 ├── requirements.lock
 ├── requirements.txt
-├── roadmap.md
-├── runbooks.md
+├── docs/user/roadmap.md
+├── docs/operations/runbooks.md
 ├── safety-report.json
-├── security-architecture.md
+├── security-docs/developer/architecture.md
 ├── security-audit-report.json
-├── SECURITY.md
-├── slo-sli-framework.md
-├── specification.md
+├── docs/security/SECURITY.md
+├── docs/operations/slo-sli-framework.md
+├── docs/developer/specification.md
 ├── src/                           # Source code
 ├── state_analysis.json
-├── state_analysis.md
+├── docs/reports/state_analysis.md
 ├── TDD-chain.md
 ├── tests/                         # Test suite
-├── threat-model.md
-├── TRD.md
-├── user-scenarios.md
+├── docs/security/threat-model.md
+├── docs/user/TRD.md
+├── docs/user/user-scenarios.md
 ├── workflow-state.json
 └── agents/, services/             # Additional source
 ```
@@ -209,9 +209,9 @@ agent-lab/
 ├── data/                          # Runtime data (unchanged)
 ├── docs/                          # Organized documentation
 │   ├── acceptance/
-│   │   ├── acceptance-criteria.md
-│   │   ├── qa-acceptance-checklist.md
-│   │   └── qa-test-plan-tabbed-ui.md
+│   │   ├── docs/acceptance/acceptance-criteria.md
+│   │   ├── docs/acceptance/qa-acceptance-checklist.md
+│   │   └── docs/acceptance/qa-test-plan-tabbed-ui.md
 │   ├── archive/
 │   │   ├── bandit-report.json      # Archived reports
 │   │   ├── complexity-notes.md     # Historical notes
@@ -221,41 +221,41 @@ agent-lab/
 │   │   ├── state_analysis.json
 │   │   └── TDD-chain.md
 │   ├── developer/
-│   │   ├── AGENTS.md
-│   │   ├── architecture.md
-│   │   ├── CHANGELOG.md
-│   │   ├── function-specs.md
-│   │   └── specification.md
+│   │   ├── docs/developer/AGENTS.md
+│   │   ├── docs/developer/architecture.md
+│   │   ├── docs/developer/CHANGELOG.md
+│   │   ├── docs/developer/function-specs.md
+│   │   └── docs/developer/specification.md
 │   ├── internal/
 │   │   ├── decisionLog.md
 │   │   ├── progress.md
 │   │   ├── qualityMetrics.md
 │   │   └── systemPatterns.md
 │   ├── operations/
-│   │   ├── backup-strategy.md
-│   │   ├── dashboards-alerting-rules.md
-│   │   ├── emergency-response.md
-│   │   ├── error-budgets.md
-│   │   ├── incident-playbooks.md
-│   │   ├── monitoring-alerting.md
-│   │   ├── observability.md
-│   │   ├── runbooks.md
-│   │   └── slo-sli-framework.md
+│   │   ├── docs/operations/backup-strategy.md
+│   │   ├── docs/operations/dashboards-alerting-rules.md
+│   │   ├── docs/operations/emergency-response.md
+│   │   ├── docs/operations/error-budgets.md
+│   │   ├── docs/operations/incident-playbooks.md
+│   │   ├── docs/operations/monitoring-alerting.md
+│   │   ├── docs/operations/observability.md
+│   │   ├── docs/operations/runbooks.md
+│   │   └── docs/operations/slo-sli-framework.md
 │   ├── reports/
-│   │   ├── integration-report.md
-│   │   ├── qa-validation-report.md
-│   │   └── state_analysis.md
+│   │   ├── docs/reports/integration-report.md
+│   │   ├── docs/reports/qa-validation-report.md
+│   │   └── docs/reports/state_analysis.md
 │   ├── security/
-│   │   ├── security-architecture.md
-│   │   ├── SECURITY.md
-│   │   └── threat-model.md
+│   │   ├── security-docs/developer/architecture.md
+│   │   ├── docs/security/SECURITY.md
+│   │   └── docs/security/threat-model.md
 │   └── user/
-│       ├── keyboard_shortcuts.md
-│       ├── PRD.md
-│       ├── roadmap.md
-│       ├── TRD.md
-│       ├── user-scenarios.md
-│       └── ux-strategy.md
+│       ├── docs/user/keyboard_shortcuts.md
+│       ├── docs/user/PRD.md
+│       ├── docs/user/roadmap.md
+│       ├── docs/user/TRD.md
+│       ├── docs/user/user-scenarios.md
+│       └── docs/user/ux-strategy.md
 ├── src/                           # Source code (unchanged)
 ├── tests/                         # Test suite (unchanged)
 └── agents/, services/             # Additional source (unchanged)
@@ -266,31 +266,31 @@ agent-lab/
 ### Documentation File Movements
 | Original Path | New Path | Rationale |
 |---------------|----------|-----------|
-| acceptance-criteria.md | docs/acceptance/acceptance-criteria.md | Group with QA documentation |
-| AGENTS.md | docs/developer/AGENTS.md | Developer tooling documentation |
-| architecture.md | docs/developer/architecture.md | Technical architecture docs |
-| backup-strategy.md | docs/operations/backup-strategy.md | Operational procedures |
-| CHANGELOG.md | docs/developer/CHANGELOG.md | Development history |
-| dashboards-alerting-rules.md | docs/operations/dashboards-alerting-rules.md | Monitoring guides |
-| emergency-response.md | docs/operations/emergency-response.md | Incident response |
-| error-budgets.md | docs/operations/error-budgets.md | Reliability engineering |
-| function-specs.md | docs/developer/function-specs.md | API specifications |
-| incident-playbooks.md | docs/operations/incident-playbooks.md | Operational procedures |
-| monitoring-alerting.md | docs/operations/monitoring-alerting.md | Monitoring guides |
-| PRD.md | docs/user/PRD.md | Product requirements |
-| qa-acceptance-checklist.md | docs/acceptance/qa-acceptance-checklist.md | QA documentation |
-| qa-test-plan-tabbed-ui.md | docs/acceptance/qa-test-plan-tabbed-ui.md | QA documentation |
-| qa-validation-report.md | docs/reports/qa-validation-report.md | Test reports |
-| roadmap.md | docs/user/roadmap.md | Product roadmap |
-| runbooks.md | docs/operations/runbooks.md | Operational procedures |
-| security-architecture.md | docs/security/security-architecture.md | Security documentation |
-| slo-sli-framework.md | docs/operations/slo-sli-framework.md | Reliability engineering |
-| specification.md | docs/developer/specification.md | Technical specifications |
-| threat-model.md | docs/security/threat-model.md | Security documentation |
-| user-scenarios.md | docs/user/user-scenarios.md | User requirements |
-| docs/keyboard_shortcuts.md | docs/user/keyboard_shortcuts.md | User guides |
-| docs/observability.md | docs/operations/observability.md | Monitoring guides |
-| docs/ux-strategy.md | docs/user/ux-strategy.md | User experience |
+| docs/acceptance/acceptance-criteria.md | docs/acceptance/docs/acceptance/acceptance-criteria.md | Group with QA documentation |
+| docs/developer/AGENTS.md | docs/developer/docs/developer/AGENTS.md | Developer tooling documentation |
+| docs/developer/architecture.md | docs/developer/docs/developer/architecture.md | Technical architecture docs |
+| docs/operations/backup-strategy.md | docs/operations/docs/operations/backup-strategy.md | Operational procedures |
+| docs/developer/CHANGELOG.md | docs/developer/docs/developer/CHANGELOG.md | Development history |
+| docs/operations/dashboards-alerting-rules.md | docs/operations/docs/operations/dashboards-alerting-rules.md | Monitoring guides |
+| docs/operations/emergency-response.md | docs/operations/docs/operations/emergency-response.md | Incident response |
+| docs/operations/error-budgets.md | docs/operations/docs/operations/error-budgets.md | Reliability engineering |
+| docs/developer/function-specs.md | docs/developer/docs/developer/function-specs.md | API specifications |
+| docs/operations/incident-playbooks.md | docs/operations/docs/operations/incident-playbooks.md | Operational procedures |
+| docs/operations/monitoring-alerting.md | docs/operations/docs/operations/monitoring-alerting.md | Monitoring guides |
+| docs/user/PRD.md | docs/user/docs/user/PRD.md | Product requirements |
+| docs/acceptance/qa-acceptance-checklist.md | docs/acceptance/docs/acceptance/qa-acceptance-checklist.md | QA documentation |
+| docs/acceptance/qa-test-plan-tabbed-ui.md | docs/acceptance/docs/acceptance/qa-test-plan-tabbed-ui.md | QA documentation |
+| docs/reports/qa-validation-report.md | docs/reports/docs/reports/qa-validation-report.md | Test reports |
+| docs/user/roadmap.md | docs/user/docs/user/roadmap.md | Product roadmap |
+| docs/operations/runbooks.md | docs/operations/docs/operations/runbooks.md | Operational procedures |
+| security-docs/developer/architecture.md | docs/security/security-docs/developer/architecture.md | Security documentation |
+| docs/operations/slo-sli-framework.md | docs/operations/docs/operations/slo-sli-framework.md | Reliability engineering |
+| docs/developer/specification.md | docs/developer/docs/developer/specification.md | Technical specifications |
+| docs/security/threat-model.md | docs/security/docs/security/threat-model.md | Security documentation |
+| docs/user/user-scenarios.md | docs/user/docs/user/user-scenarios.md | User requirements |
+| docs/docs/user/keyboard_shortcuts.md | docs/user/docs/user/keyboard_shortcuts.md | User guides |
+| docs/docs/operations/observability.md | docs/operations/docs/operations/observability.md | Monitoring guides |
+| docs/docs/user/ux-strategy.md | docs/user/docs/user/ux-strategy.md | User experience |
 | memory-bank/* | docs/internal/* | Internal documentation |
 
 ### Artifact Removal Plan
