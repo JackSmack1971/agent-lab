@@ -1,7 +1,6 @@
 """Integration tests for streaming with cancellation functionality."""
 
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
 import asyncio
 from threading import Event
 import time
@@ -49,8 +48,6 @@ class TestStreamingCancellation:
         return DelayedStream
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     async def test_streaming_cancellation_mid_response_integration(
         self, mock_openai_class, mock_agent_class, mock_env_vars,
         sample_agent_config, mock_delayed_stream
@@ -107,8 +104,6 @@ class TestStreamingCancellation:
         assert result.text == expected_text
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     async def test_streaming_cancellation_immediate_integration(
         self, mock_openai_class, mock_agent_class, mock_env_vars,
         sample_agent_config
@@ -147,8 +142,6 @@ class TestStreamingCancellation:
         assert result.latency_ms >= 0
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     async def test_streaming_cancellation_with_usage_data_integration(
         self, mock_openai_class, mock_agent_class, mock_env_vars,
         sample_agent_config
@@ -207,8 +200,6 @@ class TestStreamingCancellation:
         assert result.latency_ms >= 0
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     async def test_streaming_cancellation_performance_integration(
         self, mock_openai_class, mock_agent_class, mock_env_vars,
         sample_agent_config
@@ -261,8 +252,6 @@ class TestStreamingCancellation:
         assert result.latency_ms >= 0
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     async def test_streaming_no_cancellation_allows_full_response_integration(
         self, mock_openai_class, mock_agent_class, mock_env_vars,
         sample_agent_config

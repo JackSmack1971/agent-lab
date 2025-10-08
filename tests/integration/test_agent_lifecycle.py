@@ -1,7 +1,6 @@
 """Integration tests for complete agent lifecycle: build → run → persist workflow."""
 
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime
 from pathlib import Path
 import tempfile
@@ -50,8 +49,6 @@ class TestAgentLifecycle:
         return [mock_chunk1, mock_chunk2, mock_chunk3]
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     async def test_agent_lifecycle_build_run_persist_integration(
         self, mock_openai_class, mock_agent_class, mock_env_vars,
         sample_agent_config, temp_data_dir, mock_stream_response
@@ -137,8 +134,6 @@ class TestAgentLifecycle:
             assert persisted.aborted is False
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     async def test_agent_lifecycle_with_web_tools_integration(
         self, mock_openai_class, mock_agent_class, mock_env_vars,
         sample_agent_config, temp_data_dir
@@ -183,8 +178,6 @@ class TestAgentLifecycle:
         assert result.aborted is False
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     async def test_agent_lifecycle_error_handling_integration(
         self, mock_openai_class, mock_agent_class, mock_env_vars,
         sample_agent_config, temp_data_dir

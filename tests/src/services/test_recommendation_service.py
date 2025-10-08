@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import pytest
-from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime, timezone
 
 from src.models.recommendation import (
@@ -50,8 +49,8 @@ class TestRecommendationService:
             assert "openai/gpt-3.5-turbo" in prompt
             assert "anthropic/claude-3-haiku" in prompt
 
-    @patch('src.services.recommendation_service._call_gpt4_for_recommendations')
-    def test_analyze_use_case_success(self, mock_gpt4_call):
+def test_analyze_use_case_success(self, mock_gpt4_call, mocker):
+    _call_gpt4_for_recommendations = mocker.patch('src.services.recommendation_service._call_gpt4_for_recommendations')
         """Test successful use case analysis."""
         use_case = UseCaseInput(
             description="I need a fast chatbot",
@@ -81,8 +80,8 @@ class TestRecommendationService:
         assert result.analysis_summary == "Recommended fast model"
         mock_gpt4_call.assert_called_once_with(use_case)
 
-    @patch('src.services.recommendation_service._call_gpt4_for_recommendations')
-    def test_analyze_use_case_gpt4_fails_uses_fallback(self, mock_gpt4_call):
+def test_analyze_use_case_gpt4_fails_uses_fallback(self, mock_gpt4_call, mocker):
+    _call_gpt4_for_recommendations = mocker.patch('src.services.recommendation_service._call_gpt4_for_recommendations')
         """Test fallback when GPT-4 fails."""
         use_case = UseCaseInput(description="I need a fast chatbot")
 
@@ -109,9 +108,9 @@ class TestRecommendationService:
         with pytest.raises(ValueError, match="Use case description cannot be empty"):
             analyze_use_case(use_case)
 
-    @patch('src.services.recommendation_service.httpx.Client')
-    @patch('src.services.recommendation_service.os.getenv')
-    def test_call_gpt4_for_recommendations_success(self, mock_getenv, mock_client_class):
+def test_call_gpt4_for_recommendations_success(self, mock_getenv, mock_client_class, mocker):
+    getenv = mocker.patch('src.services.recommendation_service.os.getenv')
+    Client = mocker.patch('src.services.recommendation_service.httpx.Client')
         """Test successful GPT-4 API call."""
         mock_getenv.return_value = "test-api-key"
 
@@ -150,8 +149,8 @@ class TestRecommendationService:
         assert result.recommendations[0].model_id == "openai/gpt-4o"
         assert result.analysis_summary == "Recommended GPT-4o"
 
-    @patch('src.services.recommendation_service.os.getenv')
-    def test_call_gpt4_for_recommendations_no_api_key(self, mock_getenv):
+def test_call_gpt4_for_recommendations_no_api_key(self, mock_getenv, mocker):
+    getenv = mocker.patch('src.services.recommendation_service.os.getenv')
         """Test error when API key is not set."""
         mock_getenv.return_value = None
 
@@ -198,8 +197,8 @@ class TestRecommendationService:
         # Should have default recommendations
         assert result.recommendations[0].model_id == "openai/gpt-4o-mini"
 
-    @patch('src.services.recommendation_service._call_gpt4_for_recommendations')
-    def test_caching_behavior(self, mock_gpt4_call):
+def test_caching_behavior(self, mock_gpt4_call, mocker):
+    _call_gpt4_for_recommendations = mocker.patch('src.services.recommendation_service._call_gpt4_for_recommendations')
         """Test that recommendations are cached properly."""
         use_case = UseCaseInput(description="test caching", max_cost=0.01)
 

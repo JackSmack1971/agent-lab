@@ -1,7 +1,6 @@
 """Unit tests for security-focused input validation."""
 
 import pytest
-from unittest.mock import Mock, patch
 
 from app import (
     validate_agent_name,
@@ -182,7 +181,6 @@ class TestSecurityInputValidation:
         result = validate_form_field("unknown_field", "value")
         assert result["is_valid"] is True  # Defaults to valid
 
-    @patch("services.persist.append_run")
     def test_send_message_empty_input_handling(self, mock_append_run) -> None:
         """Test send_message_streaming handles empty/whitespace input securely."""
         # Mock all required parameters
@@ -213,7 +211,6 @@ class TestSecurityInputValidation:
         import asyncio
         asyncio.run(test_empty())
 
-    @patch("services.persist.append_run")
     def test_send_message_input_sanitization(self, mock_append_run) -> None:
         """Test message input sanitization."""
         # Test that messages are trimmed
@@ -267,7 +264,6 @@ class TestSecurityInputValidation:
         assert isinstance(result[0], Session)
         assert result[0].notes == xss_name
 
-    @patch("services.persist.append_run")
     def test_experiment_id_input_validation(self, mock_append_run) -> None:
         """Test experiment ID input validation."""
         # Experiment ID is used in RunRecord, should be stripped
@@ -361,8 +357,7 @@ class TestSecurityInputValidation:
     def test_url_validation_in_web_tool(self) -> None:
         """Test URL validation in web fetch tool."""
         from agents.tools import fetch_url, FetchInput
-        from unittest.mock import AsyncMock, patch
-
+        
         # Test with allowed domain
         ctx = Mock()
         input_data = FetchInput(url="https://api.github.com/user", timeout_s=5.0)

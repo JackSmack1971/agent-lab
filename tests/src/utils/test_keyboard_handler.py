@@ -6,7 +6,6 @@ Tests cover all classes, methods, and error paths to achieve >=90% coverage.
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
 from typing import List, Dict, Any
 import logging
 
@@ -55,8 +54,8 @@ class TestKeyboardShortcut:
                 action="save",
             )
 
-    @patch('src.utils.keyboard_handler.logger')
-    def test_creation_logging_on_error(self, mock_logger):
+def test_creation_logging_on_error(self, mock_logger, mocker):
+    logger = mocker.patch('src.utils.keyboard_handler.logger')
         """Test that validation errors are logged."""
         with pytest.raises(Exception):
             KeyboardShortcut(
@@ -97,7 +96,7 @@ class TestKeyboardShortcut:
 class TestShortcutContext:
     """Test ShortcutContext class."""
 
-    def test_creation(self):
+    def test_shortcut_context_creation_succeeds(self):
         """Test creating ShortcutContext."""
         context = ShortcutContext(
             active_tab="chat",
@@ -152,8 +151,8 @@ class TestShortcutEvent:
         with pytest.raises(Exception):
             ShortcutEvent(key="")
 
-    @patch('src.utils.keyboard_handler.logger')
-    def test_creation_logging_on_error(self, mock_logger):
+def test_creation_logging_on_error(self, mock_logger, mocker):
+    logger = mocker.patch('src.utils.keyboard_handler.logger')
         """Test that validation errors are logged."""
         with pytest.raises(Exception):
             ShortcutEvent(key="")
@@ -185,36 +184,36 @@ class TestShortcutEvent:
 class TestPlatformDetector:
     """Test PlatformDetector class."""
 
-    @patch('src.utils.keyboard_handler._platform_mod.system')
-    def test_get_platform_windows(self, mock_system):
+def test_get_platform_windows(self, mock_system, mocker):
+    system = mocker.patch('src.utils.keyboard_handler._platform_mod.system')
         """Test platform detection for Windows."""
         mock_system.return_value = "Windows"
         assert PlatformDetector.get_platform() == "windows"
 
-    @patch('src.utils.keyboard_handler._platform_mod.system')
-    def test_get_platform_mac(self, mock_system):
+def test_get_platform_mac(self, mock_system, mocker):
+    system = mocker.patch('src.utils.keyboard_handler._platform_mod.system')
         """Test platform detection for Mac."""
         mock_system.return_value = "Darwin"
         assert PlatformDetector.get_platform() == "mac"
 
-    @patch('src.utils.keyboard_handler._platform_mod.system')
-    def test_get_platform_linux(self, mock_system):
+def test_get_platform_linux(self, mock_system, mocker):
+    system = mocker.patch('src.utils.keyboard_handler._platform_mod.system')
         """Test platform detection for Linux."""
         mock_system.return_value = "Linux"
         assert PlatformDetector.get_platform() == "linux"
 
-    @patch('src.utils.keyboard_handler._platform_mod.system')
-    @patch('src.utils.keyboard_handler.logger')
-    def test_get_platform_unsupported(self, mock_logger, mock_system):
+def test_get_platform_unsupported(self, mock_logger, mock_system, mocker):
+    logger = mocker.patch('src.utils.keyboard_handler.logger')
+    system = mocker.patch('src.utils.keyboard_handler._platform_mod.system')
         """Test platform detection for unsupported platform."""
         mock_system.return_value = "Unknown"
         with pytest.raises(ValueError, match="Unsupported platform"):
             PlatformDetector.get_platform()
         mock_logger.error.assert_called_once()
 
-    @patch('src.utils.keyboard_handler._platform_mod.system')
-    @patch('src.utils.keyboard_handler.logger')
-    def test_get_platform_exception(self, mock_logger, mock_system):
+def test_get_platform_exception(self, mock_logger, mock_system, mocker):
+    logger = mocker.patch('src.utils.keyboard_handler.logger')
+    system = mocker.patch('src.utils.keyboard_handler._platform_mod.system')
         """Test platform detection with exception."""
         mock_system.side_effect = Exception("System error")
         with pytest.raises(ValueError, match="Unable to detect platform"):
@@ -245,7 +244,7 @@ class TestPlatformDetector:
 class TestContextManager:
     """Test ContextManager class."""
 
-    def test_init(self):
+    def test_context_manager_initialization_succeeds(self):
         """Test ContextManager initialization."""
         manager = ContextManager()
         assert isinstance(manager._current_context, ShortcutContext)
@@ -265,15 +264,15 @@ class TestContextManager:
         assert context.active_tab == "chat"
         assert context.modal_open is True
 
-    @patch('src.utils.keyboard_handler.logger')
-    def test_update_context_invalid_attribute(self, mock_logger):
+def test_update_context_invalid_attribute(self, mock_logger, mocker):
+    logger = mocker.patch('src.utils.keyboard_handler.logger')
         """Test update_context with invalid attribute."""
         manager = ContextManager()
         manager.update_context(invalid_attr="value")
         mock_logger.warning.assert_called_once_with("Unknown context attribute: invalid_attr")
 
-    @patch('src.utils.keyboard_handler.logger')
-    def test_update_context_setattr_exception(self, mock_logger):
+def test_update_context_setattr_exception(self, mock_logger, mocker):
+    logger = mocker.patch('src.utils.keyboard_handler.logger')
         """Test update_context with setattr exception."""
         manager = ContextManager()
         # Mock setattr to raise
@@ -457,8 +456,8 @@ class TestContextManager:
         context = ShortcutContext(active_tab="other_tab")
         assert not manager.is_shortcut_available(shortcut, context)
 
-    @patch('src.utils.keyboard_handler.logger')
-    def test_is_shortcut_available_exception(self, mock_logger):
+def test_is_shortcut_available_exception(self, mock_logger, mocker):
+    logger = mocker.patch('src.utils.keyboard_handler.logger')
         """Test is_shortcut_available with exception."""
         manager = ContextManager()
         shortcut = KeyboardShortcut(
@@ -479,9 +478,9 @@ class TestContextManager:
 class TestKeyboardHandler:
     """Test KeyboardHandler class."""
 
-    @patch('src.utils.keyboard_handler.PlatformDetector')
-    @patch('src.utils.keyboard_handler.ContextManager')
-    def test_init(self, mock_context_manager, mock_platform_detector):
+def test_keyboard_handler_initialization_succeeds(self, mock_context_manager, mock_platform_detector, mocker):
+    ContextManager = mocker.patch('src.utils.keyboard_handler.ContextManager')
+    PlatformDetector = mocker.patch('src.utils.keyboard_handler.PlatformDetector')
         """Test KeyboardHandler initialization."""
         mock_pd_instance = Mock()
         mock_pd_instance.get_platform.return_value = "windows"
@@ -499,9 +498,9 @@ class TestKeyboardHandler:
         assert handler._event_history == []
         assert handler._platform == "windows"
 
-    @patch('src.utils.keyboard_handler.PlatformDetector')
-    @patch('src.utils.keyboard_handler.ContextManager')
-    def test_init_with_custom_detectors(self, mock_context_manager, mock_platform_detector):
+def test_init_with_custom_detectors(self, mock_context_manager, mock_platform_detector, mocker):
+    ContextManager = mocker.patch('src.utils.keyboard_handler.ContextManager')
+    PlatformDetector = mocker.patch('src.utils.keyboard_handler.PlatformDetector')
         """Test KeyboardHandler with custom detectors."""
         mock_pd = Mock()
         mock_cm = Mock()
@@ -509,10 +508,10 @@ class TestKeyboardHandler:
         assert handler._platform_detector == mock_pd
         assert handler._context_manager == mock_cm
 
-    @patch('src.utils.keyboard_handler.logger')
-    @patch('src.utils.keyboard_handler.PlatformDetector')
-    @patch('src.utils.keyboard_handler.ContextManager')
-    def test_init_default_shortcuts_registration_error(self, mock_context_manager, mock_platform_detector, mock_logger):
+def test_init_default_shortcuts_registration_error(self, mock_context_manager, mock_platform_detector, mock_logger, mocker):
+    ContextManager = mocker.patch('src.utils.keyboard_handler.ContextManager')
+    PlatformDetector = mocker.patch('src.utils.keyboard_handler.PlatformDetector')
+    logger = mocker.patch('src.utils.keyboard_handler.logger')
         """Test init with default shortcuts registration error to cover lines 219-226."""
         # Make DEFAULT_SHORTCUTS have invalid data
         with patch('src.utils.keyboard_handler.DEFAULT_SHORTCUTS', [{"invalid": "data"}]):
@@ -525,9 +524,9 @@ class TestKeyboardHandler:
             handler = KeyboardHandler()
             mock_logger.error.assert_called_once_with("Invalid default shortcut: Invalid shortcut data")
 
-    @patch('src.utils.keyboard_handler.PlatformDetector')
-    @patch('src.utils.keyboard_handler.ContextManager')
-    def test_register_shortcut_success(self, mock_context_manager, mock_platform_detector):
+def test_register_shortcut_success(self, mock_context_manager, mock_platform_detector, mocker):
+    ContextManager = mocker.patch('src.utils.keyboard_handler.ContextManager')
+    PlatformDetector = mocker.patch('src.utils.keyboard_handler.PlatformDetector')
         """Test register_shortcut success."""
         mock_pd_instance = Mock()
         mock_pd_instance.get_platform.return_value = "windows"
@@ -552,9 +551,9 @@ class TestKeyboardHandler:
             assert "test" in handler._shortcuts
             mock_logger.info.assert_called()
 
-    @patch('src.utils.keyboard_handler.PlatformDetector')
-    @patch('src.utils.keyboard_handler.ContextManager')
-    def test_register_shortcut_duplicate_id(self, mock_context_manager, mock_platform_detector):
+def test_register_shortcut_duplicate_id(self, mock_context_manager, mock_platform_detector, mocker):
+    ContextManager = mocker.patch('src.utils.keyboard_handler.ContextManager')
+    PlatformDetector = mocker.patch('src.utils.keyboard_handler.PlatformDetector')
         """Test register_shortcut with duplicate id."""
         mock_pd_instance = Mock()
         mock_pd_instance.get_platform.return_value = "windows"
@@ -584,10 +583,10 @@ class TestKeyboardHandler:
             with pytest.raises(ValueError, match="Shortcut ID already exists"):
                 handler.register_shortcut(shortcut2)
 
-    @patch('src.utils.keyboard_handler.PlatformDetector')
-    @patch('src.utils.keyboard_handler.ContextManager')
-    @patch('src.utils.keyboard_handler.logger')
-    def test_register_shortcut_conflicts(self, mock_logger, mock_context_manager, mock_platform_detector):
+def test_register_shortcut_conflicts(self, mock_logger, mock_context_manager, mock_platform_detector, mocker):
+    logger = mocker.patch('src.utils.keyboard_handler.logger')
+    ContextManager = mocker.patch('src.utils.keyboard_handler.ContextManager')
+    PlatformDetector = mocker.patch('src.utils.keyboard_handler.PlatformDetector')
         """Test register_shortcut with conflicts."""
         mock_pd_instance = Mock()
         mock_pd_instance.get_platform.return_value = "windows"
@@ -610,10 +609,10 @@ class TestKeyboardHandler:
             handler.register_shortcut(shortcut)
             mock_logger.warning.assert_called_once()
 
-    @patch('src.utils.keyboard_handler.PlatformDetector')
-    @patch('src.utils.keyboard_handler.ContextManager')
-    @patch('src.utils.keyboard_handler.logger')
-    def test_register_shortcut_revalidation_error(self, mock_logger, mock_context_manager, mock_platform_detector):
+def test_register_shortcut_revalidation_error(self, mock_logger, mock_context_manager, mock_platform_detector, mocker):
+    logger = mocker.patch('src.utils.keyboard_handler.logger')
+    ContextManager = mocker.patch('src.utils.keyboard_handler.ContextManager')
+    PlatformDetector = mocker.patch('src.utils.keyboard_handler.PlatformDetector')
         """Test register_shortcut revalidation error."""
         mock_pd_instance = Mock()
         mock_pd_instance.get_platform.return_value = "windows"
@@ -638,10 +637,10 @@ class TestKeyboardHandler:
                 handler.register_shortcut(shortcut)
             mock_logger.error.assert_called()
 
-    @patch('src.utils.keyboard_handler.PlatformDetector')
-    @patch('src.utils.keyboard_handler.ContextManager')
-    @patch('src.utils.keyboard_handler.logger')
-    def test_register_shortcut_other_exception(self, mock_logger, mock_context_manager, mock_platform_detector):
+def test_register_shortcut_other_exception(self, mock_logger, mock_context_manager, mock_platform_detector, mocker):
+    logger = mocker.patch('src.utils.keyboard_handler.logger')
+    ContextManager = mocker.patch('src.utils.keyboard_handler.ContextManager')
+    PlatformDetector = mocker.patch('src.utils.keyboard_handler.PlatformDetector')
         """Test register_shortcut with other exception."""
         mock_pd_instance = Mock()
         mock_pd_instance.get_platform.return_value = "windows"
@@ -664,9 +663,9 @@ class TestKeyboardHandler:
                 handler.register_shortcut(shortcut)
             mock_logger.error.assert_called()
 
-    @patch('src.utils.keyboard_handler.PlatformDetector')
-    @patch('src.utils.keyboard_handler.ContextManager')
-    def test_unregister_shortcut_success(self, mock_context_manager, mock_platform_detector):
+def test_unregister_shortcut_success(self, mock_context_manager, mock_platform_detector, mocker):
+    ContextManager = mocker.patch('src.utils.keyboard_handler.ContextManager')
+    PlatformDetector = mocker.patch('src.utils.keyboard_handler.PlatformDetector')
         """Test unregister_shortcut success."""
         mock_pd_instance = Mock()
         mock_pd_instance.get_platform.return_value = "windows"
@@ -691,9 +690,9 @@ class TestKeyboardHandler:
             handler.unregister_shortcut("test")
             assert "test" not in handler._shortcuts
 
-    @patch('src.utils.keyboard_handler.PlatformDetector')
-    @patch('src.utils.keyboard_handler.ContextManager')
-    def test_unregister_shortcut_not_found(self, mock_context_manager, mock_platform_detector):
+def test_unregister_shortcut_not_found(self, mock_context_manager, mock_platform_detector, mocker):
+    ContextManager = mocker.patch('src.utils.keyboard_handler.ContextManager')
+    PlatformDetector = mocker.patch('src.utils.keyboard_handler.PlatformDetector')
         """Test unregister_shortcut not found."""
         mock_pd_instance = Mock()
         mock_pd_instance.get_platform.return_value = "windows"
@@ -706,10 +705,10 @@ class TestKeyboardHandler:
         with pytest.raises(ValueError, match="Shortcut not found"):
             handler.unregister_shortcut("nonexistent")
 
-    @patch('src.utils.keyboard_handler.PlatformDetector')
-    @patch('src.utils.keyboard_handler.ContextManager')
-    @patch('src.utils.keyboard_handler.logger')
-    def test_unregister_shortcut_exception(self, mock_logger, mock_context_manager, mock_platform_detector):
+def test_unregister_shortcut_exception(self, mock_logger, mock_context_manager, mock_platform_detector, mocker):
+    logger = mocker.patch('src.utils.keyboard_handler.logger')
+    ContextManager = mocker.patch('src.utils.keyboard_handler.ContextManager')
+    PlatformDetector = mocker.patch('src.utils.keyboard_handler.PlatformDetector')
         """Test unregister_shortcut with exception."""
         mock_pd_instance = Mock()
         mock_pd_instance.get_platform.return_value = "windows"
@@ -728,10 +727,10 @@ class TestKeyboardHandler:
                     handler.unregister_shortcut("test")
                 mock_logger.error.assert_called()
 
-    @patch('src.utils.keyboard_handler.PlatformDetector')
-    @patch('src.utils.keyboard_handler.ContextManager')
-    @patch('src.utils.keyboard_handler._monotonic')
-    def test_process_event_success(self, mock_monotonic, mock_context_manager, mock_platform_detector):
+def test_process_event_success(self, mock_monotonic, mock_context_manager, mock_platform_detector, mocker):
+    _monotonic = mocker.patch('src.utils.keyboard_handler._monotonic')
+    ContextManager = mocker.patch('src.utils.keyboard_handler.ContextManager')
+    PlatformDetector = mocker.patch('src.utils.keyboard_handler.PlatformDetector')
         """Test process_event success."""
         mock_pd_instance = Mock()
         mock_pd_instance.get_platform.return_value = "windows"
@@ -764,10 +763,10 @@ class TestKeyboardHandler:
             assert result == "save"
             mock_logger.info.assert_called()
 
-    @patch('src.utils.keyboard_handler.PlatformDetector')
-    @patch('src.utils.keyboard_handler.ContextManager')
-    @patch('src.utils.keyboard_handler.logger')
-    def test_process_event_validation_error(self, mock_logger, mock_context_manager, mock_platform_detector):
+def test_process_event_validation_error(self, mock_logger, mock_context_manager, mock_platform_detector, mocker):
+    logger = mocker.patch('src.utils.keyboard_handler.logger')
+    ContextManager = mocker.patch('src.utils.keyboard_handler.ContextManager')
+    PlatformDetector = mocker.patch('src.utils.keyboard_handler.PlatformDetector')
         """Test process_event with validation error."""
         mock_pd_instance = Mock()
         mock_pd_instance.get_platform.return_value = "windows"
@@ -785,10 +784,10 @@ class TestKeyboardHandler:
                 handler.process_event(event)
             mock_logger.error.assert_called()
 
-    @patch('src.utils.keyboard_handler.PlatformDetector')
-    @patch('src.utils.keyboard_handler.ContextManager')
-    @patch('src.utils.keyboard_handler.logger')
-    def test_process_event_rate_limit_exceeded(self, mock_logger, mock_context_manager, mock_platform_detector):
+def test_process_event_rate_limit_exceeded(self, mock_logger, mock_context_manager, mock_platform_detector, mocker):
+    logger = mocker.patch('src.utils.keyboard_handler.logger')
+    ContextManager = mocker.patch('src.utils.keyboard_handler.ContextManager')
+    PlatformDetector = mocker.patch('src.utils.keyboard_handler.PlatformDetector')
         """Test process_event with rate limit exceeded."""
         mock_pd_instance = Mock()
         mock_pd_instance.get_platform.return_value = "windows"
@@ -806,10 +805,10 @@ class TestKeyboardHandler:
             assert result is None
             mock_logger.warning.assert_called_with("Rate limit exceeded for keyboard events")
 
-    @patch('src.utils.keyboard_handler.PlatformDetector')
-    @patch('src.utils.keyboard_handler.ContextManager')
-    @patch('src.utils.keyboard_handler.logger')
-    def test_process_event_no_match(self, mock_logger, mock_context_manager, mock_platform_detector):
+def test_process_event_no_match(self, mock_logger, mock_context_manager, mock_platform_detector, mocker):
+    logger = mocker.patch('src.utils.keyboard_handler.logger')
+    ContextManager = mocker.patch('src.utils.keyboard_handler.ContextManager')
+    PlatformDetector = mocker.patch('src.utils.keyboard_handler.PlatformDetector')
         """Test process_event with no matching shortcut."""
         mock_pd_instance = Mock()
         mock_pd_instance.get_platform.return_value = "windows"
@@ -826,10 +825,10 @@ class TestKeyboardHandler:
         assert result is None
         mock_logger.warning.assert_called()
 
-    @patch('src.utils.keyboard_handler.PlatformDetector')
-    @patch('src.utils.keyboard_handler.ContextManager')
-    @patch('src.utils.keyboard_handler.logger')
-    def test_process_event_exception(self, mock_logger, mock_context_manager, mock_platform_detector):
+def test_process_event_exception(self, mock_logger, mock_context_manager, mock_platform_detector, mocker):
+    logger = mocker.patch('src.utils.keyboard_handler.logger')
+    ContextManager = mocker.patch('src.utils.keyboard_handler.ContextManager')
+    PlatformDetector = mocker.patch('src.utils.keyboard_handler.PlatformDetector')
         """Test process_event with exception."""
         mock_pd_instance = Mock()
         mock_pd_instance.get_platform.return_value = "windows"
@@ -848,9 +847,9 @@ class TestKeyboardHandler:
         assert result is None
         mock_logger.error.assert_called()
 
-    @patch('src.utils.keyboard_handler.PlatformDetector')
-    @patch('src.utils.keyboard_handler.ContextManager')
-    def test_get_available_shortcuts_success(self, mock_context_manager, mock_platform_detector):
+def test_get_available_shortcuts_success(self, mock_context_manager, mock_platform_detector, mocker):
+    ContextManager = mocker.patch('src.utils.keyboard_handler.ContextManager')
+    PlatformDetector = mocker.patch('src.utils.keyboard_handler.PlatformDetector')
         """Test get_available_shortcuts success."""
         mock_pd_instance = Mock()
         mock_pd_instance.get_platform.return_value = "windows"
@@ -879,10 +878,10 @@ class TestKeyboardHandler:
         assert len(result) == 1
         assert result[0].id == "test"
 
-    @patch('src.utils.keyboard_handler.PlatformDetector')
-    @patch('src.utils.keyboard_handler.ContextManager')
-    @patch('src.utils.keyboard_handler.logger')
-    def test_get_available_shortcuts_exception(self, mock_logger, mock_context_manager, mock_platform_detector):
+def test_get_available_shortcuts_exception(self, mock_logger, mock_context_manager, mock_platform_detector, mocker):
+    logger = mocker.patch('src.utils.keyboard_handler.logger')
+    ContextManager = mocker.patch('src.utils.keyboard_handler.ContextManager')
+    PlatformDetector = mocker.patch('src.utils.keyboard_handler.PlatformDetector')
         """Test get_available_shortcuts with exception to cover lines 327-329."""
         mock_pd_instance = Mock()
         mock_pd_instance.get_platform.return_value = "windows"
@@ -910,9 +909,9 @@ class TestKeyboardHandler:
         assert result == []
         mock_logger.error.assert_called()
 
-    @patch('src.utils.keyboard_handler.PlatformDetector')
-    @patch('src.utils.keyboard_handler.ContextManager')
-    def test_check_conflicts_browser_reserved(self, mock_context_manager, mock_platform_detector):
+def test_check_conflicts_browser_reserved(self, mock_context_manager, mock_platform_detector, mocker):
+    ContextManager = mocker.patch('src.utils.keyboard_handler.ContextManager')
+    PlatformDetector = mocker.patch('src.utils.keyboard_handler.PlatformDetector')
         """Test check_conflicts with browser reserved."""
         mock_pd_instance = Mock()
         mock_pd_instance.get_platform.return_value = "windows"
@@ -933,9 +932,9 @@ class TestKeyboardHandler:
         conflicts = handler.check_conflicts(shortcut)
         assert "Browser reserved" in conflicts[0]
 
-    @patch('src.utils.keyboard_handler.PlatformDetector')
-    @patch('src.utils.keyboard_handler.ContextManager')
-    def test_check_conflicts_application_conflict(self, mock_context_manager, mock_platform_detector):
+def test_check_conflicts_application_conflict(self, mock_context_manager, mock_platform_detector, mocker):
+    ContextManager = mocker.patch('src.utils.keyboard_handler.ContextManager')
+    PlatformDetector = mocker.patch('src.utils.keyboard_handler.PlatformDetector')
         """Test check_conflicts with application conflict to cover line 343."""
         mock_pd_instance = Mock()
         mock_pd_instance.get_platform.return_value = "windows"
@@ -968,10 +967,10 @@ class TestKeyboardHandler:
         conflicts = handler.check_conflicts(shortcut2)
         assert "Application conflict" in conflicts[0]
 
-    @patch('src.utils.keyboard_handler.PlatformDetector')
-    @patch('src.utils.keyboard_handler.ContextManager')
-    @patch('src.utils.keyboard_handler.logger')
-    def test_check_conflicts_exception(self, mock_logger, mock_context_manager, mock_platform_detector):
+def test_check_conflicts_exception(self, mock_logger, mock_context_manager, mock_platform_detector, mocker):
+    logger = mocker.patch('src.utils.keyboard_handler.logger')
+    ContextManager = mocker.patch('src.utils.keyboard_handler.ContextManager')
+    PlatformDetector = mocker.patch('src.utils.keyboard_handler.PlatformDetector')
         """Test check_conflicts with exception to cover lines 347-349."""
         mock_pd_instance = Mock()
         mock_pd_instance.get_platform.return_value = "windows"
@@ -995,16 +994,16 @@ class TestKeyboardHandler:
             assert "Error during conflict check" in conflicts[0]
             mock_logger.error.assert_called()
 
-    @patch('src.utils.keyboard_handler._monotonic')
-    def test_check_rate_limit_under_limit(self, mock_monotonic):
+def test_check_rate_limit_under_limit(self, mock_monotonic, mocker):
+    _monotonic = mocker.patch('src.utils.keyboard_handler._monotonic')
         """Test _check_rate_limit under limit."""
         mock_monotonic.return_value = 1.0
         handler = KeyboardHandler()
         assert handler._check_rate_limit(0.5, 1.0) is True
         assert len(handler._event_history) == 1
 
-    @patch('src.utils.keyboard_handler._monotonic')
-    def test_check_rate_limit_over_limit(self, mock_monotonic):
+def test_check_rate_limit_over_limit(self, mock_monotonic, mocker):
+    _monotonic = mocker.patch('src.utils.keyboard_handler._monotonic')
         """Test _check_rate_limit over limit."""
         mock_monotonic.return_value = 1.0
         handler = KeyboardHandler()
@@ -1012,8 +1011,8 @@ class TestKeyboardHandler:
         handler._event_history = [0.1] * 10
         assert handler._check_rate_limit(0.5, 1.0) is False
 
-    @patch('src.utils.keyboard_handler._monotonic')
-    def test_check_rate_limit_eviction(self, mock_monotonic):
+def test_check_rate_limit_eviction(self, mock_monotonic, mocker):
+    _monotonic = mocker.patch('src.utils.keyboard_handler._monotonic')
         """Test _check_rate_limit with old event eviction."""
         mock_monotonic.return_value = 2.0  # After 1 second
         handler = KeyboardHandler()

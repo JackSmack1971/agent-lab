@@ -6,7 +6,6 @@ import pytest
 import time
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import Mock, patch, AsyncMock
 
 from src.services.parameter_optimizer import (
     UseCaseDetector,
@@ -309,7 +308,7 @@ class TestParameterOptimizer:
         assert response.processing_time_ms > 0
 
     @pytest.mark.asyncio
-    async def test_caching(self, optimizer):
+    async def test_parameter_optimizer_caching_succeeds(self, optimizer):
         """Test that caching works correctly."""
         request = ParameterOptimizationRequest(
             model_id="gpt-4",

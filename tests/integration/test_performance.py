@@ -3,7 +3,6 @@
 import pytest
 import asyncio
 import time
-from unittest.mock import patch
 from src.components.enhanced_errors import error_manager
 from src.components.loading_states import loading_manager
 from src.components.session_workflow import session_workflow_manager

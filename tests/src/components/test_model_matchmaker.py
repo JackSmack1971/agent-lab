@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
 
 from src.models.recommendation import (
     ModelRecommendation,
@@ -170,7 +169,6 @@ class TestGetRecommendationsAsync:
     """Test the async recommendation fetching function."""
 
     @pytest.mark.asyncio
-    @patch('src.components.model_matchmaker.analyze_use_case')
     async def test_get_recommendations_success(self, mock_analyze):
         """Test successful recommendation fetching."""
         # Mock the recommendation service
@@ -227,7 +225,6 @@ class TestGetRecommendationsAsync:
         assert "number" in error_msg
 
     @pytest.mark.asyncio
-    @patch('src.components.model_matchmaker.analyze_use_case')
     async def test_get_recommendations_service_error(self, mock_analyze):
         """Test service error handling."""
         mock_analyze.side_effect = ValueError("Service unavailable")
@@ -243,7 +240,6 @@ class TestGetRecommendationsAsync:
         assert "Failed to get recommendations" in error_msg
 
     @pytest.mark.asyncio
-    @patch('src.components.model_matchmaker.analyze_use_case')
     async def test_get_recommendations_with_constraints(self, mock_analyze):
         """Test recommendations with all constraints provided."""
         mock_response = RecommendationResponse(
@@ -280,8 +276,11 @@ class TestGetRecommendationsAsync:
 class TestComponentIntegration:
     """Test component integration aspects."""
 
-    @patch('src.components.model_matchmaker.create_model_matchmaker_tab')
-    def test_create_model_matchmaker_tab_basic(self, mock_create):
+def test_create_model_matchmaker_tab_basic(self, mock_create, mocker):
+    create_model_matchmaker_tab = mocker.patch('src.components.model_matchmaker.create_model_matchmaker_tab')
+    analyze_use_case = mocker.patch('src.components.model_matchmaker.analyze_use_case')
+    analyze_use_case = mocker.patch('src.components.model_matchmaker.analyze_use_case')
+    analyze_use_case = mocker.patch('src.components.model_matchmaker.analyze_use_case')
         """Test basic tab creation."""
         mock_tab = MagicMock()
         mock_create.return_value = mock_tab
@@ -293,8 +292,8 @@ class TestComponentIntegration:
         assert result == mock_tab
         mock_create.assert_called_once_with()
 
-    @patch('src.components.model_matchmaker.create_model_matchmaker_tab')
-    def test_create_model_matchmaker_tab_with_callback(self, mock_create):
+def test_create_model_matchmaker_tab_with_callback(self, mock_create, mocker):
+    create_model_matchmaker_tab = mocker.patch('src.components.model_matchmaker.create_model_matchmaker_tab')
         """Test tab creation with callback."""
         mock_tab = MagicMock()
         mock_create.return_value = mock_tab

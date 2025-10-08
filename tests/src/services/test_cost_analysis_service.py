@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch, MagicMock
 
 from agents.models import RunRecord
 from src.models.cost_analysis import (
@@ -237,9 +236,6 @@ class TestCostAnalysisService:
         similarity = detect_query_patterns(["Hello"])
         assert similarity == 0.0
 
-    @patch('src.services.cost_analysis_service.get_session_telemetry')
-    @patch('src.services.cost_analysis_service.get_user_from_session')
-    @patch('src.services.cost_analysis_service.get_user_cost_history')
     def test_analyze_costs_success(
         self,
         mock_get_history: MagicMock,
@@ -261,22 +257,22 @@ class TestCostAnalysisService:
         assert len(result.alerts) > 0
         assert len(result.suggestions) > 0
 
-    def test_analyze_costs_invalid_session(self):
+def test_analyze_costs_invalid_session(self, mocker):
+    get_user_cost_history = mocker.patch('src.services.cost_analysis_service.get_user_cost_history')
+    get_user_from_session = mocker.patch('src.services.cost_analysis_service.get_user_from_session')
+    get_session_telemetry = mocker.patch('src.services.cost_analysis_service.get_session_telemetry')
         """Test cost analysis with invalid session ID."""
         with pytest.raises(ValueError, match="session_id must be a non-empty string"):
             analyze_costs("")
 
-    @patch('src.services.cost_analysis_service.get_session_telemetry')
-    def test_analyze_costs_no_telemetry(self, mock_get_telemetry: MagicMock):
+def test_analyze_costs_no_telemetry(self, mock_get_telemetry: MagicMock, mocker):
+    get_session_telemetry = mocker.patch('src.services.cost_analysis_service.get_session_telemetry')
         """Test cost analysis with no telemetry data."""
         mock_get_telemetry.return_value = []
 
         with pytest.raises(ValueError, match="No telemetry data found"):
             analyze_costs("session_123")
 
-    @patch('src.services.cost_analysis_service.calculate_cost_forecast')
-    @patch('src.services.cost_analysis_service.aggregate_costs_by_period')
-    @patch('src.services.cost_analysis_service.get_user_cost_history_detailed')
     def test_get_cost_trends(
         self,
         mock_get_detailed: MagicMock,
@@ -296,7 +292,10 @@ class TestCostAnalysisService:
         assert result["total_periods"] == 1
         assert result["average_cost"] == 0.30
 
-    def test_get_cost_trends_invalid_timeframe(self):
+def test_get_cost_trends_invalid_timeframe(self, mocker):
+    get_user_cost_history_detailed = mocker.patch('src.services.cost_analysis_service.get_user_cost_history_detailed')
+    aggregate_costs_by_period = mocker.patch('src.services.cost_analysis_service.aggregate_costs_by_period')
+    calculate_cost_forecast = mocker.patch('src.services.cost_analysis_service.calculate_cost_forecast')
         """Test cost trends with invalid timeframe."""
         with pytest.raises(ValueError, match="timeframe must be"):
             get_cost_trends("user_123", "invalid")
@@ -726,8 +725,8 @@ class TestOptimizationSuggestionHelpers:
 class TestDataRetrievalFunctions:
     """Test cases for data retrieval helper functions."""
 
-    @patch('src.services.cost_analysis_service.load_recent_runs')
-    def test_get_session_telemetry(self, mock_load_runs):
+def test_get_session_telemetry(self, mock_load_runs, mocker):
+    load_recent_runs = mocker.patch('src.services.cost_analysis_service.load_recent_runs')
         """Test session telemetry retrieval."""
         mock_runs = [
             RunRecord(
@@ -757,8 +756,8 @@ class TestDataRetrievalFunctions:
         user_id = get_user_from_session("session_123")
         assert user_id == "default_user"
 
-    @patch('src.services.cost_analysis_service.load_recent_runs')
-    def test_get_user_cost_history(self, mock_load_runs):
+def test_get_user_cost_history(self, mock_load_runs, mocker):
+    load_recent_runs = mocker.patch('src.services.cost_analysis_service.load_recent_runs')
         """Test user cost history retrieval."""
         mock_runs = [
             RunRecord(
@@ -807,8 +806,8 @@ class TestDataRetrievalFunctions:
 class TestTrendAnalysisFunctions:
     """Test cases for trend analysis functions."""
 
-    @patch('src.services.cost_analysis_service.load_recent_runs')
-    def test_get_user_cost_history_detailed_daily(self, mock_load_runs):
+def test_get_user_cost_history_detailed_daily(self, mock_load_runs, mocker):
+    load_recent_runs = mocker.patch('src.services.cost_analysis_service.load_recent_runs')
         """Test detailed cost history for daily timeframe."""
         mock_runs = [
             RunRecord(
@@ -833,8 +832,8 @@ class TestTrendAnalysisFunctions:
         assert "2024-01-01" in history
         assert history["2024-01-01"] == [0.10]
 
-    @patch('src.services.cost_analysis_service.load_recent_runs')
-    def test_get_user_cost_history_detailed_weekly(self, mock_load_runs):
+def test_get_user_cost_history_detailed_weekly(self, mock_load_runs, mocker):
+    load_recent_runs = mocker.patch('src.services.cost_analysis_service.load_recent_runs')
         """Test detailed cost history for weekly timeframe."""
         mock_runs = [
             RunRecord(
@@ -861,8 +860,8 @@ class TestTrendAnalysisFunctions:
         expected_key = week_start.isoformat()
         assert expected_key in history
 
-    @patch('src.services.cost_analysis_service.load_recent_runs')
-    def test_get_user_cost_history_detailed_monthly(self, mock_load_runs):
+def test_get_user_cost_history_detailed_monthly(self, mock_load_runs, mocker):
+    load_recent_runs = mocker.patch('src.services.cost_analysis_service.load_recent_runs')
         """Test detailed cost history for monthly timeframe."""
         mock_runs = [
             RunRecord(
@@ -1021,8 +1020,8 @@ class TestTrendAnalysisFunctions:
         caching_suggestion = next((s for s in suggestions if s.suggestion_type.value == "enable_caching"), None)
         assert caching_suggestion is not None
 
-    @patch('src.services.cost_analysis_service.load_recent_runs')
-    def test_get_session_telemetry_with_task_label_match(self, mock_load_runs):
+def test_get_session_telemetry_with_task_label_match(self, mock_load_runs, mocker):
+    load_recent_runs = mocker.patch('src.services.cost_analysis_service.load_recent_runs')
         """Test session telemetry with task_label match to cover line 342."""
         mock_runs = [
             RunRecord(
@@ -1045,8 +1044,8 @@ class TestTrendAnalysisFunctions:
         result = get_session_telemetry("session_123")
         assert len(result) == 1
 
-    @patch('src.services.cost_analysis_service.load_recent_runs')
-    def test_get_session_telemetry_with_notes_match(self, mock_load_runs):
+def test_get_session_telemetry_with_notes_match(self, mock_load_runs, mocker):
+    load_recent_runs = mocker.patch('src.services.cost_analysis_service.load_recent_runs')
         """Test session telemetry with run_notes match."""
         mock_runs = [
             RunRecord(
@@ -1069,8 +1068,8 @@ class TestTrendAnalysisFunctions:
         result = get_session_telemetry("session_123")
         assert len(result) == 1
 
-    @patch('src.services.cost_analysis_service.load_recent_runs')
-    def test_get_user_cost_history_with_missing_cost_usd(self, mock_load_runs):
+def test_get_user_cost_history_with_missing_cost_usd(self, mock_load_runs, mocker):
+    load_recent_runs = mocker.patch('src.services.cost_analysis_service.load_recent_runs')
         """Test user cost history with records missing cost_usd to cover line 388."""
         mock_runs = [
             RunRecord(
@@ -1115,8 +1114,8 @@ class TestTrendAnalysisFunctions:
         similarity = detect_query_patterns(messages)
         assert similarity == 0.0  # Empty set intersection
 
-    @patch('src.services.cost_analysis_service.load_recent_runs')
-    def test_get_user_cost_history_detailed_weekly_key(self, mock_load_runs):
+def test_get_user_cost_history_detailed_weekly_key(self, mock_load_runs, mocker):
+    load_recent_runs = mocker.patch('src.services.cost_analysis_service.load_recent_runs')
         """Test detailed cost history weekly key assignment to cover line 478."""
         mock_runs = [
             RunRecord(
@@ -1141,8 +1140,8 @@ class TestTrendAnalysisFunctions:
         expected_key = datetime(2024, 1, 1).date().isoformat()
         assert expected_key in history
 
-    @patch('src.services.cost_analysis_service.load_recent_runs')
-    def test_get_user_cost_history_detailed_monthly_key(self, mock_load_runs):
+def test_get_user_cost_history_detailed_monthly_key(self, mock_load_runs, mocker):
+    load_recent_runs = mocker.patch('src.services.cost_analysis_service.load_recent_runs')
         """Test detailed cost history monthly key assignment."""
         mock_runs = [
             RunRecord(

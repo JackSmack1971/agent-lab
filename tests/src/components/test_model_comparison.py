@@ -1,7 +1,6 @@
 """Unit tests for model comparison dashboard component."""
 
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
 
 import gradio as gr
 import pandas as pd
@@ -9,7 +8,6 @@ import pandas as pd
 import io
 import csv
 from typing import Optional, Tuple
-from unittest.mock import MagicMock
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -381,8 +379,8 @@ class TestModelComparisonFormatting:
 class TestModelComparisonDashboard:
     """Test dashboard component functionality."""
 
-    @patch('src.components.model_comparison.get_models')
-    def test_load_available_models(self, mock_get_models):
+def test_load_available_models(self, mock_get_models, mocker):
+    get_models = mocker.patch('src.components.model_comparison.get_models')
         """Test loading available models."""
         from src.components.model_comparison import create_model_comparison_dashboard
 
@@ -399,7 +397,6 @@ class TestModelComparisonDashboard:
         # This is a simplified test since testing Gradio components directly is complex
         assert dashboard is not None
 
-    @patch('src.services.model_recommender.compare_models')
     @pytest.mark.asyncio
     async def test_perform_comparison(self, mock_compare):
         """Test the comparison execution."""
@@ -462,7 +459,8 @@ class TestModelComparisonDashboard:
         assert "🤖 AI Recommendations" in recommendations_html
         assert "openai/gpt-4" in recommendations_html
 
-    def test_export_comparison_data(self):
+def test_export_comparison_data(self, mocker):
+    compare_models = mocker.patch('src.services.model_recommender.compare_models')
         """Test CSV export functionality."""
 
         # Mock comparison result
@@ -506,8 +504,8 @@ class TestModelComparisonDashboard:
 class TestQuickSelection:
     """Test quick selection functionality."""
 
-    @patch('src.components.model_comparison.get_models')
-    def test_quick_select_top_models(self, mock_get_models):
+def test_quick_select_top_models(self, mock_get_models, mocker):
+    get_models = mocker.patch('src.components.model_comparison.get_models')
         """Test selecting top models."""
         from src.components.model_comparison import create_model_comparison_dashboard
 
@@ -522,8 +520,8 @@ class TestQuickSelection:
         # Quick selection is handled by event handlers in the dashboard
         assert dashboard is not None
 
-    @patch('src.components.model_comparison.get_models')
-    def test_quick_select_cost_efficient(self, mock_get_models):
+def test_quick_select_cost_efficient(self, mock_get_models, mocker):
+    get_models = mocker.patch('src.components.model_comparison.get_models')
         """Test selecting cost-efficient models."""
         # Mock models with different costs
         mock_models = [

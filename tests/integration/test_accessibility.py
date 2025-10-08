@@ -1,7 +1,6 @@
 """Accessibility tests for WCAG 2.1 AA compliance."""
 
 import pytest
-from unittest.mock import Mock, patch
 
 import gradio as gr
 

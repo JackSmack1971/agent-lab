@@ -1,9 +1,9 @@
 """Unit tests for catalog module."""
 
 import pytest
-from unittest.mock import Mock, patch
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
+from unittest.mock import Mock, AsyncMock
 
 from services.catalog import (
     ModelInfo,
@@ -62,8 +62,7 @@ class TestFetchModels:
         services.catalog._cache_timestamp = None
         services.catalog._cache_source = "fallback"
 
-    @patch('services.catalog.httpx.Client')
-    def test_fetch_models_success(self, mock_client_class) -> None:
+    def test_fetch_models_success(self, mocker, mock_client_class) -> None:
         """Test successful fetch from OpenRouter API."""
         mock_response_data = {
             "data": [
@@ -83,11 +82,11 @@ class TestFetchModels:
             ]
         }
 
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = mock_response_data
 
-        mock_client = Mock()
+        mock_client = mocker.Mock()
         mock_client.get.return_value = mock_response
         mock_client.__enter__ = Mock(return_value=mock_client)
         mock_client.__exit__ = Mock(return_value=None)
@@ -113,16 +112,15 @@ class TestFetchModels:
         assert model2.input_price == 0.015
         assert model2.output_price == 0.075
 
-    @patch('services.catalog.httpx.Client')
     def test_fetch_models_with_api_key(self, mock_client_class, monkeypatch) -> None:
         """Test fetch includes Authorization header when API key is set."""
         monkeypatch.setenv("OPENROUTER_API_KEY", "test_key")
 
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"data": [{"id": "test/model", "name": "Test"}]}
 
-        mock_client = Mock()
+        mock_client = mocker.Mock()
         mock_client.get.return_value = mock_response
         mock_client.__enter__ = Mock(return_value=mock_client)
         mock_client.__exit__ = Mock(return_value=None)
@@ -136,10 +134,9 @@ class TestFetchModels:
         assert "Authorization" in headers
         assert headers["Authorization"] == "Bearer test_key"
 
-    @patch('services.catalog.httpx.Client')
     def test_fetch_models_network_failure_fallback(self, mock_client_class) -> None:
         """Test fallback when network request fails."""
-        mock_client = Mock()
+        mock_client = mocker.Mock()
         mock_client.get.side_effect = Exception("Network error")
         mock_client.__enter__ = Mock(return_value=mock_client)
         mock_client.__exit__ = Mock(return_value=None)
@@ -151,14 +148,13 @@ class TestFetchModels:
         assert source == "fallback"
         assert isinstance(timestamp, datetime)
 
-    @patch('services.catalog.httpx.Client')
     def test_fetch_models_malformed_response_fallback(self, mock_client_class) -> None:
         """Test fallback when API returns malformed data."""
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"data": "not_a_list"}
 
-        mock_client = Mock()
+        mock_client = mocker.Mock()
         mock_client.get.return_value = mock_response
         mock_client.__enter__ = Mock(return_value=mock_client)
         mock_client.__exit__ = Mock(return_value=None)
@@ -169,14 +165,13 @@ class TestFetchModels:
         assert models == FALLBACK_MODELS
         assert source == "fallback"
 
-    @patch('services.catalog.httpx.Client')
     def test_fetch_models_empty_data_fallback(self, mock_client_class) -> None:
         """Test fallback when API returns empty data."""
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"data": []}
 
-        mock_client = Mock()
+        mock_client = mocker.Mock()
         mock_client.get.return_value = mock_response
         mock_client.__enter__ = Mock(return_value=mock_client)
         mock_client.__exit__ = Mock(return_value=None)
@@ -187,7 +182,6 @@ class TestFetchModels:
         assert models == FALLBACK_MODELS
         assert source == "fallback"
 
-    @patch('services.catalog.httpx.Client')
     def test_fetch_models_malformed_entries(self, mock_client_class) -> None:
         """Test fetch handles malformed entries in response data."""
         mock_response_data = {
@@ -199,11 +193,11 @@ class TestFetchModels:
             ]
         }
 
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = mock_response_data
 
-        mock_client = Mock()
+        mock_client = mocker.Mock()
         mock_client.get.return_value = mock_response
         mock_client.__enter__ = Mock(return_value=mock_client)
         mock_client.__exit__ = Mock(return_value=None)
@@ -216,7 +210,6 @@ class TestFetchModels:
         assert models[0].id == "good/model"
         assert source == "dynamic"
 
-    @patch('services.catalog.httpx.Client')
     def test_fetch_models_validation_error(self, mock_client_class) -> None:
         """Test fetch handles ValidationError in ModelInfo construction."""
         from pydantic import ValidationError as PydanticValidationError
@@ -228,11 +221,11 @@ class TestFetchModels:
             ]
         }
 
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = mock_response_data
 
-        mock_client = Mock()
+        mock_client = mocker.Mock()
         mock_client.get.return_value = mock_response
         mock_client.__enter__ = Mock(return_value=mock_client)
         mock_client.__exit__ = Mock(return_value=None)
@@ -257,16 +250,15 @@ class TestGetModels:
         services.catalog._cache_timestamp = None
         services.catalog._cache_source = "fallback"
 
-    @patch('services.catalog.httpx.Client')
     def test_get_models_initial_fetch(self, mock_client_class) -> None:
         """Test initial call fetches models."""
         mock_response_data = {"data": [{"id": "test/model", "name": "Test Model"}]}
 
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = mock_response_data
 
-        mock_client = Mock()
+        mock_client = mocker.Mock()
         mock_client.get.return_value = mock_response
         mock_client.__enter__ = Mock(return_value=mock_client)
         mock_client.__exit__ = Mock(return_value=None)
@@ -277,8 +269,6 @@ class TestGetModels:
         assert len(models) == 1
         assert source == "dynamic"
 
-    @patch('services.catalog.datetime')
-    @patch('services.catalog.httpx.Client')
     def test_get_models_cached_within_ttl(self, mock_client_class, mock_datetime) -> None:
         """Test cached models returned when within TTL."""
         # Set up fixed timestamp
@@ -288,11 +278,11 @@ class TestGetModels:
         # First call to populate cache
         mock_response_data = {"data": [{"id": "test/model", "name": "Test Model"}]}
 
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = mock_response_data
 
-        mock_client = Mock()
+        mock_client = mocker.Mock()
         mock_client.get.return_value = mock_response
         mock_client.__enter__ = Mock(return_value=mock_client)
         mock_client.__exit__ = Mock(return_value=None)
@@ -310,8 +300,6 @@ class TestGetModels:
         # httpx.Client should only be called once
         mock_client.get.assert_called_once()
 
-    @patch('services.catalog.datetime')
-    @patch('services.catalog.httpx.Client')
     def test_get_models_force_refresh(self, mock_client_class, mock_datetime) -> None:
         """Test force_refresh bypasses cache."""
         # Set up timestamps - need enough for all datetime.now calls
@@ -324,11 +312,11 @@ class TestGetModels:
         # Mock response
         mock_response_data = {"data": [{"id": "test/model", "name": "Test Model"}]}
 
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = mock_response_data
 
-        mock_client = Mock()
+        mock_client = mocker.Mock()
         mock_client.get.return_value = mock_response
         mock_client.__enter__ = Mock(return_value=mock_client)
         mock_client.__exit__ = Mock(return_value=None)
@@ -358,7 +346,6 @@ class TestModelChoices:
         services.catalog._cache_timestamp = None
         services.catalog._cache_source = "fallback"
 
-    @patch('services.catalog.httpx.Client')
     def test_get_model_choices(self, mock_client_class) -> None:
         """Test get_model_choices returns proper format."""
         mock_response_data = {
@@ -368,11 +355,11 @@ class TestModelChoices:
             ]
         }
 
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = mock_response_data
 
-        mock_client = Mock()
+        mock_client = mocker.Mock()
         mock_client.get.return_value = mock_response
         mock_client.__enter__ = Mock(return_value=mock_client)
         mock_client.__exit__ = Mock(return_value=None)
@@ -395,7 +382,6 @@ class TestGetPricing:
         services.catalog._cache_timestamp = None
         services.catalog._cache_source = "fallback"
 
-    @patch('services.catalog.httpx.Client')
     def test_get_pricing_existing_model(self, mock_client_class) -> None:
         """Test pricing lookup for existing model."""
         mock_response_data = {
@@ -408,11 +394,11 @@ class TestGetPricing:
             ]
         }
 
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = mock_response_data
 
-        mock_client = Mock()
+        mock_client = mocker.Mock()
         mock_client.get.return_value = mock_response
         mock_client.__enter__ = Mock(return_value=mock_client)
         mock_client.__exit__ = Mock(return_value=None)
@@ -422,16 +408,15 @@ class TestGetPricing:
 
         assert pricing == (0.01, 0.02)
 
-    @patch('services.catalog.httpx.Client')
     def test_get_pricing_nonexistent_model(self, mock_client_class) -> None:
         """Test pricing lookup for nonexistent model."""
         mock_response_data = {"data": [{"id": "other/model", "name": "Other"}]}
 
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = mock_response_data
 
-        mock_client = Mock()
+        mock_client = mocker.Mock()
         mock_client.get.return_value = mock_response
         mock_client.__enter__ = Mock(return_value=mock_client)
         mock_client.__exit__ = Mock(return_value=None)
@@ -441,16 +426,15 @@ class TestGetPricing:
 
         assert pricing is None
 
-    @patch('services.catalog.httpx.Client')
     def test_get_pricing_model_without_pricing(self, mock_client_class) -> None:
         """Test pricing lookup for model without pricing info."""
         mock_response_data = {"data": [{"id": "no_price/model", "name": "No Price"}]}
 
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = mock_response_data
 
-        mock_client = Mock()
+        mock_client = mocker.Mock()
         mock_client.get.return_value = mock_response
         mock_client.__enter__ = Mock(return_value=mock_client)
         mock_client.__exit__ = Mock(return_value=None)

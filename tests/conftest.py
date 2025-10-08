@@ -1,11 +1,12 @@
 import pytest
 from pathlib import Path
 from typing import Dict, Any, AsyncGenerator
-from unittest.mock import Mock
 import os
+import logging
 from pydantic import BaseModel
 import httpx
 from datetime import datetime, timezone
+from loguru import logger
 
 # Import required models (following AGENTS.md patterns)
 from agents.models import AgentConfig, RunRecord
@@ -27,14 +28,14 @@ def tmp_csv(tmp_path: Path) -> Path:
     return csv_path
 
 @pytest.fixture
-def mock_openrouter_response() -> Mock:
+def mock_openrouter_response(mocker):
     """
     Mock HTTP response for OpenRouter API calls.
 
     Returns:
         Mock object simulating successful API response
     """
-    mock_resp: Mock = Mock()
+    mock_resp = mocker.Mock()
     mock_resp.status_code = 200
     mock_resp.headers = {"Content-Type": "application/json"}
     mock_resp.json.return_value = {
@@ -132,3 +133,42 @@ def sample_run_records() -> list[RunRecord]:
             model_list_source="dynamic",
         ),
     ]
+@pytest.fixture(scope="session")
+def shared_test_data(tmp_path_factory) -> Path:
+    """
+    Session-scoped temporary directory for shared test data
+
+    Benefits:
+    - Created once per test session
+    - Shared across all tests
+    - Automatically cleaned up
+
+    Use case: Large test files that are expensive to create
+    """
+    data_dir = tmp_path_factory.mktemp("shared_data")
+
+    # Create shared test files
+    (data_dir / "large_dataset.csv").write_text("col1,col2\n" * 10000)
+    (data_dir / "config.json").write_text('{"test": true}')
+
+    return data_dir
+
+
+
+@pytest.fixture(autouse=True)
+def configure_loguru_for_testing():
+    """
+    Configure loguru to work with pytest caplog.
+
+    This adds a handler that forwards loguru logs to the standard logging system,
+    allowing caplog to capture them.
+    """
+    # Remove all existing handlers
+    logger.remove()
+
+    # Add a handler that forwards to standard logging
+    logger.add(
+        lambda msg: logging.getLogger("agents").log(msg.record["level"].no, msg.record["message"]),
+        level="DEBUG",
+        format="{message}"
+    )

@@ -1,10 +1,10 @@
 """Unit tests for runtime module error handling."""
 
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
 from threading import Event
 import asyncio
 from typing import Any
+from unittest.mock import Mock, AsyncMock, patch
 
 from agents.runtime import build_agent, run_agent, run_agent_stream, StreamResult
 from agents.models import AgentConfig
@@ -59,7 +59,6 @@ class TestBuildAgentErrors:
 
             assert "OPENROUTER_API_KEY not set" in str(exc_info.value)
 
-    @patch('agents.runtime.Agent')
     def test_build_agent_openai_client_creation_failure(self, mock_agent_class, sample_agent_config) -> None:
         """Test handling of OpenAI client creation failures."""
         # Make OpenAI constructor raise an exception
@@ -69,8 +68,6 @@ class TestBuildAgentErrors:
 
             assert "OpenAI init failed" in str(exc_info.value)
 
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     def test_build_agent_agent_creation_failure(self, mock_openai_class, mock_agent_class, sample_agent_config, mock_env_vars) -> None:
         """Test handling of Agent creation failures."""
         mock_client = Mock()
@@ -84,8 +81,6 @@ class TestBuildAgentErrors:
 
         assert "Agent init failed" in str(exc_info.value)
 
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     def test_build_agent_tool_registration_failure(self, mock_openai_class, mock_agent_class, sample_agent_config, mock_env_vars) -> None:
         """Test handling of tool registration failures."""
         mock_client = Mock()
@@ -102,8 +97,6 @@ class TestBuildAgentErrors:
 
         assert "Tool registration failed" in str(exc_info.value)
 
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     def test_build_agent_web_tool_registration_failure(self, mock_openai_class, mock_agent_class, sample_agent_config, mock_env_vars) -> None:
         """Test handling of web tool registration failures."""
         mock_client = Mock()
@@ -128,8 +121,6 @@ class TestRunAgentErrors:
     """Test suite for run_agent error handling."""
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     async def test_run_agent_agent_run_failure(self, mock_openai_class, mock_agent_class, sample_agent_config, mock_env_vars) -> None:
         """Test handling of agent.run() failures."""
         mock_client = Mock()
@@ -149,8 +140,6 @@ class TestRunAgentErrors:
         assert "Agent execution failed: Agent run failed" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     async def test_run_agent_result_data_access_failure(self, mock_openai_class, mock_agent_class, sample_agent_config, mock_env_vars) -> None:
         """Test handling of failures when accessing result.data."""
         mock_client = Mock()
@@ -172,8 +161,6 @@ class TestRunAgentErrors:
         assert "Agent execution failed:" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     async def test_run_agent_network_timeout_error(self, mock_openai_class, mock_agent_class, sample_agent_config, mock_env_vars) -> None:
         """Test handling of network timeout errors."""
         mock_client = Mock()
@@ -193,8 +180,6 @@ class TestRunAgentErrors:
         assert "Agent execution failed: Request timed out" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     async def test_run_agent_api_rate_limit_error(self, mock_openai_class, mock_agent_class, sample_agent_config, mock_env_vars) -> None:
         """Test handling of API rate limit errors."""
         mock_client = Mock()
@@ -223,8 +208,6 @@ class TestRunAgentStreamErrors:
     """Test suite for run_agent_stream error handling."""
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     async def test_run_agent_stream_initial_stream_creation_failure(self, mock_openai_class, mock_agent_class, sample_agent_config, mock_env_vars) -> None:
         """Test handling of initial stream creation failures."""
         mock_client = Mock()
@@ -249,8 +232,6 @@ class TestRunAgentStreamErrors:
         assert "Agent streaming failed: Stream creation failed" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     async def test_run_agent_stream_fallback_run_stream_failure(self, mock_openai_class, mock_agent_class, sample_agent_config, mock_env_vars) -> None:
         """Test handling of fallback run_stream failures."""
         mock_client = Mock()
@@ -276,8 +257,6 @@ class TestRunAgentStreamErrors:
         assert "Agent streaming failed: run_stream failed" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     async def test_run_agent_stream_chunk_processing_error(self, mock_openai_class, mock_agent_class, sample_agent_config, mock_env_vars) -> None:
         """Test handling of errors during chunk processing."""
         mock_client = Mock()
@@ -309,8 +288,6 @@ class TestRunAgentStreamErrors:
         assert deltas == ["First chunk"]
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     async def test_run_agent_stream_context_manager_error(self, mock_openai_class, mock_agent_class, sample_agent_config, mock_env_vars) -> None:
         """Test handling of context manager errors in fallback path."""
         mock_client = Mock()
@@ -340,8 +317,6 @@ class TestRunAgentStreamErrors:
         assert "Agent streaming failed: Context manager failed" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     async def test_run_agent_stream_usage_conversion_dict(self, mock_openai_class, mock_agent_class, sample_agent_config, mock_env_vars) -> None:
         """Test usage conversion when usage is a plain dict."""
         mock_client = Mock()
@@ -372,8 +347,6 @@ class TestRunAgentStreamErrors:
         assert result.usage == {"prompt_tokens": 10, "completion_tokens": 5}
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     async def test_run_agent_stream_usage_conversion_pydantic(self, mock_openai_class, mock_agent_class, sample_agent_config, mock_env_vars) -> None:
         """Test usage conversion when usage is a pydantic model."""
         mock_client = Mock()
@@ -408,8 +381,6 @@ class TestRunAgentStreamErrors:
         assert result.usage == {"total_tokens": 100, "cost": 0.02}
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     async def test_run_agent_stream_usage_conversion_dataclass(self, mock_openai_class, mock_agent_class, sample_agent_config, mock_env_vars) -> None:
         """Test usage conversion when usage is a dataclass."""
         from dataclasses import dataclass
@@ -446,8 +417,6 @@ class TestRunAgentStreamErrors:
         assert result.usage == {"prompt_tokens": 20, "completion_tokens": 10}
 
     @pytest.mark.asyncio
-    @patch('agents.runtime.Agent')
-    @patch('agents.runtime.OpenAI')
     async def test_run_agent_stream_usage_conversion_fallback_to_none(self, mock_openai_class, mock_agent_class, sample_agent_config, mock_env_vars) -> None:
         """Test usage conversion fallback to None for unsupported types."""
         mock_client = Mock()

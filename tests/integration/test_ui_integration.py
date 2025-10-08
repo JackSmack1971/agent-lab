@@ -1,7 +1,6 @@
 """Integration tests for UI components and handlers."""
 
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime, timezone
 
 import gradio as gr
@@ -32,12 +31,6 @@ class TestStreamingIntegration:
     """Integration tests for streaming functionality."""
 
     @pytest.mark.asyncio
-    @patch("services.persist.append_run")
-    @patch("app.run_agent_stream")
-    @patch("app.build_agent", return_value=Mock())
-    @patch("asyncio.create_task")
-    @patch("asyncio.wait_for", new_callable=AsyncMock)
-    @patch("asyncio.Event")
     async def test_send_message_streaming_success(self, mock_event, mock_wait, mock_create_task, mock_build_agent, mock_run_stream, mock_append_run):
         """Test send_message_streaming with successful response."""
         # Mock the streaming task
@@ -97,9 +90,13 @@ class TestStreamingIntegration:
 class TestTabNavigationIntegration:
     """Integration tests for tab-based navigation and state management."""
 
-    @patch("services.persist.save_session")
-    @patch("services.persist.list_sessions")
-    def test_session_save_load_integration(self, mock_list_sessions, mock_save_session):
+def test_session_save_load_integration(self, mock_list_sessions, mock_save_session, mocker):
+    list_sessions = mocker.patch('services.persist.list_sessions')
+    save_session = mocker.patch('services.persist.save_session')
+    Event = mocker.patch('asyncio.Event')
+    create_task = mocker.patch('asyncio.create_task')
+    run_agent_stream = mocker.patch('app.run_agent_stream')
+    append_run = mocker.patch('services.persist.append_run')
         """Test saving and loading sessions across tabs."""
         from app import save_session_handler, load_session_handler
         from agents.models import AgentConfig, Session
@@ -144,8 +141,8 @@ class TestTabNavigationIntegration:
 class TestModelRefreshIntegration:
     """Integration tests for model refresh across tabs."""
 
-    @patch("app.get_models")
-    def test_refresh_models_integration(self, mock_get_models):
+def test_refresh_models_integration(self, mock_get_models, mocker):
+    get_models = mocker.patch('app.get_models')
         """Test model refresh updates UI state correctly."""
         from app import refresh_models_handler
         from agents.models import AgentConfig

@@ -3,7 +3,6 @@
 import pytest
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import patch
 from hypothesis import given, strategies as st
 from typing import Any
 

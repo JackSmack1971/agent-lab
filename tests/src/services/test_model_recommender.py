@@ -1,7 +1,6 @@
 """Unit tests for model recommender service."""
 
 import pytest
-from unittest.mock import patch, MagicMock
 
 from src.services.model_recommender import (
     ModelDetail,
@@ -53,8 +52,8 @@ class TestModelRecommender:
         expensive_score = _estimate_performance_score(expensive_model)
         assert expensive_score < score  # Should be lower due to high cost
 
-    @patch('src.services.model_recommender.get_models')
-    def test_get_model_comparison_data(self, mock_get_models):
+def test_get_model_comparison_data(self, mock_get_models, mocker):
+    get_models = mocker.patch('src.services.model_recommender.get_models')
         """Test getting model comparison data."""
         mock_models = [
             MagicMock(
@@ -85,8 +84,6 @@ class TestModelRecommender:
         assert result[1].model_id == "anthropic/claude"
         assert result[1].average_cost_per_1k == 0.045
 
-    @patch('src.services.model_recommender.analyze_use_case')
-    @patch('src.services.model_recommender.get_model_comparison_data')
     @pytest.mark.asyncio
     async def test_compare_models(self, mock_get_data, mock_analyze):
         """Test model comparison functionality."""
@@ -144,7 +141,9 @@ class TestModelRecommender:
         assert "average_score" in result.performance_analysis
         assert result.comparison_summary
 
-    def test_create_basic_recommendations(self):
+def test_create_basic_recommendations(self, mocker):
+    get_model_comparison_data = mocker.patch('src.services.model_recommender.get_model_comparison_data')
+    analyze_use_case = mocker.patch('src.services.model_recommender.analyze_use_case')
         """Test basic recommendation creation."""
         model_details = [
             ModelDetail(
@@ -206,7 +205,6 @@ class TestModelRecommender:
         assert "$0.0200" in summary
         assert "$0.0450" in summary
 
-    @patch('src.services.model_recommender.get_model_comparison_data')
     @pytest.mark.asyncio
     async def test_compare_models_empty_list(self, mock_get_data):
         """Test comparison with empty model list."""
@@ -222,8 +220,6 @@ class TestModelRecommender:
         with pytest.raises(ValueError, match="No valid models found"):
             await compare_models(request)
 
-    @patch('src.services.model_recommender.get_model_comparison_data')
-    @patch('src.services.model_recommender._create_basic_recommendations')
     @pytest.mark.asyncio
     async def test_compare_models_fallback_recommendations(self, mock_create_basic, mock_get_data):
         """Test fallback to basic recommendations."""
@@ -269,8 +265,11 @@ class TestModelRecommender:
             mock_create_basic.assert_called_once()
             assert len(result.recommendations) == 1
 
-    @patch('src.services.model_recommender.get_models')
-    def test_get_model_comparison_data_no_match(self, mock_get_models):
+def test_get_model_comparison_data_no_match(self, mock_get_models, mocker):
+    get_models = mocker.patch('src.services.model_recommender.get_models')
+    _create_basic_recommendations = mocker.patch('src.services.model_recommender._create_basic_recommendations')
+    get_model_comparison_data = mocker.patch('src.services.model_recommender.get_model_comparison_data')
+    get_model_comparison_data = mocker.patch('src.services.model_recommender.get_model_comparison_data')
         """Test get_model_comparison_data with no matching models to cover line 96."""
         mock_models = [
             MagicMock(id="openai/gpt-4"),
@@ -280,8 +279,6 @@ class TestModelRecommender:
         result = get_model_comparison_data(["nonexistent/model"])
         assert result == []  # No matching models
 
-    @patch('src.services.model_recommender.get_model_comparison_data')
-    @patch('src.services.model_recommender.analyze_use_case')
     @pytest.mark.asyncio
     async def test_compare_models_cache_hit(self, mock_analyze, mock_get_data):
         """Test compare_models with cache hit to cover lines 122-125."""
@@ -307,8 +304,6 @@ class TestModelRecommender:
         assert result == cached_result
         mock_get_data.assert_not_called()
 
-    @patch('src.services.model_recommender.get_model_comparison_data')
-    @patch('src.services.model_recommender.analyze_use_case')
     @pytest.mark.asyncio
     async def test_compare_models_cost_analysis_no_costs(self, mock_analyze, mock_get_data):
         """Test compare_models cost analysis with no costs to cover line 158->169."""
@@ -346,8 +341,6 @@ class TestModelRecommender:
         result = await compare_models(request)
         assert result.cost_analysis == {}  # No cost analysis due to no costs
 
-    @patch('src.services.model_recommender.get_model_comparison_data')
-    @patch('src.services.model_recommender.analyze_use_case')
     @pytest.mark.asyncio
     async def test_compare_models_performance_analysis_no_scores(self, mock_analyze, mock_get_data):
         """Test compare_models performance analysis with no scores to cover line 170->180."""
@@ -385,7 +378,13 @@ class TestModelRecommender:
         result = await compare_models(request)
         assert result.performance_analysis == {}  # No performance analysis due to no scores
 
-    def test_create_basic_recommendations_cost_based(self):
+def test_create_basic_recommendations_cost_based(self, mocker):
+    analyze_use_case = mocker.patch('src.services.model_recommender.analyze_use_case')
+    get_model_comparison_data = mocker.patch('src.services.model_recommender.get_model_comparison_data')
+    analyze_use_case = mocker.patch('src.services.model_recommender.analyze_use_case')
+    get_model_comparison_data = mocker.patch('src.services.model_recommender.get_model_comparison_data')
+    analyze_use_case = mocker.patch('src.services.model_recommender.analyze_use_case')
+    get_model_comparison_data = mocker.patch('src.services.model_recommender.get_model_comparison_data')
         """Test _create_basic_recommendations with cost-based reasoning to cover line 224."""
         model_details = [
             ModelDetail(

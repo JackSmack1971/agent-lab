@@ -1,0 +1,63 @@
+name: Mutation Testing
+
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly on Monday 2am
+
+jobs:
+  mutation-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install -e ".[dev]"
+        pip install cosmic-ray  # Using cosmic-ray as mutmut alternative
+
+    - name: Run mutation testing (critical modules only)
+      run: |
+        # Create cosmic-ray config
+        cat > cosmic-ray.conf << EOF
+        [cosmic-ray]
+        module = agents.runtime
+        test-command = python -m pytest tests/unit/test_runtime_*.py -v
+        timeout = 30
+        EOF
+
+        # Run mutation testing
+        cosmic-ray init cosmic-ray.conf session.yml
+        cosmic-ray exec session.yml
+
+        # Generate report
+        cosmic-ray report session.yml > mutation_report.txt
+
+    - name: Check mutation score threshold
+      run: |
+        # Extract score from cosmic-ray report
+        SCORE=$(grep "survival rate" mutation_report.txt | grep -o "[0-9.]*%" | tr -d '%')
+        echo "Mutation Survival Rate: ${SCORE}%"
+        MUTATION_SCORE=$((100 - SCORE))
+        echo "Mutation Kill Rate: ${MUTATION_SCORE}%"
+
+        if [ $MUTATION_SCORE -lt 80 ]; then
+          echo "❌ Mutation kill rate ${MUTATION_SCORE}% below threshold (80%)"
+          exit 1
+        else
+          echo "✅ Mutation kill rate ${MUTATION_SCORE}% meets threshold"
+        fi
+
+    - name: Upload mutation report
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: mutation-report
+        path: mutation_report.txt

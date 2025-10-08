@@ -8,7 +8,6 @@ detection, and rate limiting.
 
 import pytest
 import time
-from unittest.mock import Mock, patch, MagicMock
 from typing import Dict, List
 from pydantic import ValidationError
 from pydantic_core import ValidationError as CoreValidationError

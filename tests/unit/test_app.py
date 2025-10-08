@@ -1,8 +1,8 @@
 """Unit tests for app.py UI functions."""
 
 import pytest
-from unittest.mock import Mock, patch
 from datetime import datetime, timezone
+from unittest.mock import Mock, AsyncMock
 
 from app import (
     validate_agent_name,
@@ -122,16 +122,16 @@ class TestValidationFunctions:
         assert result["status"] == "error"
         assert result["is_valid"] is False
 
-    def test_validate_model_selection_valid(self):
+    def test_validate_model_selection_valid(self, mocker):
         """Test valid model selection."""
-        models = [Mock(id="model1"), Mock(id="model2")]
+        models = [mocker.Mock(id="model1"), mocker.Mock(id="model2")]
         result = validate_model_selection("model1", models)
         assert result["status"] == "success"
         assert result["is_valid"] is True
 
-    def test_validate_model_selection_invalid(self):
+    def test_validate_model_selection_invalid(self, mocker):
         """Test invalid model selection."""
-        models = [Mock(id="model1"), Mock(id="model2")]
+        models = [mocker.Mock(id="model1"), mocker.Mock(id="model2")]
         result = validate_model_selection("model3", models)
         assert result["status"] == "error"
         assert result["is_valid"] is False
@@ -162,9 +162,9 @@ class TestValidationFunctions:
         result = validate_form_field("top_p", 0.9)
         assert result["status"] == "success"
 
-    def test_validate_form_field_model(self):
+    def test_validate_form_field_model(self, mocker):
         """Test validate_form_field for model."""
-        models = [Mock(id="model1")]
+        models = [mocker.Mock(id="model1")]
         result = validate_form_field("model", "model1", models)
         assert result["status"] == "success"
 
@@ -231,44 +231,44 @@ class TestUtilityFunctions:
         assert "Web Tool: OFF" in result
         assert "#666666" in result
 
-    def test_handle_keyboard_shortcut_send_message(self):
+    def test_handle_keyboard_shortcut_send_message(self, mocker):
         """Test handle_keyboard_shortcut for send message."""
         event_data = {"key": "enter", "ctrlKey": True}
-        result = handle_keyboard_shortcut(Mock(_data=event_data))
+        result = handle_keyboard_shortcut(mocker.Mock(_data=event_data))
         assert result == "send_message"
 
-    def test_handle_keyboard_shortcut_focus_input(self):
+    def test_handle_keyboard_shortcut_focus_input(self, mocker):
         """Test handle_keyboard_shortcut for focus input."""
         event_data = {"key": "k", "ctrlKey": True}
-        result = handle_keyboard_shortcut(Mock(_data=event_data))
+        result = handle_keyboard_shortcut(mocker.Mock(_data=event_data))
         assert result == "focus_input"
 
-    def test_handle_keyboard_shortcut_refresh_models(self):
+    def test_handle_keyboard_shortcut_refresh_models(self, mocker):
         """Test handle_keyboard_shortcut for refresh models."""
         event_data = {"key": "r", "ctrlKey": True}
-        result = handle_keyboard_shortcut(Mock(_data=event_data))
+        result = handle_keyboard_shortcut(mocker.Mock(_data=event_data))
         assert result == "refresh_models"
 
-    def test_handle_keyboard_shortcut_stop_generation(self):
+    def test_handle_keyboard_shortcut_stop_generation(self, mocker):
         """Test handle_keyboard_shortcut for stop generation."""
         event_data = {"key": "escape"}
-        result = handle_keyboard_shortcut(Mock(_data=event_data))
+        result = handle_keyboard_shortcut(mocker.Mock(_data=event_data))
         assert result == "stop_generation"
 
-    def test_handle_keyboard_shortcut_none(self):
+    def test_handle_keyboard_shortcut_none(self, mocker):
         """Test handle_keyboard_shortcut for unknown shortcut."""
         event_data = {"key": "a"}
-        result = handle_keyboard_shortcut(Mock(_data=event_data))
+        result = handle_keyboard_shortcut(mocker.Mock(_data=event_data))
         assert result == "none"
 
 
 class TestHealthCheck:
     """Test health_check function."""
 
-    @patch("app.getenv")
-    @patch("pathlib.Path")
-    @patch("httpx.get")
-    def test_health_check_healthy(self, mock_get, mock_path_class, mock_getenv):
+def test_health_check_healthy(self, mock_get, mock_path_class, mock_getenv, mocker):
+    get = mocker.patch('httpx.get')
+    Path = mocker.patch('pathlib.Path')
+    getenv = mocker.patch('app.getenv')
         """Test health_check when all healthy."""
         mock_getenv.return_value = "key"
 
@@ -302,9 +302,9 @@ class TestHealthCheck:
         result = health_check()
         assert result["status"] == "healthy"
 
-    @patch("app.getenv")
-    @patch("app.Path")
-    def test_health_check_unhealthy(self, mock_path, mock_getenv):
+def test_health_check_unhealthy(self, mock_path, mock_getenv, mocker):
+    Path = mocker.patch('app.Path')
+    getenv = mocker.patch('app.getenv')
         """Test health_check when unhealthy."""
         mock_getenv.return_value = None
         mock_path.return_value.exists.return_value = False
@@ -316,10 +316,10 @@ class TestHealthCheck:
 class TestLoadInitialModels:
     """Test load_initial_models function."""
 
-    @patch("app.get_models")
-    def test_load_initial_models_success(self, mock_get_models):
+def test_load_initial_models_success(self, mock_get_models, mocker):
+    get_models = mocker.patch('app.get_models')
         """Test load_initial_models success."""
-        mock_model = Mock()
+        mock_model = mocker.Mock()
         mock_model.display_name = "Test Model"
         mock_model.provider = "Test Provider"
         mock_model.id = "test/model"
@@ -335,13 +335,13 @@ class TestLoadInitialModels:
 class TestHandlerFunctions:
     """Test handler functions."""
 
-    @patch("app.build_agent")
-    def test_build_agent_handler_success(self, mock_build_agent):
+def test_build_agent_handler_success(self, mock_build_agent, mocker):
+    build_agent = mocker.patch('app.build_agent')
         """Test build_agent_handler success."""
         from agents.models import AgentConfig
 
         config = AgentConfig(name="Test", model="test", system_prompt="test")
-        mock_build_agent.return_value = Mock()
+        mock_build_agent.return_value = mocker.Mock()
 
         result_config, message, badge, agent, announcement = build_agent_handler(
             "Test Agent", "Display (provider)", "Prompt", 0.7, 1.0, False, config, {"display": "id"}
@@ -349,8 +349,8 @@ class TestHandlerFunctions:
         assert "successfully" in message
         assert agent is not None
 
-    @patch("app.build_agent")
-    def test_build_agent_handler_failure(self, mock_build_agent):
+def test_build_agent_handler_failure(self, mock_build_agent, mocker):
+    build_agent = mocker.patch('app.build_agent')
         """Test build_agent_handler failure."""
         from agents.models import AgentConfig
 
@@ -363,12 +363,12 @@ class TestHandlerFunctions:
         assert "Error" in message
         assert agent is None
 
-    @patch("app.get_models")
-    def test_refresh_models_handler_success(self, mock_get_models):
+def test_refresh_models_handler_success(self, mock_get_models, mocker):
+    get_models = mocker.patch('app.get_models')
         """Test refresh_models_handler success."""
         from agents.models import AgentConfig
 
-        mock_model = Mock()
+        mock_model = mocker.Mock()
         mock_model.display_name = "New Model"
         mock_model.provider = "Provider"
         mock_model.id = "new/model"
@@ -382,13 +382,13 @@ class TestHandlerFunctions:
         )
         assert len(result[0]) == 1  # choices
 
-    @patch("services.persist.save_session")
-    @patch("services.persist.list_sessions")
-    def test_save_session_handler_success(self, mock_list_sessions, mock_save_session):
+def test_save_session_handler_success(self, mock_list_sessions, mock_save_session, mocker):
+    list_sessions = mocker.patch('services.persist.list_sessions')
+    save_session = mocker.patch('services.persist.save_session')
         """Test save_session_handler success."""
         from agents.models import AgentConfig, Session
 
-        mock_save_session.return_value = Mock(name="saved")
+        mock_save_session.return_value = mocker.Mock(name="saved")
         mock_list_sessions.return_value = [("session1", "path1")]
 
         config = AgentConfig(name="Test", model="test", system_prompt="test")
@@ -399,9 +399,9 @@ class TestHandlerFunctions:
         )
         assert "Saved" in message
 
-    @patch("app.load_session")
-    @patch("app.list_sessions")
-    def test_load_session_handler_success(self, mock_list_sessions, mock_load_session):
+def test_load_session_handler_success(self, mock_list_sessions, mock_load_session, mocker):
+    list_sessions = mocker.patch('app.list_sessions')
+    load_session = mocker.patch('app.load_session')
         """Test load_session_handler success."""
         from agents.models import AgentConfig, Session
         from pathlib import Path
@@ -419,7 +419,7 @@ class TestHandlerFunctions:
             notes="test session"
         )
 
-        mock_path = Mock(spec=Path)
+        mock_path = mocker.Mock(spec=Path)
         mock_list_sessions.return_value = [("session1", mock_path)]
         mock_load_session.return_value = session
 
@@ -458,7 +458,6 @@ class TestHandlerFunctions:
         assert result[4] is not None
         assert result[4]["interactive"] is False
 
-    @patch("app.load_initial_models", return_value=([], "Fallback", [], "fallback"))
     def test_create_ui_basic(self, mock_load):
         """Test create_ui creates a Blocks instance."""
         import gradio as gr

@@ -2,7 +2,6 @@
 
 import pytest
 from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, patch
 from src.components.session_workflow import (
     SessionWorkflowManager,
     render_session_status_indicator,

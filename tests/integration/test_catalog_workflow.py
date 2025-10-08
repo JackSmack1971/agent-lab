@@ -1,7 +1,6 @@
 """Integration tests for model catalog refresh workflow."""
 
 import pytest
-from unittest.mock import Mock, patch
 from datetime import datetime, timedelta, timezone
 import time
 

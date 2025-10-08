@@ -2,7 +2,6 @@
 
 import httpx
 import pytest
-from unittest.mock import AsyncMock, Mock, patch
 from hypothesis import given, strategies as st
 
 from agents.tools import add_numbers, utc_now, fetch_url, AddInput, NowInput, FetchInput

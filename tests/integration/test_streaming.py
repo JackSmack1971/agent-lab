@@ -1,7 +1,6 @@
 """Integration tests for streaming functionality."""
 
 import pytest
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
 from threading import Event
 import asyncio
 from typing import Any, AsyncGenerator

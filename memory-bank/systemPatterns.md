@@ -276,4 +276,35 @@
 - Proactive reliability management
 - Business-aligned service levels
 
+## Configuration Patterns
+
+### Roo Custom Modes Configuration Pattern
+**Pattern**: YAML-based custom mode definitions with structured permissions and restrictions
+**Context**: AI coding assistant requiring specialized mode configurations
+**Implementation**:
+- YAML format preferred over JSON (JSON supported for legacy)
+- Root object with `customModes` array
+- Each mode object contains: slug, name, roleDefinition, groups (required)
+- Optional fields: description, whenToUse, customInstructions
+- Groups array: simple strings ("read", "edit") or tuples with restrictions
+- Edit restrictions: fileRegex pattern and description
+- Slug format: `/^[a-zA-Z0-9-]+$/` (lowercase, numbers, hyphens only)
+**Validation Rules**:
+- Valid YAML/JSON syntax required
+- Slug uniqueness and format validation
+- Groups structure validation (array of strings/tuples)
+- File regex compilation check
+- Property compatibility (description requires recent versions)
+**Common Errors & Fixes**:
+- YAML syntax errors: Use 2-space indentation, colons after keys
+- Groups structure: Use `edit:\n  fileRegex: pattern` not nested objects
+- Regex escaping: Single backslashes in YAML, double in JSON
+- Property not allowed: Update Roo Code or remove unsupported fields
+**Benefits**:
+- Flexible mode specialization
+- Security through file restrictions
+- Clear role definitions
+- Maintainable configuration
+- Automated validation and error reporting
+
 These patterns form the foundation of Agent Lab's architecture and development practices, ensuring scalability, maintainability, and high-quality delivery across all project phases.

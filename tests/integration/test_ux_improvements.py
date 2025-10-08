@@ -1,7 +1,6 @@
 """Integration tests for Phase 1 UX improvements."""
 
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
 from src.components.enhanced_errors import error_manager
 from src.components.loading_states import loading_manager, render_success_feedback, render_enhanced_progress_bar
 from src.components.session_workflow import session_workflow_manager

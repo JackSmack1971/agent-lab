@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-from unittest.mock import patch, MagicMock
 
 import gradio as gr
 from src.components.cost_optimizer import (
@@ -105,8 +104,8 @@ class TestUIValidation:
 class TestComponentIntegration:
     """Integration tests for component functionality."""
 
-    @patch('src.components.cost_optimizer.analyze_costs')
-    def test_component_with_mock_data(self, mock_analyze_costs):
+def test_component_with_mock_data(self, mock_analyze_costs, mocker):
+    analyze_costs = mocker.patch('src.components.cost_optimizer.analyze_costs')
         """Test component creation with mocked cost analysis."""
         from src.models.cost_analysis import CostAnalysis, CostTrend
 
@@ -127,9 +126,9 @@ class TestComponentIntegration:
         # Verify mock was not called yet (lazy loading)
         mock_analyze_costs.assert_not_called()
 
-    @patch('src.components.cost_optimizer.analyze_costs')
-    @patch('src.components.cost_optimizer.get_cost_trends')
-    def test_component_event_handlers_setup(self, mock_get_trends, mock_analyze_costs):
+def test_component_event_handlers_setup(self, mock_get_trends, mock_analyze_costs, mocker):
+    get_cost_trends = mocker.patch('src.components.cost_optimizer.get_cost_trends')
+    analyze_costs = mocker.patch('src.components.cost_optimizer.analyze_costs')
         """Test that event handlers are properly set up."""
         from src.models.cost_analysis import CostAnalysis, CostTrend
 
@@ -178,8 +177,8 @@ class TestComponentIntegration:
         for style in required_styles:
             assert style in COST_OPTIMIZER_CSS, f"Missing CSS style: {style}"
 
-    @patch('src.components.cost_optimizer.analyze_costs')
-    def test_component_error_handling(self, mock_analyze_costs):
+def test_component_error_handling(self, mock_analyze_costs, mocker):
+    analyze_costs = mocker.patch('src.components.cost_optimizer.analyze_costs')
         """Test component error handling."""
         # Make analyze_costs raise an exception
         mock_analyze_costs.side_effect = ValueError("Test error")
@@ -233,8 +232,8 @@ class TestPerformance:
 class TestUpdateFunctions:
     """Test cases for update functions."""
 
-    @patch('src.components.cost_optimizer.analyze_costs')
-    def test_update_cost_display_success(self, mock_analyze_costs):
+def test_update_cost_display_success(self, mock_analyze_costs, mocker):
+    analyze_costs = mocker.patch('src.components.cost_optimizer.analyze_costs')
         """Test update_cost_display with successful analysis."""
         from src.models.cost_analysis import CostAnalysis, CostTrend
 
@@ -257,8 +256,8 @@ class TestUpdateFunctions:
         # For now, test that the component can be created
         assert tab is not None
 
-    @patch('src.components.cost_optimizer.analyze_costs')
-    def test_update_cost_display_exception(self, mock_analyze_costs):
+def test_update_cost_display_exception(self, mock_analyze_costs, mocker):
+    analyze_costs = mocker.patch('src.components.cost_optimizer.analyze_costs')
         """Test update_cost_display exception handling."""
         mock_analyze_costs.side_effect = Exception("Test error")
 
@@ -269,8 +268,8 @@ class TestUpdateFunctions:
         # Since we can't call it directly, we test that component creation works
         assert tab is not None
 
-    @patch('src.components.cost_optimizer.analyze_costs')
-    def test_update_alerts_display_with_alerts(self, mock_analyze_costs):
+def test_update_alerts_display_with_alerts(self, mock_analyze_costs, mocker):
+    analyze_costs = mocker.patch('src.components.cost_optimizer.analyze_costs')
         """Test update_alerts_display with alerts."""
         from src.models.cost_analysis import CostAnalysis, CostTrend, CostAlert, AlertSeverity
 
@@ -295,8 +294,8 @@ class TestUpdateFunctions:
 
         assert tab is not None
 
-    @patch('src.components.cost_optimizer.analyze_costs')
-    def test_update_suggestions_display_with_suggestions(self, mock_analyze_costs):
+def test_update_suggestions_display_with_suggestions(self, mock_analyze_costs, mocker):
+    analyze_costs = mocker.patch('src.components.cost_optimizer.analyze_costs')
         """Test update_suggestions_display with suggestions."""
         from src.models.cost_analysis import CostAnalysis, CostTrend, OptimizationSuggestion, SuggestionType
 
@@ -322,8 +321,8 @@ class TestUpdateFunctions:
 
         assert tab is not None
 
-    @patch('src.components.cost_optimizer.get_cost_trends')
-    def test_update_trends_chart_with_data(self, mock_get_trends):
+def test_update_trends_chart_with_data(self, mock_get_trends, mocker):
+    get_cost_trends = mocker.patch('src.components.cost_optimizer.get_cost_trends')
         """Test update_trends_chart with trend data."""
         mock_get_trends.return_value = {
             "timeframe": "daily",
@@ -338,8 +337,8 @@ class TestUpdateFunctions:
 
         assert tab is not None
 
-    @patch('src.components.cost_optimizer.get_cost_trends')
-    def test_update_trends_chart_empty_data(self, mock_get_trends):
+def test_update_trends_chart_empty_data(self, mock_get_trends, mocker):
+    get_cost_trends = mocker.patch('src.components.cost_optimizer.get_cost_trends')
         """Test update_trends_chart with empty data."""
         mock_get_trends.return_value = {
             "timeframe": "daily",
@@ -354,8 +353,8 @@ class TestUpdateFunctions:
 
         assert tab is not None
 
-    @patch('src.components.cost_optimizer.analyze_costs')
-    def test_update_cost_breakdown_success(self, mock_analyze_costs):
+def test_update_cost_breakdown_success(self, mock_analyze_costs, mocker):
+    analyze_costs = mocker.patch('src.components.cost_optimizer.analyze_costs')
         """Test update_cost_breakdown with successful analysis."""
         from src.models.cost_analysis import CostAnalysis, CostTrend
 

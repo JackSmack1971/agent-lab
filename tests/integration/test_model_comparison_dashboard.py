@@ -1,7 +1,6 @@
 """Integration tests for model comparison dashboard functionality."""
 
 import pytest
-from unittest.mock import patch, MagicMock
 
 from src.services.model_recommender import ModelComparisonRequest, ModelComparisonResult, ModelDetail
 from src.models.recommendation import ModelRecommendation, SuggestedConfig
@@ -10,26 +9,24 @@ from src.models.recommendation import ModelRecommendation, SuggestedConfig
 class TestModelComparisonIntegration:
     """Integration tests for the complete model comparison workflow."""
 
-    @patch('src.services.model_recommender.analyze_use_case')
-    @patch('src.services.model_recommender.get_models')
     @pytest.mark.asyncio
-    async def test_full_comparison_workflow(self, mock_get_models, mock_analyze):
+    async def test_full_comparison_workflow(self, mock_get_models, mock_analyze, mocker):
         """Test the complete model comparison workflow from request to result."""
         from src.services.model_recommender import compare_models
 
         # Mock the model catalog
         mock_models = [
-            MagicMock(id="openai/gpt-4", display_name="GPT-4", provider="openai",
+            mocker.mocker.MagicMock(id="openai/gpt-4", display_name="GPT-4", provider="openai",
                      input_price=0.01, output_price=0.03, description="Advanced model"),
-            MagicMock(id="anthropic/claude-3-opus", display_name="Claude 3 Opus", provider="anthropic",
+            mocker.mocker.MagicMock(id="anthropic/claude-3-opus", display_name="Claude 3 Opus", provider="anthropic",
                      input_price=0.015, output_price=0.075, description="Safety-focused model"),
-            MagicMock(id="meta-llama/llama-3-70b-instruct", display_name="Llama 3 70B", provider="meta",
+            mocker.mocker.MagicMock(id="meta-llama/llama-3-70b-instruct", display_name="Llama 3 70B", provider="meta",
                      input_price=0.002, output_price=0.002, description="Open-source model"),
         ]
         mock_get_models.return_value = (mock_models, "dynamic", None)
 
         # Mock the recommendation response
-        mock_rec_response = MagicMock()
+        mock_rec_response = mocker.mocker.MagicMock()
         mock_rec_response.recommendations = [
             ModelRecommendation(
                 model_id="openai/gpt-4",
@@ -87,24 +84,22 @@ class TestModelComparisonIntegration:
         assert "3 models" in result.comparison_summary
         assert "openai" in result.comparison_summary.lower()
 
-    @patch('src.services.model_recommender.analyze_use_case')
-    @patch('src.services.model_recommender.get_models')
     @pytest.mark.asyncio
-    async def test_comparison_with_fallback_recommendations(self, mock_get_models, mock_analyze):
+    async def test_comparison_with_fallback_recommendations(self, mock_get_models, mock_analyze, mocker):
         """Test comparison workflow when AI analysis fails and falls back to basic recommendations."""
         from src.services.model_recommender import compare_models
 
         # Mock the model catalog
         mock_models = [
-            MagicMock(id="openai/gpt-4", display_name="GPT-4", provider="openai",
+            mocker.MagicMock(id="openai/gpt-4", display_name="GPT-4", provider="openai",
                      input_price=0.01, output_price=0.03, description=None),
-            MagicMock(id="anthropic/claude-3-haiku", display_name="Claude 3 Haiku", provider="anthropic",
+            mocker.MagicMock(id="anthropic/claude-3-haiku", display_name="Claude 3 Haiku", provider="anthropic",
                      input_price=0.00025, output_price=0.00125, description=None),
         ]
         mock_get_models.return_value = (mock_models, "dynamic", None)
 
         # Mock analysis to return empty recommendations (simulating failure)
-        mock_rec_response = MagicMock()
+        mock_rec_response = mocker.MagicMock()
         mock_rec_response.recommendations = []  # No recommendations
         mock_analyze.return_value = mock_rec_response
 
@@ -128,32 +123,32 @@ class TestModelComparisonIntegration:
         for rec in result.recommendations:
             assert 0.4 <= rec.confidence_score <= 0.6
 
-    def test_model_detail_creation(self):
-        """Test that ModelDetail objects are created correctly."""
-        from src.services.model_recommender import get_model_comparison_data
+def test_model_detail_creation(self, mocker):
+    """Test that ModelDetail objects are created correctly."""
+    from src.services.model_recommender import get_model_comparison_data
 
-        with patch('src.services.model_recommender.get_models') as mock_get_models:
-            mock_models = [
-                MagicMock(
-                    id="test/model",
-                    display_name="Test Model",
-                    provider="test",
-                    input_price=0.01,
-                    output_price=0.02,
-                    description="A test model",
-                )
-            ]
-            mock_get_models.return_value = (mock_models, "dynamic", None)
+    with mocker.patch('src.services.model_recommender.get_models') as mock_get_models:
+        mock_models = [
+            mocker.MagicMock(
+                id="test/model",
+                display_name="Test Model",
+                provider="test",
+                input_price=0.01,
+                output_price=0.02,
+                description="A test model",
+            )
+        ]
+        mock_get_models.return_value = (mock_models, "dynamic", None)
 
-            details = get_model_comparison_data(["test/model"])
+        details = get_model_comparison_data(["test/model"])
 
-            assert len(details) == 1
-            detail = details[0]
-            assert detail.model_id == "test/model"
-            assert detail.display_name == "Test Model"
-            assert detail.provider == "test"
-            assert detail.average_cost_per_1k == 0.015  # (0.01 + 0.02) / 2
-            assert detail.performance_score is not None
+        assert len(details) == 1
+        detail = details[0]
+        assert detail.model_id == "test/model"
+        assert detail.display_name == "Test Model"
+        assert detail.provider == "test"
+        assert detail.average_cost_per_1k == 0.015  # (0.01 + 0.02) / 2
+        assert detail.performance_score is not None
 
     def test_comparison_result_structure(self):
         """Test that ModelComparisonResult has all required fields."""
@@ -210,20 +205,19 @@ class TestModelComparisonIntegration:
         assert result.performance_analysis["average_score"] == 0.75
         assert "cost efficiency" in result.comparison_summary
 
-    @patch('src.services.model_recommender.get_models')
-    def test_model_catalog_integration(self, mock_get_models):
-        """Test integration with the model catalog service."""
+def test_model_catalog_integration(self, mock_get_models, mocker):
+    """Test integration with the model catalog service."""
         from src.services.model_recommender import get_model_comparison_data
 
         # Mock different types of models
         mock_models = [
-            MagicMock(id="openai/gpt-4", display_name="GPT-4", provider="openai",
+            mocker.MagicMock(id="openai/gpt-4", display_name="GPT-4", provider="openai",
                      input_price=0.01, output_price=0.03, description=None),
-            MagicMock(id="anthropic/claude", display_name="Claude", provider="anthropic",
+            mocker.MagicMock(id="anthropic/claude", display_name="Claude", provider="anthropic",
                      input_price=0.015, output_price=0.075, description=None),
-            MagicMock(id="google/gemini", display_name="Gemini", provider="google",
+            mocker.MagicMock(id="google/gemini", display_name="Gemini", provider="google",
                      input_price=0.001, output_price=0.002, description=None),
-            MagicMock(id="meta/llama", display_name="Llama", provider="meta",
+            mocker.MagicMock(id="meta/llama", display_name="Llama", provider="meta",
                      input_price=None, output_price=None, description=None),  # No pricing
         ]
         mock_get_models.return_value = (mock_models, "dynamic", None)

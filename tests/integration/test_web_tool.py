@@ -1,7 +1,6 @@
 """Integration tests for web fetch tool domain blocking and functionality."""
 
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
 
 from agents.tools import fetch_url, FetchInput
 from agents.runtime import build_agent

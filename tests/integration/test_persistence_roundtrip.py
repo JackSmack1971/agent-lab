@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 import csv
 import tempfile
 import os
-from unittest.mock import patch
 
 from agents.models import RunRecord
 from services.persist import (
