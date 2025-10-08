@@ -29,6 +29,21 @@ from uuid import uuid4
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Import UX improvement components
+from src.components.enhanced_errors import error_manager, render_error_message, ENHANCED_ERROR_CSS
+from src.components.loading_states import loading_manager, LoadingStateManager, LOADING_STATES_CSS
+from src.components.session_workflow import session_workflow_manager, render_session_status_indicator, render_save_prompt_toast, SESSION_WORKFLOW_CSS
+from src.components.parameter_tooltips import tooltip_manager, PARAMETER_TOOLTIPS_CSS
+from src.components.transitions import transition_manager, TRANSITIONS_CSS
+from src.components.accessibility import ACCESSIBILITY_CSS, setup_keyboard_navigation, announce_status_change
+
+# Import parameter optimizer
+from src.services.parameter_optimizer import optimize_parameters, get_smart_defaults
+from src.models.parameter_optimization import ParameterOptimizationRequest, OptimizationContext, SmartDefaultsRequest
+
+# Import model comparison dashboard
+from src.components.model_comparison import create_model_comparison_dashboard
+
 ComponentUpdate = dict[str, Any]
 
 # Prometheus metrics
@@ -266,18 +281,19 @@ def validate_form_field(field_name: str, value: Any, available_models: list | No
 
 # Keyboard Shortcuts Implementation
 def handle_keyboard_shortcut(keyboard_event: gr.EventData) -> str:
-    """Handle keyboard shortcuts from JavaScript."""
+    """Handle keyboard shortcuts from JavaScript with accessibility enhancements."""
     try:
         event_data = keyboard_event._data if hasattr(keyboard_event, '_data') else {}
         key = event_data.get('key', '').lower()
         ctrl_key = event_data.get('ctrlKey', False)
         meta_key = event_data.get('metaKey', False)
         shift_key = event_data.get('shiftKey', False)
+        alt_key = event_data.get('altKey', False)
 
         # Normalize Ctrl/Cmd
         modifier = ctrl_key or meta_key
 
-        # Define shortcuts
+        # Define shortcuts with accessibility considerations
         if modifier and key == 'enter':
             return 'send_message'
         elif modifier and key == 'k':
@@ -286,6 +302,23 @@ def handle_keyboard_shortcut(keyboard_event: gr.EventData) -> str:
             return 'refresh_models'
         elif key == 'escape':
             return 'stop_generation'
+        # Accessibility shortcuts
+        elif alt_key and key == '1':
+            return 'focus_chat_tab'
+        elif alt_key and key == '2':
+            return 'focus_config_tab'
+        elif alt_key and key == '3':
+            return 'focus_sessions_tab'
+        elif alt_key and key == '4':
+            return 'focus_analytics_tab'
+        elif alt_key and key == '5':
+            return 'focus_model_comparison_tab'
+        elif modifier and shift_key and key == 'h':
+            return 'show_help'
+        elif modifier and key == 's':
+            return 'save_session'
+        elif modifier and key == 'l':
+            return 'load_session'
 
         return 'none'
     except Exception:
@@ -387,7 +420,7 @@ def build_agent_handler(
     web_enabled: bool,
     config_state: AgentConfig,
     id_mapping: dict[str, str],
-) -> tuple[AgentConfig, str, str, Any]:
+) -> tuple[AgentConfig, str, str, Any, str]:
     """Build an agent using the runtime and update UI state."""
 
     # Resolve display label to actual model ID
@@ -407,12 +440,16 @@ def build_agent_handler(
     try:
         agent = build_agent(updated_config, include_web=web_enabled)
         AGENT_BUILD_COUNT.labels(success='true').inc()
+        status_message = "✅ Agent built successfully"
+        announcement = announce_status_change("Agent built successfully", "polite")
     except Exception as exc:  # pragma: no cover - runtime guard
         AGENT_BUILD_COUNT.labels(success='false').inc()
         error_badge = _web_badge_html("web_fetch" in config_state.tools)
-        return config_state, f"❌ Error: {exc}", error_badge, None
+        status_message = f"❌ Error: {exc}"
+        announcement = announce_status_change(f"Failed to build agent: {str(exc)}", "assertive")
+        return config_state, status_message, error_badge, None, announcement
 
-    return updated_config, "✅ Agent built successfully", badge_html, agent
+    return updated_config, status_message, badge_html, agent, announcement
 
 
 def refresh_models_handler(
@@ -793,10 +830,206 @@ def new_session_handler() -> tuple[None, str, list, str, list, dict]:
     return None, "?? New session started", [], "", [], {}
 
 
+async def optimize_parameters_handler(
+    task_description: str,
+    model_display_label: str,
+    system_prompt: str,
+    current_temperature: float,
+    current_top_p: float,
+    id_mapping: dict[str, str]
+) -> tuple[str, dict, ComponentUpdate]:
+    """Handle parameter optimization requests."""
+    try:
+        if not task_description or not task_description.strip():
+            return "❌ Please describe your task first", {}, gr.update(visible=False)
+
+        # Resolve model ID from display label
+        model_id = id_mapping.get(model_display_label, model_display_label)
+
+        # Import UseCaseType
+        from src.models.parameter_optimization import UseCaseType
+
+        # Create optimization request
+        request = ParameterOptimizationRequest(
+            model_id=model_id,
+            user_description=task_description,
+            context=OptimizationContext(
+                model_id=model_id,
+                use_case=UseCaseType.OTHER,  # Let detection determine this
+                user_input_length=len(task_description),
+                conversation_history_length=0,
+                task_complexity_hint=None,
+                time_pressure=None
+            )
+        )
+
+        # Get optimization
+        response = await optimize_parameters(request)
+
+        # Format recommendations for display
+        recommendations = {
+            "detected_use_case": response.use_case_detection.detected_use_case.value.replace('_', ' ').title(),
+            "confidence": f"{response.use_case_detection.confidence_score:.1%}",
+            "recommended_temperature": response.recommended_parameters.temperature,
+            "recommended_top_p": response.recommended_parameters.top_p,
+            "recommended_max_tokens": response.recommended_parameters.max_tokens,
+            "reasoning": response.recommended_parameters.reasoning,
+            "optimization_confidence": f"{response.optimization_confidence:.1%}",
+            "processing_time_ms": response.processing_time_ms
+        }
+
+        if response.historical_insights:
+            recommendations["historical_insights"] = response.historical_insights
+
+        status_msg = f"✅ Parameters optimized for {response.use_case_detection.detected_use_case.value.replace('_', ' ')} (confidence: {response.use_case_detection.confidence_score:.1%})"
+
+        return status_msg, recommendations, gr.update(visible=True)
+
+    except Exception as e:
+        logger.error(f"Parameter optimization failed: {e}")
+        return f"❌ Optimization failed: {str(e)}", {}, gr.update(visible=False)
+
+
+async def smart_defaults_handler(
+    model_display_label: str,
+    id_mapping: dict[str, str]
+) -> tuple[str, dict, ComponentUpdate]:
+    """Handle smart defaults requests."""
+    try:
+        # Resolve model ID from display label
+        model_id = id_mapping.get(model_display_label, model_display_label)
+
+        # Create smart defaults request
+        request = SmartDefaultsRequest(
+            model_id=model_id,
+            user_context=None  # Use general defaults
+        )
+
+        # Get smart defaults
+        response = await get_smart_defaults(request)
+
+        # Format recommendations for display
+        recommendations = {
+            "smart_defaults": "General purpose",
+            "recommended_temperature": response.default_parameters.temperature,
+            "recommended_top_p": response.default_parameters.top_p,
+            "recommended_max_tokens": response.default_parameters.max_tokens,
+            "reasoning": response.reasoning,
+            "confidence": f"{response.confidence_score:.1%}"
+        }
+
+        status_msg = f"✅ Smart defaults applied (confidence: {response.confidence_score:.1%})"
+
+        return status_msg, recommendations, gr.update(visible=True)
+
+    except Exception as e:
+        logger.error(f"Smart defaults failed: {e}")
+        return f"❌ Smart defaults failed: {str(e)}", {}, gr.update(visible=False)
+
+
+def apply_optimized_parameters(
+    recommendations: dict,
+    current_temperature: float,
+    current_top_p: float
+) -> tuple[float, float, str]:
+    """Apply optimized parameters to the UI controls."""
+    try:
+        if not recommendations:
+            return current_temperature, current_top_p, "❌ No recommendations to apply"
+
+        new_temp = recommendations.get("recommended_temperature", current_temperature)
+        new_top_p = recommendations.get("recommended_top_p", current_top_p)
+
+        use_case = recommendations.get("detected_use_case", "Unknown")
+        confidence = recommendations.get("confidence", "Unknown")
+
+        status_msg = f"✅ Applied optimized parameters for {use_case} (confidence: {confidence})"
+
+        return new_temp, new_top_p, status_msg
+
+    except Exception as e:
+        logger.error(f"Failed to apply optimized parameters: {e}")
+        return current_temperature, current_top_p, f"❌ Failed to apply parameters: {str(e)}"
+
+
+def focus_chat_tab() -> str:
+    """Focus the chat tab for accessibility."""
+    return announce_status_change("Switched to Chat tab", "polite")
+
+
+def focus_config_tab() -> str:
+    """Focus the configuration tab for accessibility."""
+    return announce_status_change("Switched to Configuration tab", "polite")
+
+
+def focus_sessions_tab() -> str:
+    """Focus the sessions tab for accessibility."""
+    return announce_status_change("Switched to Sessions tab", "polite")
+
+
+def focus_analytics_tab() -> str:
+    """Focus the analytics tab for accessibility."""
+    return announce_status_change("Switched to Analytics tab", "polite")
+
+
+def focus_model_comparison_tab() -> str:
+    """Focus the model comparison tab for accessibility."""
+    return announce_status_change("Switched to Model Comparison tab", "polite")
+
+
+def show_accessibility_help() -> str:
+    """Show accessibility help and keyboard shortcuts."""
+    help_text = """
+    Keyboard Shortcuts:
+    - Ctrl+Enter: Send message
+    - Ctrl+K: Focus input field
+    - Ctrl+R: Refresh models
+    - Escape: Stop generation
+    - Alt+1: Switch to Chat tab
+    - Alt+2: Switch to Configuration tab
+    - Alt+3: Switch to Sessions tab
+    - Alt+4: Switch to Analytics tab
+    - Alt+5: Switch to Model Comparison tab
+    - Ctrl+Shift+H: Show this help
+    - Ctrl+S: Save session
+    - Ctrl+L: Load session
+    """
+    return announce_status_change(f"Accessibility help: {help_text}", "polite")
+
+
+def handle_accessibility_shortcut(shortcut_action: str) -> tuple[str, ComponentUpdate, ComponentUpdate, ComponentUpdate, ComponentUpdate, ComponentUpdate]:
+    """Handle accessibility-related keyboard shortcuts."""
+    if shortcut_action == 'focus_chat_tab':
+        return show_accessibility_help(), gr.update(selected="Chat"), gr.update(), gr.update(), gr.update(), gr.update()
+    elif shortcut_action == 'focus_config_tab':
+        return show_accessibility_help(), gr.update(), gr.update(selected="Configuration"), gr.update(), gr.update(), gr.update()
+    elif shortcut_action == 'focus_sessions_tab':
+        return show_accessibility_help(), gr.update(), gr.update(), gr.update(selected="Sessions"), gr.update(), gr.update()
+    elif shortcut_action == 'focus_analytics_tab':
+        return show_accessibility_help(), gr.update(), gr.update(), gr.update(), gr.update(selected="Analytics"), gr.update()
+    elif shortcut_action == 'focus_model_comparison_tab':
+        return show_accessibility_help(), gr.update(), gr.update(), gr.update(), gr.update(), gr.update(selected="Model Comparison")
+    elif shortcut_action == 'show_help':
+        return show_accessibility_help(), gr.update(), gr.update(), gr.update(), gr.update(), gr.update()
+    else:
+        return "", gr.update(), gr.update(), gr.update(), gr.update(), gr.update()
+
+
 def create_ui() -> gr.Blocks:
     """Construct the tabbed Gradio Blocks layout for Agent Lab optimized for 16:9 displays."""
 
-    with gr.Blocks(title="Agent Lab") as demo:
+    # Combine all UX improvement CSS
+    ux_css = ENHANCED_ERROR_CSS + LOADING_STATES_CSS + SESSION_WORKFLOW_CSS + PARAMETER_TOOLTIPS_CSS + TRANSITIONS_CSS + ACCESSIBILITY_CSS
+
+    with gr.Blocks(title="Agent Lab", css=ux_css, elem_id="agent-lab-app") as demo:
+        # ARIA live region for announcements
+        status_announcements = gr.HTML(
+            value="",
+            elem_id="status-announcements",
+            visible=False,
+            elem_classes=["sr-only", "live-region"]
+        )
+
         config_state = gr.State(DEFAULT_AGENT_CONFIG)
         agent_state = gr.State(None)
         history_state = gr.State([])
@@ -810,98 +1043,208 @@ def create_ui() -> gr.Blocks:
         })
         current_session_state = gr.State(None)
 
-        with gr.Tabs(elem_id="main-tabs"):
-            with gr.TabItem("Chat", elem_id="chat-tab"):
+        with gr.Tabs(elem_id="main-tabs", elem_classes=["main-navigation"]) as main_tabs:
+            with gr.TabItem("Chat", elem_id="chat-tab", elem_classes=["main-content"]):
                 with gr.Row(equal_height=True):
                     with gr.Column(scale=2):
-                        chatbot = gr.Chatbot(label="Conversation", height=700)
+                        chatbot = gr.Chatbot(
+                            label="Conversation",
+                            height=700,
+                            elem_id="conversation-chatbot",
+                            elem_classes=["main-chat-area"]
+                        )
                     with gr.Column(scale=1):
-                        with gr.Accordion("Message Input", open=True):
+                        with gr.Accordion("Message Input", open=True, elem_id="message-input-section", elem_classes=["input-controls"]):
                             user_input = gr.Textbox(
                                 label="Your Message",
                                 lines=3,
                                 placeholder="Type your message here...",
-                                elem_id="chat-input"
+                                elem_id="chat-input",
+                                elem_classes=["message-input"]
                             )
                             with gr.Row():
-                                send_btn = gr.Button("Send", variant="primary", elem_id="send-btn")
-                                stop_btn = gr.Button("Stop", variant="stop", visible=False, interactive=False, elem_id="stop-btn")
-                        with gr.Accordion("Experiment Tagging (optional)", open=False):
+                                send_btn = gr.Button(
+                                    "Send",
+                                    variant="primary",
+                                    elem_id="send-btn",
+                                    elem_classes=["button-feedback", "send-message-btn"]
+                                )
+                                stop_btn = gr.Button(
+                                    "Stop",
+                                    variant="stop",
+                                    visible=False,
+                                    interactive=False,
+                                    elem_id="stop-btn",
+                                    elem_classes=["button-feedback", "stop-generation-btn"]
+                                )
+                        with gr.Accordion("Experiment Tagging (optional)", open=False, elem_id="experiment-tagging-section", elem_classes=["experiment-controls"]):
                             experiment_id_input = gr.Textbox(
                                 label="Experiment ID",
                                 placeholder="prompt-optimization-v3",
-                                info="Group related runs together (e.g., 'temperature-test', 'model-comparison')"
+                                info="Group related runs together (e.g., 'temperature-test', 'model-comparison')",
+                                elem_id="experiment-id-input"
                             )
                             task_label_input = gr.Dropdown(
                                 label="Task Type",
                                 choices=["reasoning", "creative", "coding", "summarization", "analysis", "debugging", "other"],
                                 value="other",
                                 allow_custom_value=True,
-                                info="Categorize what kind of task this run performs"
+                                info="Categorize what kind of task this run performs",
+                                elem_id="task-label-input"
                             )
                             run_notes_input = gr.Textbox(
                                 label="Run Notes",
                                 placeholder="Testing impact of higher temperature on creative tasks...",
                                 lines=2,
-                                info="Free-form notes about this specific run"
+                                info="Free-form notes about this specific run",
+                                elem_id="run-notes-input"
                             )
 
-            with gr.TabItem("Configuration", elem_id="config-tab"):
+            with gr.TabItem("Configuration", elem_id="config-tab", elem_classes=["configuration-panel"]):
                 with gr.Row(equal_height=True):
                     with gr.Column(scale=1):
-                        gr.Markdown("## Agent Configuration")
+                        gr.Markdown("## Agent Configuration", elem_id="config-heading")
                         agent_name = gr.Textbox(
                             label="Agent Name",
                             value="Test Agent",
-                            elem_id="agent-name"
+                            elem_id="agent-name",
+                            elem_classes=["form-input"]
                         )
+                        # Enhanced error display for agent name
+                        agent_name_error = gr.HTML(
+                            value="",
+                            elem_id="error-agent-name",
+                            visible=False,
+                            elem_classes=["error-message", "sr-only"]
+                        )
+
                         model_selector = gr.Dropdown(
                             label="Model",
                             choices=INITIAL_DROPDOWN_VALUES or [DEFAULT_MODEL_ID],
                             value=INITIAL_DROPDOWN_VALUES[0] if INITIAL_DROPDOWN_VALUES else DEFAULT_MODEL_ID,
                             filterable=True,
                             info="Start typing to search models by name or provider",
-                            elem_id="model-selector"
+                            elem_id="model-selector",
+                            elem_classes=["form-input"]
                         )
                         model_source_indicator = gr.Markdown(
                             value=_format_source_display(INITIAL_MODEL_SOURCE_LABEL),
-                            elem_id="model-source"
+                            elem_id="model-source",
+                            elem_classes=["status-info"]
                         )
                         refresh_models_button = gr.Button(
                             "Refresh Models",
                             variant="secondary",
-                            elem_id="refresh-models"
+                            elem_id="refresh-models",
+                            elem_classes=["button-feedback", "refresh-btn"]
                         )
                         system_prompt = gr.Textbox(
                             label="System Prompt",
                             lines=8,
                             value="You are a helpful assistant.",
-                            elem_id="system-prompt"
+                            elem_id="system-prompt",
+                            elem_classes=["form-input"]
                         )
+                        # Enhanced error display for system prompt
+                        system_prompt_error = gr.HTML(
+                            value="",
+                            elem_id="error-system-prompt",
+                            visible=False,
+                            elem_classes=["error-message", "sr-only"]
+                        )
+
                         temperature = gr.Slider(
                             label="Temperature",
                             minimum=0.0,
                             maximum=2.0,
                             value=0.7,
                             step=0.1,
-                            elem_id="temperature"
+                            elem_id="temperature",
+                            elem_classes=["form-input"]
                         )
+                        # Enhanced error display for temperature
+                        temperature_error = gr.HTML(
+                            value="",
+                            elem_id="error-temperature",
+                            visible=False,
+                            elem_classes=["error-message", "sr-only"]
+                        )
+
                         top_p = gr.Slider(
                             label="Top-p",
                             minimum=0.0,
                             maximum=1.0,
                             value=1.0,
                             step=0.05,
-                            elem_id="top-p"
+                            elem_id="top-p",
+                            elem_classes=["form-input"]
                         )
+                        # Enhanced error display for top_p
+                        top_p_error = gr.HTML(
+                            value="",
+                            elem_id="error-top-p",
+                            visible=False,
+                            elem_classes=["error-message", "sr-only"]
+                        )
+
                         web_tool_enabled = gr.Checkbox(
                             label="Enable Web Fetch Tool",
                             value=False,
-                            elem_id="web-tool"
+                            elem_id="web-tool",
+                            elem_classes=["form-input"]
                         )
+
+                        # Parameter Optimization Section
+                        with gr.Accordion("🤖 AI Parameter Optimization", open=False, elem_id="parameter-optimization-section"):
+                            task_description = gr.Textbox(
+                                label="Describe Your Task",
+                                placeholder="e.g., 'Write creative stories', 'Debug Python code', 'Analyze data trends'",
+                                lines=2,
+                                info="Describe what you'll use this agent for to get optimized parameters",
+                                elem_id="task-description",
+                                elem_classes=["form-input"]
+                            )
+
+                            with gr.Row():
+                                optimize_params_btn = gr.Button(
+                                    "🎯 Optimize Parameters",
+                                    variant="secondary",
+                                    elem_id="optimize-params",
+                                    elem_classes=["button-feedback", "optimization-btn"]
+                                )
+                                smart_defaults_btn = gr.Button(
+                                    "✨ Smart Defaults",
+                                    variant="secondary",
+                                    elem_id="smart-defaults",
+                                    elem_classes=["button-feedback", "optimization-btn"]
+                                )
+
+                            optimization_status = gr.Markdown(
+                                value="",
+                                elem_id="optimization-status",
+                                elem_classes=["status-info"]
+                            )
+
+                            parameter_recommendations = gr.JSON(
+                                label="Parameter Recommendations",
+                                elem_id="parameter-recommendations",
+                                visible=False,
+                                elem_classes=["recommendations-display"]
+                            )
+
                         with gr.Row():
-                            build_agent = gr.Button("Build Agent", variant="primary", elem_id="build-agent")
-                            reset_agent = gr.Button("Reset", variant="secondary", elem_id="reset-agent")
+                            build_agent = gr.Button(
+                                "Build Agent",
+                                variant="primary",
+                                elem_id="build-agent",
+                                elem_classes=["button-feedback", "primary-action"]
+                            )
+                            reset_agent = gr.Button(
+                                "Reset",
+                                variant="secondary",
+                                elem_id="reset-agent",
+                                elem_classes=["button-feedback", "secondary-action"]
+                            )
 
                     with gr.Column(scale=1):
                         gr.Markdown("## Model Information & Validation")
@@ -914,65 +1257,248 @@ def create_ui() -> gr.Blocks:
                             elem_id="validation-status"
                         )
 
-            with gr.TabItem("Sessions", elem_id="sessions-tab"):
+                        # Parameter guidance tooltips
+                        temperature_tooltip = gr.HTML(
+                            value="",
+                            elem_id="tooltip-temperature",
+                            visible=False,
+                            elem_classes=["parameter-tooltip-component"]
+                        )
+                        top_p_tooltip = gr.HTML(
+                            value="",
+                            elem_id="tooltip-top-p",
+                            visible=False,
+                            elem_classes=["parameter-tooltip-component"]
+                        )
+                        model_comparison_tooltip = gr.HTML(
+                            value="",
+                            elem_id="model-comparison-tooltip",
+                            visible=False,
+                            elem_classes=["model-comparison-component"]
+                        )
+
+            with gr.TabItem("Sessions", elem_id="sessions-tab", elem_classes=["sessions-panel"]):
                 with gr.Row(equal_height=True):
                     with gr.Column(scale=1):
-                        gr.Markdown("## Session Management")
+                        gr.Markdown("## Session Management", elem_id="sessions-heading")
                         session_name_input = gr.Textbox(
                             label="Session Name",
                             placeholder="experiment-gpt4-vs-claude",
                             info="Give this session a memorable name",
-                            elem_id="session-name"
+                            elem_id="session-name",
+                            elem_classes=["form-input"]
                         )
                         with gr.Row():
-                            save_session_btn = gr.Button("Save", variant="secondary", scale=1, elem_id="save-session")
-                            load_session_btn = gr.Button("Load", variant="secondary", scale=1, elem_id="load-session")
-                            new_session_btn = gr.Button("New", variant="secondary", scale=1, elem_id="new-session")
+                            save_session_btn = gr.Button(
+                                "Save",
+                                variant="secondary",
+                                scale=1,
+                                elem_id="save-session",
+                                elem_classes=["button-feedback", "session-action"]
+                            )
+                            load_session_btn = gr.Button(
+                                "Load",
+                                variant="secondary",
+                                scale=1,
+                                elem_id="load-session",
+                                elem_classes=["button-feedback", "session-action"]
+                            )
+                            new_session_btn = gr.Button(
+                                "New",
+                                variant="secondary",
+                                scale=1,
+                                elem_id="new-session",
+                                elem_classes=["button-feedback", "session-action"]
+                            )
+
+                        # Session status indicator
+                        session_status_indicator = gr.HTML(
+                            value=render_session_status_indicator("current", {"state": "unsaved"}),
+                            elem_id="session-status-indicator",
+                            elem_classes=["status-indicator"]
+                        )
+
                         session_list = gr.Dropdown(
                             label="Saved Sessions",
                             choices=[],
                             value=None,
                             interactive=True,
                             info="Select a session to load",
-                            elem_id="session-list"
+                            elem_id="session-list",
+                            elem_classes=["form-input"]
                         )
                         session_status = gr.Markdown(
                             value="_No active session_",
-                            elem_id="session-status"
+                            elem_id="session-status",
+                            elem_classes=["status-info"]
                         )
 
                     with gr.Column(scale=1):
-                        gr.Markdown("## Session Details")
+                        gr.Markdown("## Session Details", elem_id="session-details-heading")
                         transcript_preview = gr.Chatbot(
                             label="Transcript Preview",
                             height=400,
-                            elem_id="transcript-preview"
+                            elem_id="transcript-preview",
+                            elem_classes=["preview-area"]
                         )
                         session_metadata = gr.JSON(
                             label="Session Metadata",
-                            elem_id="session-metadata"
+                            elem_id="session-metadata",
+                            elem_classes=["metadata-display"]
                         )
 
-            with gr.TabItem("Analytics", elem_id="analytics-tab"):
+                # Save prompt toast (shown when needed)
+                save_prompt_toast = gr.HTML(
+                    value="",
+                    elem_id="save-prompt-toast",
+                    visible=False,
+                    elem_classes=["save-prompt-toast"]
+                )
+
+            with gr.TabItem("Analytics", elem_id="analytics-tab", elem_classes=["analytics-panel"]):
                 with gr.Row(equal_height=True):
                     with gr.Column(scale=1):
-                        gr.Markdown("## Run Statistics")
+                        gr.Markdown("## Run Statistics", elem_id="analytics-heading")
                         run_info_display = gr.Markdown(
                             value="No runs yet",
-                            elem_id="run-info"
+                            elem_id="run-info",
+                            elem_classes=["status-info"]
                         )
                         download_csv = gr.Button(
                             "Download runs.csv",
-                            elem_id="download-csv"
+                            elem_id="download-csv",
+                            elem_classes=["button-feedback", "download-btn"]
                         )
 
                     with gr.Column(scale=1):
-                        gr.Markdown("## Visualizations")
+                        gr.Markdown("## Visualizations", elem_id="visualizations-heading")
                         # Placeholder for future chart implementations
                         analytics_placeholder = gr.Markdown(
                             value="Charts and visualizations will be implemented here",
-                            elem_id="analytics-charts"
+                            elem_id="analytics-charts",
+                            elem_classes=["placeholder-content"]
                         )
+
+            with gr.TabItem("Model Comparison", elem_id="model-comparison-tab", elem_classes=["model-comparison-panel"]):
+                # Embed the model comparison dashboard
+                model_comparison_dashboard = create_model_comparison_dashboard()
+
+        # Enhanced error validation event handlers
+        def validate_agent_name_field(name):
+            result = error_manager.validate_field_with_enhanced_errors("agent_name", name)
+            return render_error_message(result, show_help_button=True)
+
+        def validate_system_prompt_field(prompt):
+            result = error_manager.validate_field_with_enhanced_errors("system_prompt", prompt)
+            return render_error_message(result, show_help_button=True)
+
+        def validate_temperature_field(temp):
+            result = error_manager.validate_field_with_enhanced_errors("temperature", temp)
+            return render_error_message(result, show_help_button=True)
+
+        def validate_top_p_field(top_p_val):
+            result = error_manager.validate_field_with_enhanced_errors("top_p", top_p_val)
+            return render_error_message(result, show_help_button=True)
+
+        # Validation event handlers
+        agent_name.blur(
+            fn=validate_agent_name_field,
+            inputs=[agent_name],
+            outputs=[agent_name_error]
+        )
+
+        system_prompt.blur(
+            fn=validate_system_prompt_field,
+            inputs=[system_prompt],
+            outputs=[system_prompt_error]
+        )
+
+        temperature.change(
+            fn=validate_temperature_field,
+            inputs=[temperature],
+            outputs=[temperature_error]
+        )
+
+        top_p.change(
+            fn=validate_top_p_field,
+            inputs=[top_p],
+            outputs=[top_p_error]
+        )
+
+        # Parameter tooltip handlers
+        def show_temperature_tooltip():
+            return tooltip_manager.get_tooltip_html("temperature", 0.7)
+
+        def show_top_p_tooltip():
+            return tooltip_manager.get_tooltip_html("top_p", 1.0)
+
+        def show_model_comparison_tooltip():
+            return tooltip_manager.get_model_comparison_tooltip([
+                {"name": "GPT-4 Turbo", "strengths": "Best for complex reasoning", "cost": "0.03", "speed": "Medium"},
+                {"name": "Claude 3.5 Sonnet", "strengths": "Excellent for analysis", "cost": "0.015", "speed": "Fast"},
+                {"name": "Gemini 1.5 Pro", "strengths": "Fast, good for casual use", "cost": "0.00125", "speed": "Very Fast"}
+            ])
+
+        # Tooltip event handlers (using hover for demonstration - in real implementation would use JS)
+        temperature.change(
+            fn=show_temperature_tooltip,
+            outputs=[temperature_tooltip]
+        )
+
+        top_p.change(
+            fn=show_top_p_tooltip,
+            outputs=[top_p_tooltip]
+        )
+
+        model_selector.change(
+            fn=show_model_comparison_tooltip,
+            outputs=[model_comparison_tooltip]
+        )
+
+        # Parameter optimization event handlers
+        optimize_params_btn.click(
+            fn=optimize_parameters_handler,
+            inputs=[
+                task_description,
+                model_selector,
+                system_prompt,
+                temperature,
+                top_p,
+                model_id_mapping_state,
+            ],
+            outputs=[
+                optimization_status,
+                parameter_recommendations,
+                parameter_recommendations,  # Show recommendations
+            ],
+        )
+
+        smart_defaults_btn.click(
+            fn=smart_defaults_handler,
+            inputs=[
+                model_selector,
+                model_id_mapping_state,
+            ],
+            outputs=[
+                optimization_status,
+                parameter_recommendations,
+                parameter_recommendations,  # Show recommendations
+            ],
+        )
+
+        # Apply optimized parameters to sliders
+        def apply_recommendations_to_ui(recommendations, current_temp, current_top_p):
+            if recommendations and "recommended_temperature" in recommendations:
+                new_temp = recommendations["recommended_temperature"]
+                new_top_p = recommendations["recommended_top_p"]
+                return new_temp, new_top_p
+            return current_temp, current_top_p
+
+        parameter_recommendations.change(
+            fn=apply_recommendations_to_ui,
+            inputs=[parameter_recommendations, temperature, top_p],
+            outputs=[temperature, top_p],
+        )
 
         build_agent.click(
             fn=build_agent_handler,
@@ -991,6 +1517,7 @@ def create_ui() -> gr.Blocks:
                 run_info_display,
                 web_badge,
                 agent_state,
+                status_announcements,
             ],
         )
 
@@ -1022,7 +1549,7 @@ def create_ui() -> gr.Blocks:
                 experiment_id_input,
                 task_label_input,
                 run_notes_input,
-                model_id_mapping_state,  # NEW: for resolving display labels
+                model_id_mapping_state,
             ],
             outputs=[
                 chatbot,
@@ -1041,32 +1568,57 @@ def create_ui() -> gr.Blocks:
             outputs=[run_info_display, cancel_event_state, is_generating_state, send_btn, stop_btn],
         )
 
-        # Session management event handlers
+        # Enhanced session management with workflow integration
+        def save_session_with_status_update(session_name, config, history, current_session):
+            result = save_session_handler(session_name, config, history, current_session)
+            # Update status indicator
+            status_html = render_session_status_indicator("current", {"state": "saved"})
+            return result + (status_html,)
+
+        def load_session_with_status_update(session_name, id_mapping):
+            result = load_session_handler(session_name, id_mapping)
+            # Update status indicator
+            status_html = render_session_status_indicator("current", {"state": "saved"})
+            return result + (status_html,)
+
+        def new_session_with_status_update():
+            result = new_session_handler()
+            # Update status indicator
+            status_html = render_session_status_indicator("current", {"state": "unsaved"})
+            return result + (status_html,)
+
+        # Session workflow event handlers
         save_session_btn.click(
-            fn=save_session_handler,
+            fn=save_session_with_status_update,
             inputs=[session_name_input, config_state, history_state, current_session_state],
-            outputs=[current_session_state, session_status, session_list, session_list]
+            outputs=[current_session_state, session_status, session_list, session_list, session_status_indicator]
         )
 
         load_session_btn.click(
-            fn=load_session_handler,
+            fn=load_session_with_status_update,
             inputs=[session_list, model_id_mapping_state],
             outputs=[
                 current_session_state, session_status, history_state,
                 config_state, agent_name, model_selector, system_prompt,
-                temperature, top_p, web_tool_enabled, transcript_preview, session_metadata
+                temperature, top_p, web_tool_enabled, transcript_preview, session_metadata, session_status_indicator
             ]
         )
 
         new_session_btn.click(
-            fn=new_session_handler,
-            outputs=[current_session_state, session_status, history_state, session_name_input, transcript_preview, session_metadata]
+            fn=new_session_with_status_update,
+            outputs=[current_session_state, session_status, history_state, session_name_input, transcript_preview, session_metadata, session_status_indicator]
         )
 
         # Populate session list on app load
         demo.load(
             fn=lambda: [(s[0], s[0]) for s in list_sessions()],
             outputs=[session_list]
+        )
+
+        # Add global keyboard navigation
+        keyboard_nav_script = gr.HTML(
+            value=setup_keyboard_navigation(),
+            visible=False
         )
 
     return demo

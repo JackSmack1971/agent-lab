@@ -1,0 +1,14 @@
+{
+  "conversation_gpt-4_0.80_0.90_800": {
+    "use_case": "conversation",
+    "model_id": "gpt-4",
+    "temperature": 0.8,
+    "top_p": 0.9,
+    "max_tokens": 800,
+    "success_score": 0.88,
+    "usage_count": 1,
+    "last_used": "2025-10-06 23:30:34.540223",
+    "avg_latency_ms": 0.0,
+    "avg_cost_usd": 0.0
+  }
+}

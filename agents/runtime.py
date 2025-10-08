@@ -203,12 +203,12 @@ async def run_agent_stream(
                     break
 
                 delta = getattr(chunk, "delta", None)
-                if isinstance(delta, str) and delta:
+                if isinstance(delta, str):
                     on_delta(delta)
                     text_parts.append(delta)
 
                 # Only update usage if we haven't been cancelled
-                if not aborted and usage is None:
+                if not aborted:
                     response = getattr(chunk, "response", None)
                     if response is not None:
                         usage = _usage_to_dict(getattr(response, "usage", None))

@@ -1,0 +1,867 @@
+{
+  "audit_metadata": {
+    "repo_path": "C:\\Projects\\agent-lab",
+    "audit_date": "2025-10-06",
+    "guide_version": "GUIDE.md (genius-level playbook)",
+    "target_python_versions": ["3.11", "3.12", "3.13"],
+    "ci_provider": "github-actions"
+  },
+  "executive_summary": {
+    "overall_grade": "B+",
+    "coverage_current": "77%",
+    "coverage_target": "90%",
+    "critical_gaps": 3,
+    "moderate_gaps": 7,
+    "minor_gaps": 4,
+    "strengths": [
+      "Modern pytest configuration in pyproject.toml with strict markers and importlib mode",
+      "Well-organized test structure (unit/integration directories)",
+      "Property-based testing with Hypothesis actively used",
+      "Multi-Python CI matrix (3.11, 3.12, 3.13) via noxfile and GitHub Actions",
+      "Branch coverage enabled with 90% threshold configured",
+      "Proper use of tmp_path and monkeypatch fixtures",
+      "Good parametrization patterns observed",
+      "Security scanning integrated in CI (bandit, safety, pip-audit)"
+    ],
+    "top_risks": [
+      "Current coverage (77%) significantly below configured threshold (90%)",
+      "Mutation testing dependency installed but never executed",
+      "pytest-randomly and pytest-xdist not activated in CI pipeline despite being installed"
+    ]
+  },
+  "configuration_analysis": {
+    "pytest_config": {
+      "location": "pyproject.toml",
+      "quality_score": 8.5,
+      "findings": [
+        {
+          "type": "strength",
+          "category": "modern_config",
+          "description": "Using recommended pyproject.toml with [tool.pytest.ini_options]",
+          "evidence": "C:\\Projects\\agent-lab\\pyproject.toml lines 36-68"
+        },
+        {
+          "type": "strength",
+          "category": "import_mode",
+          "description": "Modern importlib import mode configured",
+          "evidence": "pyproject.toml line 42: '--import-mode=importlib'"
+        },
+        {
+          "type": "strength",
+          "category": "strict_markers",
+          "description": "Strict marker checking enabled to prevent typos",
+          "evidence": "pyproject.toml lines 40-41: '--strict-markers', '--strict-config'"
+        },
+        {
+          "type": "gap",
+          "severity": "minor",
+          "category": "config_redundancy",
+          "description": "pytest.ini exists alongside pyproject.toml creating redundancy and potential inconsistency",
+          "evidence": "C:\\Projects\\agent-lab\\pytest.ini",
+          "recommendation": "Remove pytest.ini and consolidate all config in pyproject.toml (GUIDE §3)"
+        },
+        {
+          "type": "gap",
+          "severity": "minor",
+          "category": "missing_durations",
+          "description": "No --durations flag for identifying slow tests",
+          "evidence": "pyproject.toml addopts missing '--durations=10'",
+          "recommendation": "Add '--durations=10' to addopts for slow test profiling (GUIDE §13)"
+        }
+      ],
+      "markers_registered": [
+        "unit: Fast, hermetic unit tests",
+        "integration: Multi-component integration tests",
+        "slow: Long-running tests (>1s)",
+        "requires_api_key: Tests requiring OPENROUTER_API_KEY",
+        "network: Tests that make real network calls",
+        "playwright: E2E browser tests"
+      ],
+      "markers_quality": "excellent - comprehensive and well-documented"
+    },
+    "coverage_config": {
+      "branch_coverage": true,
+      "threshold": 90,
+      "current_coverage": 77,
+      "quality_score": 7.0,
+      "findings": [
+        {
+          "type": "strength",
+          "category": "branch_coverage",
+          "description": "Branch coverage enabled to detect missing decision paths",
+          "evidence": "pyproject.toml line 77: 'branch = true'"
+        },
+        {
+          "type": "gap",
+          "severity": "critical",
+          "category": "coverage_threshold",
+          "description": "Current coverage (77%) is 13 percentage points below configured threshold (90%)",
+          "evidence": "htmlcov/index.html: 77% overall coverage",
+          "recommendation": "Prioritize writing tests for agents/runtime.py (78%), agents/models.py (87%), and other modules below 90%"
+        },
+        {
+          "type": "strength",
+          "category": "parallel_coverage",
+          "description": "Parallel coverage collection enabled for xdist compatibility",
+          "evidence": "pyproject.toml line 82: 'parallel = true'"
+        }
+      ]
+    },
+    "dependency_management": {
+      "quality_score": 8.0,
+      "dev_dependencies_location": "pyproject.toml [project.optional-dependencies.dev]",
+      "findings": [
+        {
+          "type": "strength",
+          "category": "dependencies",
+          "description": "Comprehensive dev dependencies including pytest plugins, hypothesis, and mutation testing",
+          "evidence": "pyproject.toml lines 20-34"
+        },
+        {
+          "type": "gap",
+          "severity": "moderate",
+          "category": "version_pinning",
+          "description": "Dependencies use >= instead of specific version ranges",
+          "evidence": "pyproject.toml dependencies use >=",
+          "recommendation": "Consider using version ranges (e.g., >=8.0,<9.0) for better reproducibility"
+        }
+      ],
+      "plugins_installed": [
+        "pytest>=8.0",
+        "pytest-cov>=6.0",
+        "pytest-asyncio>=0.24.0",
+        "pytest-xdist>=3.6",
+        "pytest-randomly>=3.15",
+        "pytest-mock>=3.14",
+        "hypothesis>=6.100",
+        "mutmut>=3.1"
+      ]
+    }
+  },
+  "test_organization": {
+    "layout_score": 9.0,
+    "structure": {
+      "root": "tests/",
+      "subdirectories": ["unit/", "integration/", "utils/", "playwright/", "src/"],
+      "conftest_locations": ["tests/conftest.py"]
+    },
+    "findings": [
+      {
+        "type": "strength",
+        "category": "layout",
+        "description": "Clean separation of unit and integration tests following GUIDE recommendations",
+        "evidence": "tests/unit/ and tests/integration/ directories"
+      },
+      {
+        "type": "strength",
+        "category": "discovery",
+        "description": "Test files follow test_*.py naming convention for automatic discovery",
+        "evidence": "All test files match test_*.py pattern"
+      },
+      {
+        "type": "gap",
+        "severity": "minor",
+        "category": "test_naming",
+        "description": "Test function names could be more descriptive following 'behavior + context + expectation' pattern",
+        "evidence": "tests/unit/test_models.py: test_agent_config_creation_with_required_fields",
+        "recommendation": "Consider names like test_agent_config_with_minimal_params_sets_defaults (GUIDE §1)"
+      }
+    ],
+    "file_count": {
+      "unit_tests": 12,
+      "integration_tests": 12,
+      "total_test_files": 24
+    }
+  },
+  "fixtures_and_setup": {
+    "quality_score": 7.5,
+    "conftest_analysis": {
+      "location": "tests/conftest.py",
+      "fixture_count": 6,
+      "fixtures_defined": [
+        "tmp_csv",
+        "mock_openrouter_response",
+        "sample_agent_config",
+        "mock_env_vars",
+        "async_client",
+        "sample_run_records"
+      ]
+    },
+    "findings": [
+      {
+        "type": "strength",
+        "category": "fixtures",
+        "description": "Using tmp_path fixture for file I/O isolation",
+        "evidence": "tests/conftest.py: tmp_csv fixture uses tmp_path parameter"
+      },
+      {
+        "type": "strength",
+        "category": "fixtures",
+        "description": "monkeypatch used for environment variable mocking",
+        "evidence": "tests/conftest.py lines 63-68: mock_env_vars fixture"
+      },
+      {
+        "type": "strength",
+        "category": "fixtures",
+        "description": "Async fixtures with proper cleanup using async context managers",
+        "evidence": "tests/conftest.py lines 70-86: async_client fixture"
+      },
+      {
+        "type": "gap",
+        "severity": "moderate",
+        "category": "missing_fixtures",
+        "description": "No tmp_path_factory fixture for session-scoped temporary directories",
+        "evidence": "No usage of tmp_path_factory found in conftest.py",
+        "recommendation": "Add tmp_path_factory for heavyweight session-wide assets (GUIDE §4)"
+      },
+      {
+        "type": "gap",
+        "severity": "moderate",
+        "category": "missing_fixtures",
+        "description": "No capsys fixture usage for stdout/stderr capture",
+        "evidence": "Search for 'capsys' returned 0 results",
+        "recommendation": "Add capsys tests for CLI output verification (GUIDE §8)"
+      },
+      {
+        "type": "gap",
+        "severity": "moderate",
+        "category": "missing_fixtures",
+        "description": "No caplog fixture usage for log assertion",
+        "evidence": "Search for 'caplog' returned 0 results",
+        "recommendation": "Add caplog tests for logging verification using loguru (GUIDE §8)"
+      }
+    ]
+  },
+  "parametrization_patterns": {
+    "quality_score": 8.5,
+    "usage_found": true,
+    "findings": [
+      {
+        "type": "strength",
+        "category": "parametrization",
+        "description": "Good use of @pytest.mark.parametrize with custom IDs",
+        "evidence": "tests/unit/test_catalog.py lines 16-30: _parse_price tests with clear test IDs"
+      },
+      {
+        "type": "strength",
+        "category": "parametrization",
+        "description": "Multiple parametrized test cases for validation logic",
+        "evidence": "tests/unit/test_models.py: temperature and top_p validation tests"
+      },
+      {
+        "type": "gap",
+        "severity": "minor",
+        "category": "indirect_parametrization",
+        "description": "No examples of indirect parametrization through fixtures",
+        "evidence": "No indirect=True usage found",
+        "recommendation": "Consider indirect parametrization for complex fixture setup (GUIDE §5)"
+      }
+    ],
+    "examples": [
+      {
+        "file": "tests/unit/test_catalog.py",
+        "function": "test_parse_price_various_inputs",
+        "parameter_count": 8,
+        "has_ids": true
+      }
+    ]
+  },
+  "mocking_patterns": {
+    "quality_score": 8.0,
+    "mock_library": "unittest.mock + pytest-mock",
+    "findings": [
+      {
+        "type": "strength",
+        "category": "mocking",
+        "description": "Extensive use of unittest.mock.patch for external API mocking",
+        "evidence": "tests/integration/test_agent_lifecycle.py: @patch decorators for Agent and OpenAI"
+      },
+      {
+        "type": "strength",
+        "category": "mocking",
+        "description": "monkeypatch used for environment variables",
+        "evidence": "tests/conftest.py: mock_env_vars fixture with monkeypatch"
+      },
+      {
+        "type": "gap",
+        "severity": "moderate",
+        "category": "mock_tool",
+        "description": "pytest-mock (mocker fixture) installed but not used in tests",
+        "evidence": "No 'mocker' fixture usage found in test files",
+        "recommendation": "Prefer pytest-mock's mocker fixture over unittest.mock.patch for better integration (GUIDE §7)"
+      },
+      {
+        "type": "gap",
+        "severity": "minor",
+        "category": "autospec",
+        "description": "No evidence of autospec usage for API safety",
+        "evidence": "Mock objects created without autospec parameter",
+        "recommendation": "Use autospec=True or create_autospec for better API validation (GUIDE §7)"
+      }
+    ]
+  },
+  "property_based_testing": {
+    "quality_score": 8.0,
+    "hypothesis_usage": true,
+    "findings": [
+      {
+        "type": "strength",
+        "category": "hypothesis",
+        "description": "Hypothesis actively used for property-based testing",
+        "evidence": "tests/unit/test_tools.py lines 80-84: @given decorator with strategies"
+      },
+      {
+        "type": "strength",
+        "category": "hypothesis",
+        "description": ".hypothesis directory present indicating active usage",
+        "evidence": "C:\\Projects\\agent-lab\\.hypothesis with 2898+ cached examples"
+      },
+      {
+        "type": "gap",
+        "severity": "minor",
+        "category": "hypothesis_coverage",
+        "description": "Limited property-based test coverage (only 3 @given usages found)",
+        "evidence": "Search for '@given' returned 3 results in test_tools.py",
+        "recommendation": "Expand property-based tests to parsers, data validation, and protocol invariants (GUIDE §9)"
+      }
+    ],
+    "test_examples": [
+      {
+        "file": "tests/unit/test_tools.py",
+        "property": "test_add_numbers_commutative",
+        "description": "Tests commutative property of addition"
+      }
+    ]
+  },
+  "coverage_analysis": {
+    "overall_score": 6.0,
+    "metrics": {
+      "line_coverage": "77%",
+      "branch_coverage": true,
+      "threshold": "90%",
+      "meets_threshold": false,
+      "gap": "-13%"
+    },
+    "findings": [
+      {
+        "type": "gap",
+        "severity": "critical",
+        "category": "coverage_below_threshold",
+        "description": "Overall coverage at 77% is significantly below the 90% fail_under threshold",
+        "evidence": "htmlcov/index.html: 77% coverage, pyproject.toml line 85: fail_under = 90",
+        "recommendation": "Priority: Write tests for agents/runtime.py (78%), src/components/, and src/models/ modules"
+      },
+      {
+        "type": "strength",
+        "category": "coverage_reporting",
+        "description": "Multiple coverage report formats configured (term-missing, html, xml)",
+        "evidence": "pyproject.toml lines 49-51"
+      }
+    ],
+    "module_breakdown": [
+      {
+        "module": "agents/__init__.py",
+        "coverage": "100%",
+        "missing_lines": 0
+      },
+      {
+        "module": "agents/models.py",
+        "coverage": "87%",
+        "missing_lines": 6
+      },
+      {
+        "module": "agents/runtime.py",
+        "coverage": "78%",
+        "missing_lines": 27
+      },
+      {
+        "module": "agents/tools.py",
+        "coverage": "92%",
+        "missing_lines": 10
+      }
+    ]
+  },
+  "mutation_testing": {
+    "configured": false,
+    "quality_score": 2.0,
+    "findings": [
+      {
+        "type": "gap",
+        "severity": "critical",
+        "category": "mutation_not_configured",
+        "description": "mutmut>=3.1 installed but no configuration file or CI integration",
+        "evidence": "pyproject.toml line 33: mutmut>=3.1, no .mutmut-config or CI usage",
+        "recommendation": "Create mutation testing config and add to CI for critical modules (GUIDE §11)"
+      },
+      {
+        "type": "gap",
+        "severity": "critical",
+        "category": "mutation_not_run",
+        "description": "No evidence of mutation testing ever being executed",
+        "evidence": "No .mutmut-cache directory, no CI mutation testing step",
+        "recommendation": "Run 'mutmut run' on agents/ and services/ modules to verify test quality"
+      }
+    ],
+    "recommendation": "Add mutation testing configuration and CI step: mutmut run --paths-to-mutate=agents/,services/"
+  },
+  "scale_and_speed": {
+    "quality_score": 6.5,
+    "parallel_execution": {
+      "xdist_installed": true,
+      "used_in_local": true,
+      "used_in_ci": false
+    },
+    "randomization": {
+      "pytest_randomly_installed": true,
+      "used_in_local": true,
+      "used_in_ci": false
+    },
+    "findings": [
+      {
+        "type": "strength",
+        "category": "parallelization",
+        "description": "pytest-xdist configured in noxfile for parallel execution",
+        "evidence": "noxfile.py line 21: '-n', 'auto'"
+      },
+      {
+        "type": "gap",
+        "severity": "moderate",
+        "category": "ci_parallelization",
+        "description": "pytest-xdist not used in CI workflow despite being installed",
+        "evidence": ".github/workflows/tests.yml line 28: 'pytest' without -n flag",
+        "recommendation": "Add '-n auto' to CI pytest command for faster builds (GUIDE §12)"
+      },
+      {
+        "type": "gap",
+        "severity": "moderate",
+        "category": "ci_randomization",
+        "description": "pytest-randomly not explicitly used in CI to ensure order-independence",
+        "evidence": ".github/workflows/tests.yml: no --randomly-seed flag",
+        "recommendation": "Verify pytest-randomly is auto-activating or add explicit flag (GUIDE §12)"
+      },
+      {
+        "type": "gap",
+        "severity": "minor",
+        "category": "slow_test_profiling",
+        "description": "No --durations flag for identifying slow tests",
+        "evidence": "Neither noxfile.py nor CI workflow use --durations",
+        "recommendation": "Add '--durations=10' to identify and optimize slow tests (GUIDE §13)"
+      }
+    ]
+  },
+  "ci_orchestration": {
+    "quality_score": 7.5,
+    "ci_provider": "github-actions",
+    "multi_python_testing": true,
+    "python_versions": ["3.11", "3.12", "3.13"],
+    "orchestration_tool": "nox",
+    "findings": [
+      {
+        "type": "strength",
+        "category": "multi_python",
+        "description": "CI matrix tests across all target Python versions",
+        "evidence": ".github/workflows/tests.yml lines 10-13: matrix strategy"
+      },
+      {
+        "type": "strength",
+        "category": "nox_config",
+        "description": "Well-structured noxfile.py for local multi-env testing",
+        "evidence": "noxfile.py: sessions for tests, tests_unit, with all Python versions"
+      },
+      {
+        "type": "strength",
+        "category": "ci_completeness",
+        "description": "Comprehensive CI with tests, linting, type-checking, and security scanning",
+        "evidence": ".github/workflows/tests.yml: separate jobs for test, lint, type-check, security"
+      },
+      {
+        "type": "gap",
+        "severity": "minor",
+        "category": "ci_test_command",
+        "description": "CI runs pytest directly instead of using nox for consistency",
+        "evidence": ".github/workflows/tests.yml line 28 vs noxfile.py",
+        "recommendation": "Consider using 'nox -s tests' in CI for consistency with local development"
+      }
+    ],
+    "ci_workflow_analysis": {
+      "test_job": {
+        "matrix": ["3.11", "3.12", "3.13"],
+        "coverage_upload": true,
+        "coverage_threshold_check": true
+      },
+      "lint_job": {
+        "tools": ["flake8", "black", "isort"]
+      },
+      "type_check_job": {
+        "tool": "mypy"
+      },
+      "security_job": {
+        "tools": ["bandit", "safety", "pip-audit"]
+      }
+    }
+  },
+  "test_patterns_and_antipatterns": {
+    "quality_score": 7.5,
+    "good_patterns": [
+      {
+        "pattern": "AAA (Arrange-Act-Assert)",
+        "usage": "widespread",
+        "evidence": "tests/unit/test_models.py: clear AAA structure in all tests"
+      },
+      {
+        "pattern": "Small focused tests",
+        "usage": "good",
+        "evidence": "Most tests verify single behavior"
+      },
+      {
+        "pattern": "Fixtures over setUp",
+        "usage": "excellent",
+        "evidence": "No setUp/tearDown methods found, all using fixtures"
+      },
+      {
+        "pattern": "Mocking at boundaries",
+        "usage": "good",
+        "evidence": "Mocking OpenAI API, httpx clients, not internal business logic"
+      }
+    ],
+    "antipatterns_found": [
+      {
+        "antipattern": "Hidden dependencies",
+        "severity": "low",
+        "evidence": "Some tests may depend on global cache state",
+        "recommendation": "Clear caches in setup_method (seen in test_catalog.py)"
+      }
+    ],
+    "findings": [
+      {
+        "type": "strength",
+        "category": "test_isolation",
+        "description": "Tests use mock_env_vars fixture to avoid real API key dependencies",
+        "evidence": "tests/conftest.py: mock_env_vars fixture"
+      },
+      {
+        "type": "strength",
+        "category": "async_testing",
+        "description": "Proper async test handling with pytest-asyncio",
+        "evidence": "tests/integration/test_streaming.py: @pytest.mark.asyncio decorators"
+      }
+    ]
+  },
+  "gaps_and_recommendations": {
+    "critical": [
+      {
+        "id": "GAP-001",
+        "title": "Coverage Below Threshold",
+        "description": "Current coverage (77%) is 13 points below configured threshold (90%)",
+        "impact": "High - Indicates untested code paths and potential bugs",
+        "effort": "High",
+        "priority": 1,
+        "affected_files": [
+          "agents/runtime.py (78%)",
+          "agents/models.py (87%)",
+          "src/components/* (various)",
+          "src/models/* (various)"
+        ],
+        "recommendation": "Write targeted tests to reach 90% coverage. Focus on: 1) agents/runtime.py edge cases and error paths, 2) src/components/ UI components, 3) src/models/ data models",
+        "acceptance_check": "pytest --cov=agents --cov=services --cov=src shows >= 90% coverage"
+      },
+      {
+        "id": "GAP-002",
+        "title": "Mutation Testing Not Configured or Run",
+        "description": "mutmut installed but never configured or executed",
+        "impact": "High - Cannot verify test effectiveness beyond coverage",
+        "effort": "Medium",
+        "priority": 2,
+        "affected_files": ["All modules"],
+        "recommendation": "1) Create .mutmut-config.py, 2) Run mutmut run --paths-to-mutate=agents/,services/, 3) Add mutation testing to CI for critical paths, 4) Target 80%+ mutation score for core modules",
+        "acceptance_check": "mutmut results shows >80% killed mutants for agents/ and services/"
+      },
+      {
+        "id": "GAP-003",
+        "title": "CI Not Using Parallelization or Randomization",
+        "description": "pytest-xdist and pytest-randomly installed but not activated in CI",
+        "impact": "Medium - Slower CI builds and potential order-dependency bugs undetected",
+        "effort": "Low",
+        "priority": 3,
+        "affected_files": [".github/workflows/tests.yml"],
+        "recommendation": "Update CI pytest command: 'pytest -n auto --randomly-seed=time' to enable parallel execution and order-independence verification",
+        "acceptance_check": "CI workflow uses -n auto flag and pytest-randomly is active"
+      }
+    ],
+    "moderate": [
+      {
+        "id": "GAP-004",
+        "title": "No Log Testing Infrastructure",
+        "description": "caplog fixture not used despite loguru dependency",
+        "impact": "Medium - Cannot verify logging behavior",
+        "effort": "Low",
+        "priority": 4,
+        "recommendation": "Add caplog tests for critical logging paths, especially error conditions",
+        "acceptance_check": "grep -r 'caplog' tests/ shows usage"
+      },
+      {
+        "id": "GAP-005",
+        "title": "No stdout/stderr Testing",
+        "description": "capsys fixture not used for CLI output verification",
+        "impact": "Medium - Cannot verify console output",
+        "effort": "Low",
+        "priority": 5,
+        "recommendation": "Add capsys tests for any CLI or console output functions",
+        "acceptance_check": "grep -r 'capsys' tests/ shows usage"
+      },
+      {
+        "id": "GAP-006",
+        "title": "pytest-mock Not Used",
+        "description": "pytest-mock installed but mocker fixture not used",
+        "impact": "Low - Using unittest.mock works but less idiomatic",
+        "effort": "Medium",
+        "priority": 6,
+        "recommendation": "Gradually migrate from unittest.mock.patch to mocker.patch for better pytest integration",
+        "acceptance_check": "Tests use mocker fixture instead of @patch decorators"
+      },
+      {
+        "id": "GAP-007",
+        "title": "Limited Property-Based Testing",
+        "description": "Hypothesis used but only 3 @given tests found",
+        "impact": "Medium - Missing edge cases in data validation and algorithms",
+        "effort": "Medium",
+        "priority": 7,
+        "recommendation": "Expand property-based tests to: 1) Data model validation, 2) API response parsing, 3) Cost calculation algorithms",
+        "acceptance_check": "Search for '@given' shows 10+ property tests across different modules"
+      }
+    ],
+    "minor": [
+      {
+        "id": "GAP-008",
+        "title": "Redundant pytest.ini",
+        "description": "Both pytest.ini and pyproject.toml contain pytest config",
+        "impact": "Low - Potential for inconsistency",
+        "effort": "Low",
+        "priority": 8,
+        "recommendation": "Remove pytest.ini and use only pyproject.toml",
+        "acceptance_check": "pytest.ini file deleted, all config in pyproject.toml"
+      },
+      {
+        "id": "GAP-009",
+        "title": "No --durations Profiling",
+        "description": "Missing --durations flag to identify slow tests",
+        "impact": "Low - Cannot easily identify performance bottlenecks",
+        "effort": "Low",
+        "priority": 9,
+        "recommendation": "Add '--durations=10' to pytest addopts",
+        "acceptance_check": "pytest output shows 'slowest 10 durations'"
+      },
+      {
+        "id": "GAP-010",
+        "title": "No tmp_path_factory Usage",
+        "description": "Missing session-scoped temporary directory fixture",
+        "impact": "Low - May recreate test data unnecessarily",
+        "effort": "Low",
+        "priority": 10,
+        "recommendation": "Add tmp_path_factory fixture for session-wide test data",
+        "acceptance_check": "conftest.py contains tmp_path_factory fixture"
+      },
+      {
+        "id": "GAP-011",
+        "title": "Test Naming Could Be More Descriptive",
+        "description": "Some test names don't follow 'behavior + context + expectation' pattern",
+        "impact": "Low - Reduces test readability",
+        "effort": "Low",
+        "priority": 11,
+        "recommendation": "Adopt naming pattern: test_<behavior>_<context>_<expectation>",
+        "acceptance_check": "Review shows improved test name descriptiveness"
+      }
+    ]
+  },
+  "action_plan": {
+    "phase_1_immediate": {
+      "title": "Quick Wins (1-2 days)",
+      "priority": "high",
+      "actions": [
+        {
+          "action": "Enable parallel execution in CI",
+          "command": "Edit .github/workflows/tests.yml, change 'pytest' to 'pytest -n auto'",
+          "files": [".github/workflows/tests.yml"],
+          "acceptance": "CI runs show parallel test execution",
+          "effort_hours": 0.5
+        },
+        {
+          "action": "Remove redundant pytest.ini",
+          "command": "rm pytest.ini",
+          "files": ["pytest.ini"],
+          "acceptance": "Only pyproject.toml contains pytest config",
+          "effort_hours": 0.25
+        },
+        {
+          "action": "Add --durations profiling",
+          "command": "Add '--durations=10' to pyproject.toml addopts",
+          "files": ["pyproject.toml"],
+          "acceptance": "pytest output shows slowest 10 tests",
+          "effort_hours": 0.25
+        }
+      ]
+    },
+    "phase_2_coverage": {
+      "title": "Reach 90% Coverage Target (3-5 days)",
+      "priority": "high",
+      "actions": [
+        {
+          "action": "Write tests for agents/runtime.py",
+          "target_coverage": "78% ? 90%",
+          "focus_areas": ["Error handling paths", "Edge cases in streaming", "Cancellation scenarios"],
+          "files": ["tests/unit/test_runtime.py", "tests/integration/test_streaming.py"],
+          "acceptance": "agents/runtime.py shows >= 90% coverage",
+          "effort_hours": 8
+        },
+        {
+          "action": "Write tests for agents/models.py",
+          "target_coverage": "87% ? 90%",
+          "focus_areas": ["Validation edge cases", "Serialization roundtrips", "Invalid data handling"],
+          "files": ["tests/unit/test_models.py"],
+          "acceptance": "agents/models.py shows >= 90% coverage",
+          "effort_hours": 3
+        },
+        {
+          "action": "Write tests for src/ modules",
+          "target_coverage": "Unknown ? 90%",
+          "focus_areas": ["Component rendering", "Service logic", "Model operations"],
+          "files": ["tests/src/components/test_*.py", "tests/src/services/test_*.py"],
+          "acceptance": "All src/ modules show >= 90% coverage",
+          "effort_hours": 12
+        }
+      ]
+    },
+    "phase_3_mutation": {
+      "title": "Implement Mutation Testing (2-3 days)",
+      "priority": "medium",
+      "actions": [
+        {
+          "action": "Configure mutmut",
+          "command": "Create .mutmut-config.py with paths_to_mutate=['agents/', 'services/', 'src/']",
+          "files": [".mutmut-config.py"],
+          "acceptance": ".mutmut-config.py exists with proper configuration",
+          "effort_hours": 1
+        },
+        {
+          "action": "Run initial mutation testing",
+          "command": "mutmut run --paths-to-mutate=agents/,services/",
+          "files": ["N/A"],
+          "acceptance": "mutmut results shows mutation scores for each module",
+          "effort_hours": 4
+        },
+        {
+          "action": "Add mutation testing to CI",
+          "command": "Add mutation testing job to .github/workflows/tests.yml",
+          "files": [".github/workflows/tests.yml"],
+          "acceptance": "CI runs mutation testing on critical modules",
+          "effort_hours": 2
+        }
+      ]
+    },
+    "phase_4_enhancements": {
+      "title": "Testing Infrastructure Improvements (3-5 days)",
+      "priority": "medium",
+      "actions": [
+        {
+          "action": "Add caplog tests for logging",
+          "focus": "Test logging behavior in error paths",
+          "files": ["tests/unit/test_*.py"],
+          "acceptance": "5+ tests using caplog fixture",
+          "effort_hours": 4
+        },
+        {
+          "action": "Add capsys tests for output",
+          "focus": "Test any CLI or console output",
+          "files": ["tests/unit/test_*.py"],
+          "acceptance": "Tests verify console output where applicable",
+          "effort_hours": 2
+        },
+        {
+          "action": "Expand Hypothesis usage",
+          "focus": "Add property-based tests for data models and cost calculations",
+          "files": ["tests/unit/test_models.py", "tests/unit/test_catalog.py"],
+          "acceptance": "10+ @given tests across modules",
+          "effort_hours": 6
+        },
+        {
+          "action": "Migrate to pytest-mock",
+          "focus": "Replace unittest.mock.patch with mocker fixture",
+          "files": ["tests/**/*.py"],
+          "acceptance": "Majority of tests use mocker instead of @patch",
+          "effort_hours": 8
+        },
+        {
+          "action": "Add tmp_path_factory fixture",
+          "focus": "Session-scoped test data setup",
+          "files": ["tests/conftest.py"],
+          "acceptance": "conftest.py has tmp_path_factory fixture",
+          "effort_hours": 2
+        }
+      ]
+    }
+  },
+  "acceptance_criteria": {
+    "coverage": {
+      "line_coverage": ">=90%",
+      "branch_coverage": "enabled",
+      "check_command": "pytest --cov=agents --cov=services --cov=src --cov-report=term"
+    },
+    "mutation_testing": {
+      "mutation_score": ">=80% for critical modules (agents/, services/)",
+      "check_command": "mutmut results"
+    },
+    "ci_pipeline": {
+      "parallel_execution": "enabled (-n auto)",
+      "randomization": "enabled (pytest-randomly active)",
+      "multi_python": "3.11, 3.12, 3.13",
+      "check_command": "Check .github/workflows/tests.yml for -n auto flag"
+    },
+    "fixture_usage": {
+      "tmp_path": "used for all file I/O",
+      "monkeypatch": "used for env vars and module patching",
+      "capsys": "used where applicable",
+      "caplog": "used where applicable",
+      "mocker": "preferred over unittest.mock"
+    },
+    "test_quality": {
+      "markers_registered": "all markers in config",
+      "parametrization": "used for edge cases",
+      "property_tests": "10+ @given tests",
+      "naming": "follows behavior+context+expectation pattern"
+    }
+  },
+  "open_questions": [
+    {
+      "question": "Are there specific modules in src/ that should be prioritized for coverage?",
+      "context": "src/ modules have unknown coverage, need guidance on priority",
+      "impact": "Affects Phase 2 timeline"
+    },
+    {
+      "question": "What is the target mutation score for non-critical modules?",
+      "context": "GUIDE recommends 80%+ for critical paths, but unclear for others",
+      "impact": "Affects Phase 3 scope"
+    },
+    {
+      "question": "Should playwright E2E tests be included in standard test runs?",
+      "context": "Playwright tests found but unclear if they should run in CI",
+      "impact": "Affects CI configuration and runtime"
+    },
+    {
+      "question": "Are there specific performance requirements for test suite runtime?",
+      "context": "No explicit requirements found, important for parallelization tuning",
+      "impact": "Affects optimization priorities"
+    }
+  ],
+  "final_recommendations": {
+    "priority_order": [
+      "1. Enable pytest-xdist in CI for 2-4x faster builds (30 min effort)",
+      "2. Reach 90% coverage threshold (20-25 hours effort)",
+      "3. Configure and run mutation testing (7 hours effort)",
+      "4. Expand test infrastructure (capsys, caplog, hypothesis) (22 hours effort)"
+    ],
+    "estimated_total_effort": "50-55 hours to reach full GUIDE compliance",
+    "quick_wins": "Phases 1 & 4 (first action) = 1-2 hours for significant improvements",
+    "next_milestone": "90% coverage + CI parallelization (Phase 1 + Phase 2)",
+    "long_term_goal": "80%+ mutation score + comprehensive property-based tests"
+  }
+}

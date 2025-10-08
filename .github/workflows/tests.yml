@@ -25,12 +25,21 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.lock
-        pip install pytest pytest-cov pytest-asyncio
+        pip install pytest pytest-cov pytest-asyncio pytest-xdist pytest-randomly
 
     - name: Run tests with coverage
       run: |
-        pytest --cov=agents --cov=services --cov-report=xml --cov-report=term-missing tests/
-
+        pytest -n auto --randomly-seed=time \
+              --cov=agents --cov=services --cov=src \
+              --cov-report=xml --cov-report=html --cov-report=term \
+              --verbose tests/
+    
+    - name: Verify parallelization
+      run: |
+        echo "Checking for parallel workers..."
+        # pytest-xdist creates workers named gw0, gw1, etc.
+        pytest --collect-only -n auto | grep -E "gw[0-9]+" || echo "Warning: parallelization may not be active"
+    
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
       with:

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Code \u2192 Test (02_build.json)",
+  "type": "object",
+  "required": ["commit_sha", "changed"],
+  "additionalProperties": false,
+  "properties": {
+    "commit_sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "changed": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "generated_notes": { "type": "string", "maxLength": 2000 }
+  }
+}

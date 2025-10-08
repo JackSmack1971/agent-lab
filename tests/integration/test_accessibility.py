@@ -76,6 +76,14 @@ class TestAccessibilityCompliance:
             ({"key": "k", "ctrlKey": True}, "focus_input"),
             ({"key": "r", "ctrlKey": True}, "refresh_models"),
             ({"key": "escape"}, "stop_generation"),
+            # New accessibility shortcuts
+            ({"key": "1", "altKey": True}, "focus_chat_tab"),
+            ({"key": "2", "altKey": True}, "focus_config_tab"),
+            ({"key": "3", "altKey": True}, "focus_sessions_tab"),
+            ({"key": "4", "altKey": True}, "focus_analytics_tab"),
+            ({"key": "h", "ctrlKey": True, "shiftKey": True}, "show_help"),
+            ({"key": "s", "ctrlKey": True}, "save_session"),
+            ({"key": "l", "ctrlKey": True}, "load_session"),
         ]
 
         for event_data, expected_action in test_cases:
@@ -157,6 +165,17 @@ class TestAccessibilityCompliance:
         focus_result = handle_keyboard_shortcut(Mock(_data={"key": "k", "ctrlKey": True}))
         assert focus_result == "focus_input"
 
+        # Test tab navigation shortcuts
+        tab_results = [
+            handle_keyboard_shortcut(Mock(_data={"key": "1", "altKey": True})),
+            handle_keyboard_shortcut(Mock(_data={"key": "2", "altKey": True})),
+            handle_keyboard_shortcut(Mock(_data={"key": "3", "altKey": True})),
+            handle_keyboard_shortcut(Mock(_data={"key": "4", "altKey": True})),
+        ]
+
+        expected_tabs = ["focus_chat_tab", "focus_config_tab", "focus_sessions_tab", "focus_analytics_tab"]
+        assert tab_results == expected_tabs
+
     def test_screen_reader_support(self):
         """Test elements that support screen readers."""
         # Test that elem_ids are present for automation/screen readers
@@ -193,3 +212,184 @@ class TestAccessibilityCompliance:
             app = create_ui()
 
             assert app is not None
+
+    def test_enhanced_error_messages_accessibility(self):
+        """Test that enhanced error messages meet accessibility standards."""
+        from src.components.enhanced_errors import render_error_message
+
+        # Test error message has proper ARIA attributes
+        error_data = {
+            "is_valid": False,
+            "error_message": "Test error",
+            "help_content": None,
+            "suggestions": ["Suggestion 1"],
+            "examples": []
+        }
+
+        html = render_error_message(error_data)
+        assert 'role="alert"' in html
+        assert 'aria-live="assertive"' in html
+        assert "Test error" in html
+
+    def test_loading_states_accessibility(self):
+        """Test that loading states provide proper accessibility feedback."""
+        from src.components.loading_states import render_loading_overlay
+
+        # Test loading overlay has proper ARIA attributes
+        html = render_loading_overlay("message_send", "Loading...", 0)
+        assert 'role="status"' in html
+        assert 'aria-live="polite"' in html
+        assert "Loading..." in html
+
+    def test_session_status_accessibility(self):
+        """Test that session status indicators are accessible."""
+        from src.components.session_workflow import render_session_status_indicator
+
+        # Test status indicator has proper structure
+        html = render_session_status_indicator("session-1", {"state": "saved"})
+        assert 'id="status-session-1"' in html
+        assert "✅" in html  # Icon present
+        assert "Saved" in html
+
+    def test_parameter_tooltips_accessibility(self):
+        """Test that parameter tooltips meet accessibility standards."""
+        from src.components.parameter_tooltips import tooltip_manager
+
+        # Test tooltip has proper ARIA attributes
+        html = tooltip_manager.get_tooltip_html("temperature")
+        assert 'role="tooltip"' in html
+        assert "Temperature" in html
+
+    def test_model_comparison_tooltip_accessibility(self):
+        """Test that model comparison tooltip is accessible."""
+        from src.components.parameter_tooltips import tooltip_manager
+
+        models = [{"name": "Test Model", "strengths": "Fast", "cost": "0.01", "speed": "High"}]
+        html = tooltip_manager.get_model_comparison_tooltip(models)
+
+        assert 'role="tooltip"' in html
+        assert "🤖 Model Comparison" in html
+        assert "Test Model" in html
+
+    def test_save_prompt_toast_accessibility(self):
+        """Test that save prompt toast meets accessibility standards."""
+        from src.components.session_workflow import render_save_prompt_toast
+
+        prompt_data = {"session_name": "Test Session", "message_count": 5}
+        html = render_save_prompt_toast(prompt_data)
+
+        assert 'role="dialog"' in html
+        assert 'aria-labelledby="save-prompt-title"' in html
+        assert 'id="save-prompt-title"' in html
+        assert "💾 Save Session?" in html
+
+    def test_focus_management_enhanced_errors(self):
+        """Test that enhanced error displays support focus management."""
+        from src.components.enhanced_errors import create_enhanced_error_display
+
+        component = create_enhanced_error_display("test-field")
+        assert component.elem_id == "error-test-field"
+        assert not component.visible  # Initially hidden
+
+    def test_keyboard_navigation_loading_states(self):
+        """Test that loading states don't interfere with keyboard navigation."""
+        from src.components.loading_states import render_loading_overlay
+
+        # Test that loading overlay includes proper focus management
+        html = render_loading_overlay("message_send", "Loading...", 0)
+        # Should not have autofocus or focus-stealing elements
+        assert 'autofocus' not in html.lower()
+
+    def test_aria_live_regions_ux_components(self):
+        """Test that UX components use appropriate ARIA live regions."""
+        from src.components.loading_states import render_loading_overlay
+        from src.components.enhanced_errors import render_error_message
+
+        # Loading states should use aria-live="polite"
+        loading_html = render_loading_overlay("message_send", "Loading...", 0)
+        assert 'aria-live="polite"' in loading_html
+
+        # Error messages should use aria-live="assertive"
+        error_html = render_error_message({
+            "is_valid": False,
+            "error_message": "Error",
+            "help_content": None,
+            "suggestions": [],
+            "examples": []
+        })
+        assert 'aria-live="assertive"' in error_html
+
+    def test_color_contrast_ux_components(self):
+        """Test that UX components maintain proper color contrast."""
+        from src.components.session_workflow import render_session_status_indicator
+
+        # Test status indicators use contrasting colors
+        saved_html = render_session_status_indicator("test", {"state": "saved"})
+        assert "status-saved" in saved_html
+
+        error_html = render_session_status_indicator("test", {"state": "error"})
+        assert "status-error" in error_html
+
+    def test_screen_reader_parameter_guidance(self):
+        """Test that parameter guidance is screen reader friendly."""
+        from src.components.parameter_tooltips import tooltip_manager
+
+        html = tooltip_manager.get_tooltip_html("temperature")
+        # Should have semantic structure
+        assert "<h4>" in html  # Heading for parameter name
+        assert "<p>" in html   # Description paragraph
+        assert "<ul>" in html  # Lists for guidance/examples
+
+    def test_accessibility_utilities(self):
+        """Test the new accessibility utility functions."""
+        from src.components.accessibility import announce_status_change, AccessibilityManager
+
+        # Test announcement function
+        announcement = announce_status_change("Test message", "polite")
+        assert 'aria-live="polite"' in announcement
+        assert "Test message" in announcement
+
+        assertive_announcement = announce_status_change("Error message", "assertive")
+        assert 'aria-live="assertive"' in assertive_announcement
+
+        # Test accessibility manager
+        manager = AccessibilityManager()
+        aria_describedby = manager.create_aria_describedby("field1", ["desc1", "desc2"])
+        assert aria_describedby == "desc1 desc2"
+
+    def test_live_region_integration(self):
+        """Test that live regions are properly integrated in the UI."""
+        from app import announce_status_change
+
+        # Test that status announcements work
+        announcement = announce_status_change("Agent built successfully")
+        assert 'aria-live="polite"' in announcement
+        assert "Agent built successfully" in announcement
+
+    def test_focus_indicator_css(self):
+        """Test that focus indicators meet WCAG contrast requirements."""
+        from src.components.accessibility import ACCESSIBILITY_CSS
+
+        # Check that focus styles are defined
+        assert "*:focus" in ACCESSIBILITY_CSS
+        assert "outline: 2px solid" in ACCESSIBILITY_CSS
+        assert "outline-offset: 2px" in ACCESSIBILITY_CSS
+
+        # Check high contrast support
+        assert "@media (prefers-contrast: high)" in ACCESSIBILITY_CSS
+
+        # Check reduced motion support
+        assert "@media (prefers-reduced-motion: reduce)" in ACCESSIBILITY_CSS
+
+    def test_aria_landmarks_css(self):
+        """Test that ARIA landmark CSS is properly defined."""
+        from src.components.accessibility import ACCESSIBILITY_CSS
+
+        # Check landmark roles
+        assert '.main-navigation[role="navigation"]' in ACCESSIBILITY_CSS or 'role: navigation' in ACCESSIBILITY_CSS
+        assert '.main-content[role="main"]' in ACCESSIBILITY_CSS or 'role: main' in ACCESSIBILITY_CSS
+        assert '.configuration-panel[role="complementary"]' in ACCESSIBILITY_CSS or 'role: complementary' in ACCESSIBILITY_CSS
+
+        # Check screen reader only class
+        assert ".sr-only" in ACCESSIBILITY_CSS
+        assert "clip: rect(0, 0, 0, 0)" in ACCESSIBILITY_CSS

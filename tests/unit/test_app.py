@@ -343,7 +343,7 @@ class TestHandlerFunctions:
         config = AgentConfig(name="Test", model="test", system_prompt="test")
         mock_build_agent.return_value = Mock()
 
-        result_config, message, badge, agent = build_agent_handler(
+        result_config, message, badge, agent, announcement = build_agent_handler(
             "Test Agent", "Display (provider)", "Prompt", 0.7, 1.0, False, config, {"display": "id"}
         )
         assert "successfully" in message
@@ -357,7 +357,7 @@ class TestHandlerFunctions:
         config = AgentConfig(name="Test", model="test", system_prompt="test")
         mock_build_agent.side_effect = Exception("Error")
 
-        result_config, message, badge, agent = build_agent_handler(
+        result_config, message, badge, agent, announcement = build_agent_handler(
             "Test Agent", "Display (provider)", "Prompt", 0.7, 1.0, False, config, {"display": "id"}
         )
         assert "Error" in message

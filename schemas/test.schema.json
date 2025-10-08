@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Test \u2192 Release (03_test.json)",
+  "type": "object",
+  "required": ["commit_sha", "coverage", "tests_passed", "artifacts"],
+  "additionalProperties": false,
+  "properties": {
+    "commit_sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+    "coverage": { "type": "number", "minimum": 0, "maximum": 1 },
+    "tests_passed": { "type": "boolean" },
+    "slow_tests": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "artifacts": {
+      "type": "object",
+      "required": ["coverage_xml", "junit"],
+      "additionalProperties": false,
+      "properties": {
+        "coverage_xml": { "type": "string", "minLength": 1 },
+        "junit":        { "type": "string", "minLength": 1 },
+        "sbom":         { "type": "string" }
+      }
+    }
+  }
+}

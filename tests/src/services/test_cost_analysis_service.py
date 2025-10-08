@@ -910,3 +910,257 @@ class TestTrendAnalysisFunctions:
         expected_forecast = sum(aggregated_costs.values()) / len(aggregated_costs)
         assert "2024-01-04" in forecast
         assert forecast["2024-01-04"] == expected_forecast
+
+    def test_calculate_cost_forecast_insufficient_data(self):
+        """Test cost forecast with insufficient data to cover line 512."""
+        aggregated_costs = {"2024-01-01": 1.0, "2024-01-02": 1.2}  # Only 2 periods
+        forecast = calculate_cost_forecast(aggregated_costs)
+        assert forecast == {}  # Should return empty dict
+
+    def test_calculate_cost_forecast_value_error(self):
+        """Test cost forecast with invalid date format to cover lines 530-532."""
+        aggregated_costs = {"invalid_date": 1.0, "2024-01-02": 1.2, "2024-01-03": 1.1}
+        forecast = calculate_cost_forecast(aggregated_costs)
+        assert "invalid_date_forecast" in forecast  # Should have fallback
+
+    def test_calculate_session_cost_with_none_cost(self):
+        """Test session cost calculation with None cost_usd to cover line 115."""
+        records = [
+            RunRecord(
+                ts=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+                agent_name="TestAgent",
+                model="openai/gpt-4",
+                prompt_tokens=100,
+                completion_tokens=50,
+                total_tokens=150,
+                latency_ms=2000,
+                cost_usd=0.03,
+                experiment_id="session_123",
+                task_label="chat",
+                run_notes="Hello",
+                streaming=True,
+                model_list_source="dynamic",
+            ),
+            RunRecord(
+                ts=datetime(2024, 1, 1, 12, 1, 0, tzinfo=timezone.utc),
+                agent_name="TestAgent",
+                model="openai/gpt-4",
+                prompt_tokens=80,
+                completion_tokens=40,
+                total_tokens=120,
+                latency_ms=1800,
+                cost_usd=None,  # None cost
+                experiment_id="session_123",
+                task_label="chat",
+                run_notes="Hi",
+                streaming=True,
+                model_list_source="dynamic",
+            ),
+        ]
+        total_cost = calculate_session_cost(records)
+        assert total_cost == 0.03  # Only the first record
+
+    def test_generate_optimization_suggestions_model_switch_true(self):
+        """Test optimization suggestions with model switch to cover lines 234-245."""
+        records = [
+            RunRecord(
+                ts=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+                agent_name="TestAgent",
+                model="openai/gpt-4",
+                prompt_tokens=100,
+                completion_tokens=50,
+                total_tokens=150,
+                latency_ms=2000,
+                cost_usd=0.15,
+                experiment_id="session_123",
+                task_label="chat",
+                run_notes="Hello",
+                streaming=True,
+                model_list_source="dynamic",
+            ),
+        ]
+        suggestions = generate_optimization_suggestions(records, 0.15)
+        model_suggestion = next((s for s in suggestions if s.suggestion_type.value == "switch_model"), None)
+        assert model_suggestion is not None
+
+    def test_generate_optimization_suggestions_caching_true(self):
+        """Test optimization suggestions with caching to cover lines 246-247."""
+        records = [
+            RunRecord(
+                ts=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+                agent_name="TestAgent",
+                model="openai/gpt-4",
+                prompt_tokens=100,
+                completion_tokens=50,
+                total_tokens=150,
+                latency_ms=2000,
+                cost_usd=0.03,
+                experiment_id="session_123",
+                task_label="chat",
+                run_notes="Hello world test",
+                streaming=True,
+                model_list_source="dynamic",
+            ),
+            RunRecord(
+                ts=datetime(2024, 1, 1, 12, 1, 0, tzinfo=timezone.utc),
+                agent_name="TestAgent",
+                model="openai/gpt-4",
+                prompt_tokens=100,
+                completion_tokens=50,
+                total_tokens=150,
+                latency_ms=2000,
+                cost_usd=0.03,
+                experiment_id="session_123",
+                task_label="chat",
+                run_notes="Hello world example",
+                streaming=True,
+                model_list_source="dynamic",
+            ),
+        ]
+        suggestions = generate_optimization_suggestions(records, 0.06)
+        caching_suggestion = next((s for s in suggestions if s.suggestion_type.value == "enable_caching"), None)
+        assert caching_suggestion is not None
+
+    @patch('src.services.cost_analysis_service.load_recent_runs')
+    def test_get_session_telemetry_with_task_label_match(self, mock_load_runs):
+        """Test session telemetry with task_label match to cover line 342."""
+        mock_runs = [
+            RunRecord(
+                ts=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+                agent_name="TestAgent",
+                model="openai/gpt-4",
+                prompt_tokens=100,
+                completion_tokens=50,
+                total_tokens=150,
+                latency_ms=2000,
+                cost_usd=0.03,
+                experiment_id="other_session",
+                task_label="session_123",  # Match by task_label
+                run_notes="data",
+                streaming=True,
+                model_list_source="dynamic",
+            )
+        ]
+        mock_load_runs.return_value = mock_runs
+        result = get_session_telemetry("session_123")
+        assert len(result) == 1
+
+    @patch('src.services.cost_analysis_service.load_recent_runs')
+    def test_get_session_telemetry_with_notes_match(self, mock_load_runs):
+        """Test session telemetry with run_notes match."""
+        mock_runs = [
+            RunRecord(
+                ts=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+                agent_name="TestAgent",
+                model="openai/gpt-4",
+                prompt_tokens=100,
+                completion_tokens=50,
+                total_tokens=150,
+                latency_ms=2000,
+                cost_usd=0.03,
+                experiment_id="other_session",
+                task_label="other",
+                run_notes="session_123 data",  # Match by notes
+                streaming=True,
+                model_list_source="dynamic",
+            )
+        ]
+        mock_load_runs.return_value = mock_runs
+        result = get_session_telemetry("session_123")
+        assert len(result) == 1
+
+    @patch('src.services.cost_analysis_service.load_recent_runs')
+    def test_get_user_cost_history_with_missing_cost_usd(self, mock_load_runs):
+        """Test user cost history with records missing cost_usd to cover line 388."""
+        mock_runs = [
+            RunRecord(
+                ts=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+                agent_name="TestAgent",
+                model="openai/gpt-4",
+                prompt_tokens=100,
+                completion_tokens=50,
+                total_tokens=150,
+                latency_ms=2000,
+                cost_usd=0.10,
+                experiment_id="session_1",
+                task_label="chat",
+                run_notes="",
+                streaming=True,
+                model_list_source="dynamic",
+            ),
+            RunRecord(
+                ts=datetime(2024, 1, 1, 12, 5, 0, tzinfo=timezone.utc),
+                agent_name="TestAgent",
+                model="openai/gpt-4",
+                prompt_tokens=100,
+                completion_tokens=50,
+                total_tokens=150,
+                latency_ms=2000,
+                cost_usd=None,  # Missing cost
+                experiment_id="session_1",
+                task_label="chat",
+                run_notes="",
+                streaming=True,
+                model_list_source="dynamic",
+            ),
+        ]
+        mock_load_runs.return_value = mock_runs
+        history = get_user_cost_history("user_123")
+        assert len(history) == 1
+        assert history[0] == 0.10  # Only the valid cost
+
+    def test_detect_query_patterns_empty_messages(self):
+        """Test query pattern detection with empty message sets to cover line 445."""
+        messages = ["", "hello world"]
+        similarity = detect_query_patterns(messages)
+        assert similarity == 0.0  # Empty set intersection
+
+    @patch('src.services.cost_analysis_service.load_recent_runs')
+    def test_get_user_cost_history_detailed_weekly_key(self, mock_load_runs):
+        """Test detailed cost history weekly key assignment to cover line 478."""
+        mock_runs = [
+            RunRecord(
+                ts=datetime(2024, 1, 3, 12, 0, 0, tzinfo=timezone.utc),  # Wednesday
+                agent_name="TestAgent",
+                model="openai/gpt-4",
+                prompt_tokens=100,
+                completion_tokens=50,
+                total_tokens=150,
+                latency_ms=2000,
+                cost_usd=0.10,
+                experiment_id="session_1",
+                task_label="chat",
+                run_notes="",
+                streaming=True,
+                model_list_source="dynamic",
+            )
+        ]
+        mock_load_runs.return_value = mock_runs
+        history = get_user_cost_history_detailed("user_123", "weekly")
+        # Should calculate week start (Monday Jan 1)
+        expected_key = datetime(2024, 1, 1).date().isoformat()
+        assert expected_key in history
+
+    @patch('src.services.cost_analysis_service.load_recent_runs')
+    def test_get_user_cost_history_detailed_monthly_key(self, mock_load_runs):
+        """Test detailed cost history monthly key assignment."""
+        mock_runs = [
+            RunRecord(
+                ts=datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc),
+                agent_name="TestAgent",
+                model="openai/gpt-4",
+                prompt_tokens=100,
+                completion_tokens=50,
+                total_tokens=150,
+                latency_ms=2000,
+                cost_usd=0.10,
+                experiment_id="session_1",
+                task_label="chat",
+                run_notes="",
+                streaming=True,
+                model_list_source="dynamic",
+            )
+        ]
+        mock_load_runs.return_value = mock_runs
+        history = get_user_cost_history_detailed("user_123", "monthly")
+        assert "2024-01" in history

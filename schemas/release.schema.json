@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Release \u2192 Orchestrator (04_release.json)",
+  "type": "object",
+  "required": ["tag", "builds", "checks"],
+  "additionalProperties": false,
+  "properties": {
+    "tag": { "type": "string", "pattern": "^v\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$" },
+    "builds": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

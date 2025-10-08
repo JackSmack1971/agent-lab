@@ -1,0 +1,16 @@
+{
+  "id": "4d0d95cd-b03e-48ef-b4f1-ed99f3f6d4f8",
+  "created_at": "2025-10-06 23:25:25.400212+00:00",
+  "agent_config": {
+    "name": "Test",
+    "model": "test",
+    "system_prompt": "test",
+    "temperature": 0.7,
+    "top_p": 1.0,
+    "tools": [],
+    "extras": {}
+  },
+  "transcript": [],
+  "model_id": "test",
+  "notes": "<script>alert(\"xss\")</script>"
+}
